@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using MongoDB.Bson;
 using JobTrackingAPI.Models;
 using JobTrackingAPI.Settings;
 
@@ -28,7 +29,12 @@ namespace JobTrackingAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                // Loglama yapılmalı
+                return StatusCode(500, new { 
+                    error = "Internal Server Error",
+                    message = ex.Message,
+                    stackTrace = ex.StackTrace 
+                });
             }
         }
 
@@ -46,19 +52,78 @@ namespace JobTrackingAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<TaskItem>> CreateTask(TaskItem task)
         {
-            await _tasksCollection.InsertOneAsync(task);
-            return CreatedAtAction(nameof(GetTask), new { id = task.Id }, task);
+            try
+            {
+                // MongoDB ObjectId oluştur
+                task.Id = ObjectId.GenerateNewId().ToString();
+                
+                // Boş listeleri initialize et
+                task.SubTasks ??= new List<SubTask>();
+                task.AssignedUsers ??= new List<AssignedUser>();
+                task.Dependencies ??= new List<string>();
+                task.Attachments ??= new List<TaskAttachment>();
+
+                // Tarihleri ayarla
+                task.CreatedAt = DateTime.UtcNow;
+                task.UpdatedAt = DateTime.UtcNow;
+
+                // Varsayılan değerleri ayarla
+                if (string.IsNullOrEmpty(task.Status))
+                    task.Status = "todo";
+                if (string.IsNullOrEmpty(task.Priority))
+                    task.Priority = "medium";
+
+                await _tasksCollection.InsertOneAsync(task);
+                return CreatedAtAction(nameof(GetTask), new { id = task.Id }, task);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { 
+                    error = "Internal Server Error",
+                    message = ex.Message,
+                    stackTrace = ex.StackTrace 
+                });
+            }
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateTask(string id, TaskItem taskUpdate)
         {
-            var result = await _tasksCollection.ReplaceOneAsync(t => t.Id == id, taskUpdate);
-            if (result.ModifiedCount == 0)
+            try 
             {
-                return NotFound();
+                if (string.IsNullOrEmpty(id))
+                {
+                    return BadRequest("ID boş olamaz");
+                }
+
+                if (!ObjectId.TryParse(id, out _))
+                {
+                    return BadRequest("Geçersiz ID formatı");
+                }
+
+                taskUpdate.Id = id;
+
+                var existingTask = await _tasksCollection.Find(t => t.Id == id).FirstOrDefaultAsync();
+                if (existingTask == null)
+                {
+                    return NotFound($"ID'si {id} olan görev bulunamadı");
+                }
+
+                var result = await _tasksCollection.ReplaceOneAsync(t => t.Id == id, taskUpdate);
+                
+                if (result.ModifiedCount == 0)
+                {
+                    return StatusCode(500, "Görev güncellenemedi");
+                }
+
+                // Güncellenmiş görevi geri döndür
+                var updatedTask = await _tasksCollection.Find(t => t.Id == id).FirstOrDefaultAsync();
+                return Ok(updatedTask);
             }
-            return NoContent();
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
         [HttpDelete("{id}")]

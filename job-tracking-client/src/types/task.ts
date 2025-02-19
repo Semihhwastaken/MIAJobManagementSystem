@@ -1,18 +1,18 @@
 export interface User {
-    id: string;
+    id?: string;
     name: string;
     email: string;
     avatar?: string;
 }
 
 export interface SubTask {
-    id: string;
+    id?: string;
     title: string;
     completed: boolean;
 }
 
 export interface Attachment {
-    id: string;
+    id?: string;
     fileName: string;
     fileUrl: string;
     fileType: string;
@@ -20,7 +20,7 @@ export interface Attachment {
 }
 
 export interface Task {
-    id: string;
+    id?: string;
     title: string;
     description: string;
     status: 'todo' | 'in-progress' | 'completed';

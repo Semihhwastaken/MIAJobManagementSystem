@@ -34,16 +34,33 @@ export const addTask = createAsyncThunk('tasks/addTask', async (task: Task) => {
 
 export const updateTask = createAsyncThunk(
   'tasks/updateTask',
-  async (task: Task) => {
-    const response = await fetch(`http://localhost:5193/api/tasks/${task.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(task),
-    });
-    const data = await response.json();
-    return data;
+  async (task: Task, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`http://localhost:5193/api/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(task),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Update task error:', errorData);
+        return rejectWithValue(errorData || 'Görev güncellenirken bir hata oluştu');
+      }
+
+      // 204 No Content durumunda response.json() çağrılmamalı
+      if (response.status === 204) {
+        return task; // Mevcut task'i geri döndür
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      console.error('Update task error:', error);
+      return rejectWithValue(error.message || 'Görev güncellenirken bir hata oluştu');
+    }
   }
 );
 
@@ -80,11 +97,19 @@ const tasksSlice = createSlice({
         state.items.push(action.payload);
       })
       // Update task
+      .addCase(updateTask.pending, (state) => {
+        state.status = 'loading';
+      })
       .addCase(updateTask.fulfilled, (state, action: PayloadAction<Task>) => {
+        state.status = 'succeeded';
         const index = state.items.findIndex((task) => task.id === action.payload.id);
         if (index !== -1) {
           state.items[index] = action.payload;
         }
+      })
+      .addCase(updateTask.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.error.message || 'Görev güncellenirken bir hata oluştu';
       })
       // Delete task
       .addCase(deleteTask.fulfilled, (state, action: PayloadAction<string>) => {
