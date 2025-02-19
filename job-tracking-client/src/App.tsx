@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material';
-import Auth from './pages/Auth';
 import { CssBaseline } from '@mui/material';
-import Layout from './components/Layout/Layout';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthContext } from './context/AuthContext';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { Toaster } from 'react-hot-toast';
+import Auth from './pages/Auth';
+import Layout from './components/Layout/Layout';
+import Navbar from './components/Navbar/Navbar';
+import Home from './pages/Home/Home';
+import Tasks from './pages/Tasks/Tasks';
+import Team from './pages/Team/Team';
+import { AuthContext } from './context/AuthContext';
 
 const theme = createTheme({
   palette: {
@@ -28,14 +33,16 @@ const theme = createTheme({
 });
 
 const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('token') !== null);
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    localStorage.getItem('token') !== null
+  );
 
   return (
     <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID">
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <AuthContext.Provider value={{ isAuthenticated, setIsAuthenticated }}>
-          <BrowserRouter>
+          <Router>
             <div style={{
               minHeight: '100vh',
               width: '100vw',
@@ -90,19 +97,36 @@ const App: React.FC = () => {
                 `}
               </style>
               <Layout>
+                <Navbar />
                 <Routes>
-                  <Route 
-                    path="/auth" 
-                    element={isAuthenticated ? <Navigate to="/" /> : <Auth />} 
+                  <Route
+                    path="/auth"
+                    element={isAuthenticated ? <Navigate to="/" /> : <Auth />}
                   />
-                  <Route 
-                    path="/" 
-                    element={isAuthenticated ? <div>Home Page</div> : <Navigate to="/auth" />} 
+                  <Route
+                    path="/"
+                    element={isAuthenticated ? <Home /> : <Navigate to="/auth" />}
+                  />
+                  <Route path="/tasks" element={<Tasks />} />
+                  <Route path="/team" element={<Team />} />
+                  <Route
+                    path="/analytics"
+                    element={<div>Raporlar Sayfası (Yapım aşamasında)</div>}
                   />
                 </Routes>
               </Layout>
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 3000,
+                  style: {
+                    background: '#333',
+                    color: '#fff',
+                  },
+                }}
+              />
             </div>
-          </BrowserRouter>
+          </Router>
         </AuthContext.Provider>
       </ThemeProvider>
     </GoogleOAuthProvider>
