@@ -105,7 +105,7 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
       if (!formData.id) return;
 
       // Önce yerel state'i güncelle
-      const newSubTasks = formData.subTasks.map((task, idx) => 
+      const newSubTasks = formData.subTasks.map((task, idx) =>
         idx === index ? { ...task, completed } : task
       );
 
@@ -123,7 +123,7 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
       };
 
       const resultAction = await dispatch(updateTask(updatedTask));
-      
+
       if (!updateTask.fulfilled.match(resultAction)) {
         // Eğer backend güncellemesi başarısız olursa, değişikliği geri al
         setFormData(prev => ({
@@ -399,10 +399,9 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
                               onChange={(e) => handleSubTaskComplete(index, e.target.checked)}
                               className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                             />
-                            <span 
-                              className={`flex-1 transition-all duration-200 ${
-                                subTask.completed ? 'line-through text-gray-400' : 'text-gray-900'
-                              }`}
+                            <span
+                              className={`flex-1 transition-all duration-200 ${subTask.completed ? 'line-through text-gray-400' : 'text-gray-900'
+                                }`}
                             >
                               {subTask.title}
                             </span>

@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar/Navbar';
 import Home from './pages/Home/Home';
 import Tasks from './pages/Tasks/Tasks';
+import Team from './pages/Team/Team';
 
 /**
  * Ana uygulama bileşeni
@@ -17,7 +18,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/tasks" element={<Tasks />} />
-            <Route path="/team" element={<div>Ekip Sayfası (Yapım aşamasında)</div>} />
+            <Route path="/team" element={<Team />} />
             <Route path="/analytics" element={<div>Raporlar Sayfası (Yapım aşamasında)</div>} />
           </Routes>
         </main>

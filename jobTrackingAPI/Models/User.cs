@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
@@ -22,15 +23,32 @@ namespace JobTrackingAPI.Models
         [BsonElement("department")]
         public string Department { get; set; }
 
+        [BsonElement("password")]
+        public string Password { get; set; }
+
+        [BsonElement("assignedJobs")]
         public List<string> AssignedJobs { get; set; } = new List<string>();
 
-        public User(string username, string email, string fullName, string department)
+        [BsonElement("createdDate")]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+
+        [BsonElement("updatedDate")]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime? UpdatedDate { get; set; }
+
+        public User()
         {
-            Id = ObjectId.GenerateNewId().ToString();
+        }
+
+        public User(string username, string email, string fullName, string department, string password)
+        {
             Username = username;
             Email = email;
             FullName = fullName;
             Department = department;
+            Password = password;
+            CreatedDate = DateTime.UtcNow;
         }
     }
 }
