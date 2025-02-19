@@ -1076,11 +1076,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\sabri\\OneDrive\\Masaüstü\\Projects\\taskManager\\miaTask\\MIAJobManagementSystem\\jobTrackingAPI\\JobTrackingAPI.csproj",
+      "projectUniqueName": "C:\\Users\\sabri\\OneDrive\\Masaüstü\\Projects\\taskManager\\miaTask\\MIAJobManagementSystem\\JobTrackingAPI\\JobTrackingAPI.csproj",
       "projectName": "JobTrackingAPI",
-      "projectPath": "C:\\Users\\sabri\\OneDrive\\Masaüstü\\Projects\\taskManager\\miaTask\\MIAJobManagementSystem\\jobTrackingAPI\\JobTrackingAPI.csproj",
+      "projectPath": "C:\\Users\\sabri\\OneDrive\\Masaüstü\\Projects\\taskManager\\miaTask\\MIAJobManagementSystem\\JobTrackingAPI\\JobTrackingAPI.csproj",
       "packagesPath": "C:\\Users\\sabri\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\sabri\\OneDrive\\Masaüstü\\Projects\\taskManager\\miaTask\\MIAJobManagementSystem\\jobTrackingAPI\\obj\\",
+      "outputPath": "C:\\Users\\sabri\\OneDrive\\Masaüstü\\Projects\\taskManager\\miaTask\\MIAJobManagementSystem\\JobTrackingAPI\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

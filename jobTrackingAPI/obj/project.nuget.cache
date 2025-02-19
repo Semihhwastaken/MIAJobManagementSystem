@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "XnWn+Xmp0kw=",
+  "dgSpecHash": "ftxj9WV/jUI=",
   "success": true,
-  "projectFilePath": "C:\\Users\\sabri\\OneDrive\\Masaüstü\\Projects\\taskManager\\miaTask\\MIAJobManagementSystem\\jobTrackingAPI\\JobTrackingAPI.csproj",
+  "projectFilePath": "C:\\Users\\sabri\\OneDrive\\Masaüstü\\Projects\\taskManager\\miaTask\\MIAJobManagementSystem\\JobTrackingAPI\\JobTrackingAPI.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\sabri\\.nuget\\packages\\dnsclient\\1.6.1\\dnsclient.1.6.1.nupkg.sha512",
     "C:\\Users\\sabri\\.nuget\\packages\\microsoft.aspnetcore.openapi\\8.0.10\\microsoft.aspnetcore.openapi.8.0.10.nupkg.sha512",

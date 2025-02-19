@@ -22,6 +22,15 @@ namespace JobTrackingAPI.Models
         [BsonElement("department")]
         public string Department { get; set; }
 
-        public ICollection<Job> AssignedJobs { get; set; }
+        public List<string> AssignedJobs { get; set; } = new List<string>();
+
+        public User(string username, string email, string fullName, string department)
+        {
+            Id = ObjectId.GenerateNewId().ToString();
+            Username = username;
+            Email = email;
+            FullName = fullName;
+            Department = department;
+        }
     }
 }

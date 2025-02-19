@@ -2,9 +2,13 @@ namespace JobTrackingAPI.Settings
 {
     public class MongoDbSettings
     {
-        public string ConnectionString { get; set; }
-        public string DatabaseName { get; set; }
-        public string JobsCollectionName { get; set; }
-        public string UsersCollectionName { get; set; }
+        public string ConnectionString { get; set; } = string.Empty;
+        public string DatabaseName { get; set; } = string.Empty;
+        public string JobsCollectionName { get; set; } = string.Empty;
+        public string UsersCollectionName { get; set; } = string.Empty;
+
+        public MongoDbSettings()
+        {
+        }
     }
 }

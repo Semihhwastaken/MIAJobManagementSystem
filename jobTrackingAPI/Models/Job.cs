@@ -20,7 +20,7 @@ namespace JobTrackingAPI.Models
         public DateTime CreatedDate { get; set; }
         
         [BsonElement("dueDate")]
-        public DateTime? DueDate { get; set; }
+        public DateTime DueDate { get; set; }
         
         [BsonElement("status")]
         public JobStatus Status { get; set; }
@@ -30,6 +30,17 @@ namespace JobTrackingAPI.Models
         
         [BsonElement("priority")]
         public JobPriority Priority { get; set; }
+
+        public Job(string title, string description, JobStatus status, JobPriority priority, DateTime dueDate, string assignedToUserId)
+        {
+            Id = ObjectId.GenerateNewId().ToString();
+            Title = title;
+            Description = description;
+            Status = status;
+            Priority = priority;
+            DueDate = dueDate;
+            AssignedToUserId = assignedToUserId;
+        }
     }
 
     public enum JobStatus

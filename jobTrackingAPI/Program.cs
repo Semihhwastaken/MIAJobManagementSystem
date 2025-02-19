@@ -1,8 +1,22 @@
-using JobTrackingAPI.Settings;
-using JobTrackingAPI.Services;
 using JobTrackingAPI.Extensions;
+using JobTrackingAPI.Services;
+using JobTrackingAPI.Settings;
+using Microsoft.Extensions.Options;
+using MongoDB.Driver;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// CORS politikasını ekle
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:5173") // Frontend URL'si
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+});
 
 // Add MongoDB services
 builder.Services.AddMongoDb(builder.Configuration);
@@ -11,29 +25,32 @@ builder.Services.AddMongoDb(builder.Configuration);
 builder.Services.AddSingleton<JobService>();
 builder.Services.AddSingleton<UserService>();
 
-// Configure HTTPS Redirection
-builder.Services.AddHttpsRedirection(options =>
-{
-    options.HttpsPort = 7126; // launchSettings.json'daki HTTPS portu
-});
-
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-
-// Add CORS
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowReactApp",
-        builder => builder
-            .WithOrigins("http://localhost:3000")
-            .AllowAnyMethod()
-            .AllowAnyHeader());
-});
-
 var app = builder.Build();
+
+// MongoDB bağlantı kontrolü
+try
+{
+    var mongoClient = app.Services.GetRequiredService<IMongoClient>();
+    var mongoSettings = app.Services.GetRequiredService<IOptions<MongoDbSettings>>().Value;
+    
+    // Bağlantıyı test et
+    mongoClient.ListDatabaseNames().ToList();
+    
+    Console.ForegroundColor = ConsoleColor.Green;
+    Console.WriteLine($"MongoDB bağlantısı başarılı! Veritabanı: {mongoSettings.DatabaseName}");
+    Console.ResetColor();
+}
+catch (Exception ex)
+{
+    Console.ForegroundColor = ConsoleColor.Red;
+    Console.WriteLine($"MongoDB bağlantı hatası: {ex.Message}");
+    Console.ResetColor();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -44,8 +61,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Use CORS
-app.UseCors("AllowReactApp");
+// CORS middleware'ini ekle
+app.UseCors("AllowFrontend");
 
 app.UseAuthorization();
 
