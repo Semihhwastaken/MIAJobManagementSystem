@@ -11,10 +11,17 @@ builder.Services.AddMongoDb(builder.Configuration);
 builder.Services.AddSingleton<JobService>();
 builder.Services.AddSingleton<UserService>();
 
+// Configure HTTPS Redirection
+builder.Services.AddHttpsRedirection(options =>
+{
+    options.HttpsPort = 7126; // launchSettings.json'daki HTTPS portu
+});
+
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
 
 // Add CORS
 builder.Services.AddCors(options =>
