@@ -1,13 +1,13 @@
 using JobTrackingAPI.Extensions;
 using JobTrackingAPI.Services;
 using JobTrackingAPI.Settings;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MongoDB.Driver;
 using System.Text;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // CORS politikasını ekle
@@ -21,6 +21,7 @@ builder.Services.AddCors(options =>
                   .AllowAnyMethod();
         });
 });
+
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
@@ -53,10 +54,14 @@ builder.Services.AddMongoDb(builder.Configuration);
 // Configure JWT settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 
+// Add MongoDB services
+builder.Services.AddMongoDb(builder.Configuration);
+
 // Add services to the container
 builder.Services.AddSingleton<JobService>();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<TeamService>();
+
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<CalendarEventService>();
 
@@ -101,6 +106,11 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+builder.Services.AddControllers();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
 var app = builder.Build();
 
 // MongoDB bağlantı kontrolü
@@ -127,11 +137,15 @@ catch (Exception ex)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
+
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Job Tracking API V1");
         c.RoutePrefix = "swagger";
     });
+
+    app.UseSwaggerUI();
+
 }
 
 app.UseHttpsRedirection();

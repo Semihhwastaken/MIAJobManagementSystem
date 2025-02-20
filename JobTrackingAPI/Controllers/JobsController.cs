@@ -4,8 +4,15 @@ using JobTrackingAPI.Models;
 using JobTrackingAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 
+
 namespace JobTrackingAPI.Controllers
 {
+
+using Microsoft.AspNetCore.Authorization;
+
+namespace JobTrackingAPI.Controllers
+{
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class JobsController : ControllerBase

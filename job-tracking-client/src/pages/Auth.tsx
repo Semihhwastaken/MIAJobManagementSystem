@@ -222,9 +222,11 @@ const Auth: React.FC = () => {
             }
         } catch (error) {
             console.error('Auth error:', error);
+
             setErrors(prev => ({
                 ...prev,
                 general: 'Bir hata oluştu. Lütfen daha sonra tekrar deneyin.'
+
             }));
         }
     };
@@ -245,9 +247,11 @@ const Auth: React.FC = () => {
                 navigate('/');
             }
         } catch (error: any) {
+
             setErrors(prev => ({
                 ...prev,
                 general: error.response?.data?.message || 'Google ile giriş yapılırken bir hata oluştu'
+
             }));
         }
     };
@@ -255,14 +259,17 @@ const Auth: React.FC = () => {
     const googleLogin = useGoogleLogin({
         onSuccess: handleGoogleSuccess,
         onError: () => {
+
             setErrors(prev => ({
                 ...prev,
                 general: 'Google ile giriş yapılırken bir hata oluştu'
+
             }));
         }
     });
 
     return (
+
         <Container
             component="main"
             maxWidth={false}
@@ -275,6 +282,7 @@ const Auth: React.FC = () => {
                 overflow: 'hidden',
                 padding: '2rem 1rem'
             }}
+
         >
             <Box
                 sx={{
@@ -312,7 +320,9 @@ const Auth: React.FC = () => {
                                 overflow: 'hidden',
                             }}
                         >
+
                             MIA Teknoloji
+
                         </Typography>
                         <Typography
                             variant="h2"
@@ -349,6 +359,7 @@ const Auth: React.FC = () => {
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ duration: 0.5 }}
                         >
+
                             <Box sx={{
                                 display: 'flex',
                                 flexDirection: 'column',
@@ -466,10 +477,11 @@ const Auth: React.FC = () => {
                                                     >
                                                         {showPassword ? <VisibilityOff /> : <Visibility />}
                                                     </IconButton>
+
                                                 </InputAdornment>
                                             ),
                                         }}
-                                    />
+
 
                                     {errors.general && (
                                         <Typography

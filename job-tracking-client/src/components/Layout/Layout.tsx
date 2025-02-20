@@ -20,6 +20,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     navigate('/auth');
   };
 
+
   const navItems = [
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/', label: 'Ana Sayfa' },

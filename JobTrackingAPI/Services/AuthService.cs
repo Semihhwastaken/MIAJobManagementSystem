@@ -45,6 +45,7 @@ namespace JobTrackingAPI.Services
             var hashedPassword = HashPassword(password);
 
             // Create new user
+
             var user = new User
             {
                 Username = username,
@@ -52,6 +53,7 @@ namespace JobTrackingAPI.Services
                 Password = hashedPassword,
                 Department = "Unassigned" // Default department for new users
             };
+
 
             await _users.InsertOneAsync(user);
             return (true, "Kayıt işlemi başarılı", user);
