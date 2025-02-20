@@ -96,6 +96,10 @@ namespace JobTrackingAPI.Models
         [JsonPropertyName("updatedAt")]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+        [BsonElement("category")]
+        [JsonPropertyName("category")]
+        public string Category { get; set; } = "Personal";
+
         [BsonElement("subTasks")]
         [JsonPropertyName("subTasks")]
         public List<SubTask> SubTasks { get; set; } = new List<SubTask>();
