@@ -45,9 +45,14 @@ namespace JobTrackingAPI.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateTeam(string id, Team team)
         {
-            if (id != team.Id)
+            if (id != team.Id || string.IsNullOrEmpty(id))
                 return BadRequest();
 
+            var existingTeam = await _teamService.GetByIdAsync(id);
+            if (existingTeam == null)
+                return NotFound();
+
+            team.UpdatedAt = DateTime.UtcNow;
             var success = await _teamService.UpdateAsync(team);
             if (!success)
                 return NotFound();

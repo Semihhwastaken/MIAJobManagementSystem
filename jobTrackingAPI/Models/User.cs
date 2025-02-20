@@ -9,22 +9,22 @@ namespace JobTrackingAPI.Models
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; }
+        public string? Id { get; set; }
 
         [BsonElement("username")]
-        public string Username { get; set; }
+        public string Username { get; set; } = null!;
 
         [BsonElement("email")]
-        public string Email { get; set; }
+        public string Email { get; set; } = null!;
 
         [BsonElement("fullName")]
-        public string FullName { get; set; }
+        public string FullName { get; set; } = null!;
 
         [BsonElement("department")]
-        public string Department { get; set; }
+        public string Department { get; set; } = null!;
 
         [BsonElement("password")]
-        public string Password { get; set; }
+        public string Password { get; set; } = null!;
 
         [BsonElement("assignedJobs")]
         public List<string> AssignedJobs { get; set; } = new List<string>();

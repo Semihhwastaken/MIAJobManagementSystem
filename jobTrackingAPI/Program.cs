@@ -21,10 +21,14 @@ builder.Services.AddCors(options =>
 // Add MongoDB services
 builder.Services.AddMongoDb(builder.Configuration);
 
+// Configure JWT settings
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+
 // Add services to the container
 builder.Services.AddSingleton<JobService>();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<TeamService>();
+builder.Services.AddSingleton<AuthService>();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
