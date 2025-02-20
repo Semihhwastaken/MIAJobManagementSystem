@@ -1,5 +1,41 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { Task, NewTask } from '../../types/task';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { Task } from '../../types/task';
+import axios from 'axios';
+
+const API_BASE_URL = 'http://localhost:5193/api'; // API URL'inizi buraya yazın
+
+// Async thunks
+export const fetchTasks = createAsyncThunk(
+  'tasks/fetchTasks',
+  async () => {
+    const response = await axios.get(`${API_BASE_URL}/tasks`);
+    return response.data;
+  }
+);
+
+export const createTask = createAsyncThunk(
+  'tasks/createTask',
+  async (task: Omit<Task, 'id'>) => {
+    const response = await axios.post(`${API_BASE_URL}/tasks`, task);
+    return response.data;
+  }
+);
+
+export const updateTask = createAsyncThunk(
+  'tasks/updateTask',
+  async (task: Task) => {
+    const response = await axios.put(`${API_BASE_URL}/tasks/${task.id}`, task);
+    return response.data;
+  }
+);
+
+export const deleteTask = createAsyncThunk(
+  'tasks/deleteTask',
+  async (taskId: string) => {
+    await axios.delete(`${API_BASE_URL}/tasks/${taskId}`);
+    return taskId;
+  }
+);
 
 interface TasksState {
   items: Task[];
@@ -10,69 +46,8 @@ interface TasksState {
 const initialState: TasksState = {
   items: [],
   status: 'idle',
-  error: null,
+  error: null
 };
-
-// Async thunks
-export const fetchTasks = createAsyncThunk('tasks/fetchTasks', async () => {
-  const response = await fetch('http://localhost:5193/api/tasks');
-  const data = await response.json();
-  return data;
-});
-
-export const addTask = createAsyncThunk('tasks/addTask', async (task: Task) => {
-  const response = await fetch('http://localhost:5193/api/tasks', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(task),
-  });
-  const data = await response.json();
-  return data;
-});
-
-export const updateTask = createAsyncThunk(
-  'tasks/updateTask',
-  async (task: Task, { rejectWithValue }) => {
-    try {
-      const response = await fetch(`http://localhost:5193/api/tasks/${task.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(task),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error('Update task error:', errorData);
-        return rejectWithValue(errorData || 'Görev güncellenirken bir hata oluştu');
-      }
-
-      // 204 No Content durumunda response.json() çağrılmamalı
-      if (response.status === 204) {
-        return task; // Mevcut task'i geri döndür
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error: any) {
-      console.error('Update task error:', error);
-      return rejectWithValue(error.message || 'Görev güncellenirken bir hata oluştu');
-    }
-  }
-);
-
-export const deleteTask = createAsyncThunk(
-  'tasks/deleteTask',
-  async (taskId: string) => {
-    await fetch(`http://localhost:5193/api/tasks/${taskId}`, {
-      method: 'DELETE',
-    });
-    return taskId;
-  }
-);
 
 const tasksSlice = createSlice({
   name: 'tasks',
@@ -84,7 +59,7 @@ const tasksSlice = createSlice({
       .addCase(fetchTasks.pending, (state) => {
         state.status = 'loading';
       })
-      .addCase(fetchTasks.fulfilled, (state, action: PayloadAction<Task[]>) => {
+      .addCase(fetchTasks.fulfilled, (state, action) => {
         state.status = 'succeeded';
         state.items = action.payload;
       })
@@ -92,30 +67,22 @@ const tasksSlice = createSlice({
         state.status = 'failed';
         state.error = action.error.message || 'Görevler yüklenirken bir hata oluştu';
       })
-      // Add task
-      .addCase(addTask.fulfilled, (state, action: PayloadAction<Task>) => {
+      // Create task
+      .addCase(createTask.fulfilled, (state, action) => {
         state.items.push(action.payload);
       })
       // Update task
-      .addCase(updateTask.pending, (state) => {
-        state.status = 'loading';
-      })
-      .addCase(updateTask.fulfilled, (state, action: PayloadAction<Task>) => {
-        state.status = 'succeeded';
-        const index = state.items.findIndex((task) => task.id === action.payload.id);
+      .addCase(updateTask.fulfilled, (state, action) => {
+        const index = state.items.findIndex(task => task.id === action.payload.id);
         if (index !== -1) {
           state.items[index] = action.payload;
         }
       })
-      .addCase(updateTask.rejected, (state, action) => {
-        state.status = 'failed';
-        state.error = action.error.message || 'Görev güncellenirken bir hata oluştu';
-      })
       // Delete task
-      .addCase(deleteTask.fulfilled, (state, action: PayloadAction<string>) => {
-        state.items = state.items.filter((task) => task.id !== action.payload);
+      .addCase(deleteTask.fulfilled, (state, action) => {
+        state.items = state.items.filter(task => task.id !== action.payload);
       });
-  },
+  }
 });
 
 export default tasksSlice.reducer;

@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import { Line, Doughnut } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, ChartOptions } from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, ChartOptions, Filler } from 'chart.js';
 import { useTheme } from '../context/ThemeContext';
+
 
 // Register ChartJS components
 ChartJS.register(
@@ -12,7 +13,8 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
+  Filler
 );
 
 const Dashboard = () => {
@@ -264,9 +266,8 @@ const Dashboard = () => {
                     <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>2 gün önce güncellendi</p>
                   </div>
                 </div>
-                <span className={`px-3 py-1 text-sm rounded-full ${
-                  isDarkMode ? 'bg-green-900/50 text-green-400' : 'bg-green-100 text-green-600'
-                }`}>
+                <span className={`px-3 py-1 text-sm rounded-full ${isDarkMode ? 'bg-green-900/50 text-green-400' : 'bg-green-100 text-green-600'
+                  }`}>
                   Aktif
                 </span>
               </div>
@@ -283,9 +284,8 @@ const Dashboard = () => {
                     <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>5 gün önce güncellendi</p>
                   </div>
                 </div>
-                <span className={`px-3 py-1 text-sm rounded-full ${
-                  isDarkMode ? 'bg-yellow-900/50 text-yellow-400' : 'bg-yellow-100 text-yellow-600'
-                }`}>
+                <span className={`px-3 py-1 text-sm rounded-full ${isDarkMode ? 'bg-yellow-900/50 text-yellow-400' : 'bg-yellow-100 text-yellow-600'
+                  }`}>
                   Devam Ediyor
                 </span>
               </div>
@@ -302,9 +302,8 @@ const Dashboard = () => {
                     <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>1 hafta önce güncellendi</p>
                   </div>
                 </div>
-                <span className={`px-3 py-1 text-sm rounded-full ${
-                  isDarkMode ? 'bg-red-900/50 text-red-400' : 'bg-red-100 text-red-600'
-                }`}>
+                <span className={`px-3 py-1 text-sm rounded-full ${isDarkMode ? 'bg-red-900/50 text-red-400' : 'bg-red-100 text-red-600'
+                  }`}>
                   Gecikmiş
                 </span>
               </div>
@@ -329,9 +328,8 @@ const Dashboard = () => {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className={`w-2 h-2 rounded-full ${
-                      index === 0 ? 'bg-green-500' : index === 1 ? 'bg-yellow-500' : 'bg-blue-500'
-                    }`} />
+                    <div className={`w-2 h-2 rounded-full ${index === 0 ? 'bg-green-500' : index === 1 ? 'bg-yellow-500' : 'bg-blue-500'
+                      }`} />
                     <p className="font-medium">Görev #{index + 1} güncellendi</p>
                   </div>
                   <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>2 saat önce</span>

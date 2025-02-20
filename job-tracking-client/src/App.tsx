@@ -12,6 +12,8 @@ import Team from './pages/Team/Team';
 import Dashboard from './pages/Dashboard';
 import Calendar from './pages/Calendar/Calendar';
 import { AuthContext } from './context/AuthContext';
+import { useEffect } from 'react';
+import Main from './pages/Main/Main';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 
 const PrivateRoute = ({ children }: any) => {
@@ -61,6 +63,10 @@ const AppContent: React.FC = () => {
     [isDarkMode]
   );
 
+  /**
+   * Ana uygulama bileşeni
+   * Routing ve genel uygulama yapısını içerir
+   */
   return (
     <MuiThemeProvider theme={theme}>
       <CssBaseline />
@@ -70,12 +76,34 @@ const AppContent: React.FC = () => {
             <Layout>
               <Routes>
                 <Route
-                  path="/auth"
+                  path="/"
                   element={
                     isAuthenticated ? (
-                      <Navigate to="/dashboard" replace />
+                      <Home />
                     ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/auth"
+                  element={
+                    !isAuthenticated ? (
+                      <Layout>
+                        <Main />
+                      </Layout>
+                    ) : (
+                      <Navigate to="/" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/login"
+                  element={
+                    !isAuthenticated ? (
                       <Auth />
+                    ) : (
+                      <Navigate to="/" replace />
                     )
                   }
                 />

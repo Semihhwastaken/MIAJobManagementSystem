@@ -187,7 +187,6 @@ const Auth: React.FC = () => {
                     username: formData.username,
                     password: formData.password,
                 });
-                
                 if (response.error || response.message?.toLowerCase().includes('error')) {
                     const errorMessage = response.error || response.message;
                     setErrors(prev => ({ ...prev, general: errorMessage }));
@@ -201,10 +200,10 @@ const Auth: React.FC = () => {
                 }
             } else {
                 const response = await register(formData);
-                
+
                 if (response.error || response.message?.toLowerCase().includes('error')) {
                     const errorMessage = response.error || response.message;
-                    
+
                     if (errorMessage.toLowerCase().includes('kullanıcı adı')) {
                         setErrors(prev => ({ ...prev, username: 'Bu kullanıcı adı zaten kullanılıyor' }));
                     } else if (errorMessage.toLowerCase().includes('e-posta')) {
@@ -223,9 +222,9 @@ const Auth: React.FC = () => {
             }
         } catch (error) {
             console.error('Auth error:', error);
-            setErrors(prev => ({ 
-                ...prev, 
-                general: 'Bir hata oluştu. Lütfen daha sonra tekrar deneyin.' 
+            setErrors(prev => ({
+                ...prev,
+                general: 'Bir hata oluştu. Lütfen daha sonra tekrar deneyin.'
             }));
         }
     };
@@ -246,9 +245,9 @@ const Auth: React.FC = () => {
                 navigate('/');
             }
         } catch (error: any) {
-            setErrors(prev => ({ 
-                ...prev, 
-                general: error.response?.data?.message || 'Google ile giriş yapılırken bir hata oluştu' 
+            setErrors(prev => ({
+                ...prev,
+                general: error.response?.data?.message || 'Google ile giriş yapılırken bir hata oluştu'
             }));
         }
     };
@@ -256,26 +255,26 @@ const Auth: React.FC = () => {
     const googleLogin = useGoogleLogin({
         onSuccess: handleGoogleSuccess,
         onError: () => {
-            setErrors(prev => ({ 
-                ...prev, 
-                general: 'Google ile giriş yapılırken bir hata oluştu' 
+            setErrors(prev => ({
+                ...prev,
+                general: 'Google ile giriş yapılırken bir hata oluştu'
             }));
         }
     });
 
     return (
-        <Container 
-          component="main" 
-          maxWidth={false}
-          sx={{ 
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-            padding: '2rem 1rem'
-          }}
+        <Container
+            component="main"
+            maxWidth={false}
+            sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                padding: '2rem 1rem'
+            }}
         >
             <Box
                 sx={{
@@ -313,7 +312,7 @@ const Auth: React.FC = () => {
                                 overflow: 'hidden',
                             }}
                         >
-                            MIA Teknoloji 
+                            MIA Teknoloji
                         </Typography>
                         <Typography
                             variant="h2"
@@ -350,178 +349,178 @@ const Auth: React.FC = () => {
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ duration: 0.5 }}
                         >
-                            <Box sx={{ 
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    mb: 4,
-                                    overflow: 'hidden',
-                                }}>
-                                    <img 
-    src={logo}
-    alt="MIA Teknoloji Logo" 
-    style={{
-        width: '180px',
-        height: 'auto',
-        objectFit: 'contain',
-        marginBottom: '1rem',
-        overflow: 'hidden',
-    }}
-/>
-
-                        <Typography 
-                            component="h1" 
-                            variant="h5" 
-                            sx={{ 
-                                mb: 1, 
-                                color: theme.palette.primary.main,
-                                textAlign: 'center',
-                                fontWeight: 500,
-                                 overflow: 'hidden',
-                            }}
-                        >
-                            {isLogin ? 'Hoşgeldiniz!' : 'Kayıt Ol'}
-                        </Typography>
-                        <Typography 
-                            variant="subtitle2" 
-                            sx={{ 
-                                color: 'text.secondary',
-                                textAlign: 'center'
-                            }}
-                        >
-                            Keep all your credentials safe!
-                        </Typography>
-                    </Box>
-                        </motion.div>
-
-                    <FormContainer onSubmit={handleSubmit}>
-                        <AnimatePresence mode="wait">
-                            <motion.div
-                                key={isLogin ? 'login' : 'register'}
-                                initial={{ x: isLogin ? -100 : 100, opacity: 0 }}
-                                animate={{ x: 0, opacity: 1 }}
-                                exit={{ x: isLogin ? 100 : -100, opacity: 0 }}
-                                transition={{ duration: 0.3 }}
-                            >
-                                <StyledTextField
-                                    required
-                                    fullWidth
-                                    name="username"
-                                    label="Kullanıcı Adı"
-                                    value={formData.username}
-                                    onChange={handleChange}
-                                    error={!!errors.username}
-                                    helperText={errors.username}
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <PersonIcon color={errors.username ? "error" : "primary"} />
-                                            </InputAdornment>
-                                        ),
+                            <Box sx={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                mb: 4,
+                                overflow: 'hidden',
+                            }}>
+                                <img
+                                    src={logo}
+                                    alt="MIA Teknoloji Logo"
+                                    style={{
+                                        width: '180px',
+                                        height: 'auto',
+                                        objectFit: 'contain',
+                                        marginBottom: '1rem',
+                                        overflow: 'hidden',
                                     }}
                                 />
 
-                                {!isLogin && (
+                                <Typography
+                                    component="h1"
+                                    variant="h5"
+                                    sx={{
+                                        mb: 1,
+                                        color: theme.palette.primary.main,
+                                        textAlign: 'center',
+                                        fontWeight: 500,
+                                        overflow: 'hidden',
+                                    }}
+                                >
+                                    {isLogin ? 'Hoşgeldiniz!' : 'Kayıt Ol'}
+                                </Typography>
+                                <Typography
+                                    variant="subtitle2"
+                                    sx={{
+                                        color: 'text.secondary',
+                                        textAlign: 'center'
+                                    }}
+                                >
+                                    Keep all your credentials safe!
+                                </Typography>
+                            </Box>
+                        </motion.div>
+
+                        <FormContainer onSubmit={handleSubmit}>
+                            <AnimatePresence mode="wait">
+                                <motion.div
+                                    key={isLogin ? 'login' : 'register'}
+                                    initial={{ x: isLogin ? -100 : 100, opacity: 0 }}
+                                    animate={{ x: 0, opacity: 1 }}
+                                    exit={{ x: isLogin ? 100 : -100, opacity: 0 }}
+                                    transition={{ duration: 0.3 }}
+                                >
                                     <StyledTextField
                                         required
                                         fullWidth
-                                        name="email"
-                                        label="E-posta"
-                                        type="email"
-                                        value={formData.email}
+                                        name="username"
+                                        label="Kullanıcı Adı"
+                                        value={formData.username}
                                         onChange={handleChange}
-                                        error={!!errors.email}
-                                        helperText={errors.email}
+                                        error={!!errors.username}
+                                        helperText={errors.username}
                                         InputProps={{
                                             startAdornment: (
                                                 <InputAdornment position="start">
-                                                    <EmailIcon color={errors.email ? "error" : "primary"} />
+                                                    <PersonIcon color={errors.username ? "error" : "primary"} />
                                                 </InputAdornment>
                                             ),
                                         }}
                                     />
-                                )}
 
-                                <StyledTextField
-                                    required
-                                    fullWidth
-                                    name="password"
-                                    label="Parola"
-                                    type={showPassword ? 'text' : 'password'}
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    error={!!errors.password}
-                                    helperText={errors.password}
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <LockIcon color={errors.password ? "error" : "primary"} />
-                                            </InputAdornment>
-                                        ),
-                                        endAdornment: (
-                                            <InputAdornment position="end">
-                                                <IconButton
-                                                    aria-label="toggle password visibility"
-                                                    onClick={() => setShowPassword(!showPassword)}
-                                                    edge="end"
-                                                >
-                                                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                                                </IconButton>
-                                            </InputAdornment>
-                                        ),
-                                    }}
-                                />
+                                    {!isLogin && (
+                                        <StyledTextField
+                                            required
+                                            fullWidth
+                                            name="email"
+                                            label="E-posta"
+                                            type="email"
+                                            value={formData.email}
+                                            onChange={handleChange}
+                                            error={!!errors.email}
+                                            helperText={errors.email}
+                                            InputProps={{
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <EmailIcon color={errors.email ? "error" : "primary"} />
+                                                    </InputAdornment>
+                                                ),
+                                            }}
+                                        />
+                                    )}
 
-                                {errors.general && (
-                                    <Typography 
-                                        color="error" 
-                                        variant="body2" 
-                                        sx={{ mt: 1, textAlign: 'center' }}
-                                    >
-                                        {errors.general}
-                                    </Typography>
-                                )}
-                            </motion.div>
-                        </AnimatePresence>
+                                    <StyledTextField
+                                        required
+                                        fullWidth
+                                        name="password"
+                                        label="Parola"
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        error={!!errors.password}
+                                        helperText={errors.password}
+                                        InputProps={{
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <LockIcon color={errors.password ? "error" : "primary"} />
+                                                </InputAdornment>
+                                            ),
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton
+                                                        aria-label="toggle password visibility"
+                                                        onClick={() => setShowPassword(!showPassword)}
+                                                        edge="end"
+                                                    >
+                                                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                                                    </IconButton>
+                                                </InputAdornment>
+                                            ),
+                                        }}
+                                    />
 
-                        <AuthButton
-                            type="submit"
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                        >
-                            {isLogin ? 'Giriş Yap' : 'Kayıt Ol'}
-                        </AuthButton>
+                                    {errors.general && (
+                                        <Typography
+                                            color="error"
+                                            variant="body2"
+                                            sx={{ mt: 1, textAlign: 'center' }}
+                                        >
+                                            {errors.general}
+                                        </Typography>
+                                    )}
+                                </motion.div>
+                            </AnimatePresence>
 
-                        {isLogin && (
-                            <Button
-                                fullWidth
-                                variant="outlined"
-                                startIcon={<Google />}
-                                onClick={() => googleLogin()}
-                                sx={{
-                                    mt: 2,
-                                    mb: 1,
-                                    color: '#4285F4',
-                                    borderColor: '#4285F4',
-                                    '&:hover': {
-                                        borderColor: '#4285F4',
-                                        backgroundColor: 'rgba(66, 133, 244, 0.04)'
-                                    }
-                                }}
+                            <AuthButton
+                                type="submit"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                             >
-                                Google ile Giriş Yap
-                            </Button>
-                        )}
+                                {isLogin ? 'Giriş Yap' : 'Kayıt Ol'}
+                            </AuthButton>
 
-                        <ToggleButton
-                            type="button"
-                            onClick={() => setIsLogin(!isLogin)}
-                            whileHover={{ scale: 1.02 }}
-                        >
-                            {isLogin ? 'Bir hesabın yok mu? Kaydol' : 'Zaten bir hesabın var mı? Giriş Yap'}
-                        </ToggleButton>
-                    </FormContainer>
-                </StyledPaper>
+                            {isLogin && (
+                                <Button
+                                    fullWidth
+                                    variant="outlined"
+                                    startIcon={<Google />}
+                                    onClick={() => googleLogin()}
+                                    sx={{
+                                        mt: 2,
+                                        mb: 1,
+                                        color: '#4285F4',
+                                        borderColor: '#4285F4',
+                                        '&:hover': {
+                                            borderColor: '#4285F4',
+                                            backgroundColor: 'rgba(66, 133, 244, 0.04)'
+                                        }
+                                    }}
+                                >
+                                    Google ile Giriş Yap
+                                </Button>
+                            )}
+
+                            <ToggleButton
+                                type="button"
+                                onClick={() => setIsLogin(!isLogin)}
+                                whileHover={{ scale: 1.02 }}
+                            >
+                                {isLogin ? 'Bir hesabın yok mu? Kaydol' : 'Zaten bir hesabın var mı? Giriş Yap'}
+                            </ToggleButton>
+                        </FormContainer>
+                    </StyledPaper>
                 </Box>
             </Box>
         </Container>
