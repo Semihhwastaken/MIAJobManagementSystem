@@ -1,0 +1,6 @@
+@JobTrackingAPI_HostAddress = http://localhost:5193
+
+GET {{JobTrackingAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
