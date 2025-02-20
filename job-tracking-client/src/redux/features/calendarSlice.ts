@@ -4,11 +4,12 @@ export interface CalendarEvent {
   id: string;
   title: string;
   description: string;
-  date: string;
+  startDate: string;
+  endDate: string;
   startTime: string;
   endTime: string;
   priority: 'High' | 'Medium' | 'Low';
-  participants?: string[];
+  participants: string[];
   createdBy?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -37,6 +38,13 @@ const calendarSlice = createSlice({
   name: 'calendar',
   initialState,
   reducers: {
+    /**
+     * Set all calendar events (replaces existing events)
+     */
+    setEvents: (state, action: PayloadAction<CalendarEvent[]>) => {
+      state.events = action.payload;
+    },
+
     /**
      * Add a new event to the calendar
      */
@@ -99,6 +107,7 @@ const calendarSlice = createSlice({
 });
 
 export const {
+  setEvents,
   addEvent,
   updateEvent,
   deleteEvent,

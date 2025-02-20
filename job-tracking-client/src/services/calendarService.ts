@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axiosInstance from './axiosInstance';
 import { CalendarEvent } from '../redux/features/calendarSlice.tsx';
 
 const API_URL = 'http://localhost:5193/api';
@@ -14,7 +14,7 @@ export const calendarService = {
    * @returns Promise containing the events
    */
   async getEvents(startDate: string, endDate: string): Promise<CalendarEvent[]> {
-    const response = await axios.get(`${API_URL}/calendar/events`, {
+    const response = await axiosInstance.get(`${API_URL}/calendar/events`, {
       params: { startDate, endDate },
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -29,7 +29,7 @@ export const calendarService = {
    * @returns Promise containing the created event
    */
   async createEvent(event: Omit<CalendarEvent, 'id'>): Promise<CalendarEvent> {
-    const response = await axios.post(`${API_URL}/calendar/events`, event, {
+    const response = await axiosInstance.post(`${API_URL}/calendar/events`, event, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`,
       },
@@ -43,7 +43,7 @@ export const calendarService = {
    * @returns Promise containing the updated event
    */
   async updateEvent(event: CalendarEvent): Promise<CalendarEvent> {
-    const response = await axios.put(`${API_URL}/calendar/events/${event.id}`, event, {
+    const response = await axiosInstance.put(`${API_URL}/calendar/events/${event.id}`, event, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`,
       },
@@ -57,7 +57,7 @@ export const calendarService = {
    * @returns Promise indicating success
    */
   async deleteEvent(eventId: string): Promise<void> {
-    await axios.delete(`${API_URL}/calendar/events/${eventId}`, {
+    await axiosInstance.delete(`${API_URL}/calendar/events/${eventId}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`,
       },

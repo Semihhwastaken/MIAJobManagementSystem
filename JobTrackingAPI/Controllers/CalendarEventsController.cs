@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Security.Claims;
+using System.Linq;
 using JobTrackingAPI.Models;
 using JobTrackingAPI.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -104,57 +106,70 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
+                _logger.LogInformation("Received event creation request: {@CalendarEvent}", calendarEvent);
+
                 if (!ModelState.IsValid)
                 {
-                    return BadRequest(ModelState);
+                    var errors = ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage)
+                        .ToList();
+                    _logger.LogWarning("Invalid model state: {@ValidationErrors}", errors);
+                    return BadRequest(new { error = "Validation failed", details = errors });
                 }
 
-                // Validate and format date
-                if (!DateTime.TryParse(calendarEvent.Date, out DateTime eventDate))
+                // Validate and format dates
+                if (!DateTime.TryParse(calendarEvent.StartDate, out DateTime startDate) ||
+                    !DateTime.TryParse(calendarEvent.EndDate, out DateTime endDate))
                 {
+                    _logger.LogWarning("Invalid date format. StartDate: {StartDate}, EndDate: {EndDate}", 
+                        calendarEvent.StartDate, calendarEvent.EndDate);
                     return BadRequest(new { error = "Invalid date format. Use YYYY-MM-DD format." });
                 }
-                calendarEvent.Date = eventDate.ToString("yyyy-MM-dd"); // Standardize date format
 
-                // Validate time format and range
+                // Validate start date is not after end date
+                if (startDate > endDate)
+                {
+                    _logger.LogWarning("Start date is after end date. StartDate: {StartDate}, EndDate: {EndDate}", 
+                        startDate, endDate);
+                    return BadRequest(new { error = "Start date cannot be after end date." });
+                }
+
+                // Validate time format
                 if (!TimeSpan.TryParse(calendarEvent.StartTime, out TimeSpan startTime) ||
                     !TimeSpan.TryParse(calendarEvent.EndTime, out TimeSpan endTime))
                 {
+                    _logger.LogWarning("Invalid time format. StartTime: {StartTime}, EndTime: {EndTime}", 
+                        calendarEvent.StartTime, calendarEvent.EndTime);
                     return BadRequest(new { error = "Invalid time format. Use HH:mm format." });
                 }
 
-                // Validate that end time is after start time
-                if (endTime <= startTime)
+                // Validate times for same day
+                if (startDate == endDate && startTime >= endTime)
                 {
-                    return BadRequest(new { error = "End time must be after start time." });
+                    _logger.LogWarning("End time must be after start time on same day. StartTime: {StartTime}, EndTime: {EndTime}", 
+                        startTime, endTime);
+                    return BadRequest(new { error = "End time must be after start time on the same day." });
                 }
 
-                // Standardize time format
-                calendarEvent.StartTime = startTime.ToString(@"hh\:mm");
-                calendarEvent.EndTime = endTime.ToString(@"hh\:mm");
-
-                // Set the creator ID from the authenticated user
-                var userId = User.Identity?.Name;
+                // Get the user ID from claims
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                 {
-                    return BadRequest(new { error = "User ID not found" });
+                    _logger.LogWarning("User ID not found in token claims");
+                    return BadRequest(new { error = "User ID not found in token" });
                 }
-
                 calendarEvent.CreatedBy = userId;
-                
-                try 
-                {
-                    var createdEvent = await _calendarEventService.CreateEventAsync(calendarEvent);
-                    return CreatedAtAction(nameof(GetEvent), new { id = createdEvent.Id }, createdEvent);
-                }
-                catch (InvalidOperationException ex)
-                {
-                    return BadRequest(new { error = ex.Message });
-                }
+
+                _logger.LogInformation("Creating event with validated data: {@CalendarEvent}", calendarEvent);
+                var createdEvent = await _calendarEventService.CreateEventAsync(calendarEvent);
+                _logger.LogInformation("Event created successfully: {@CreatedEvent}", createdEvent);
+
+                return CreatedAtAction(nameof(GetEvent), new { id = createdEvent.Id }, createdEvent);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating calendar event");
+                _logger.LogError(ex, "Error creating calendar event: {@CalendarEvent}", calendarEvent);
                 return StatusCode(500, new { error = "Internal server error", message = "An error occurred while creating the event." });
             }
         }
@@ -163,19 +178,18 @@ namespace JobTrackingAPI.Controllers
         /// Update an existing calendar event
         /// </summary>
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateEvent(string id, [FromBody] CalendarEvent calendarEvent)
+        public async Task<ActionResult<CalendarEvent>> UpdateEvent(string id, [FromBody] CalendarEvent calendarEvent)
         {
             try
             {
                 if (!ModelState.IsValid)
                 {
-                    return BadRequest(ModelState);
-                }
-
-                // Validate date format
-                if (!DateTime.TryParse(calendarEvent.Date, out _))
-                {
-                    return BadRequest(new { error = "Invalid date format. Use YYYY-MM-DD format." });
+                    var errors = ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage)
+                        .ToList();
+                    _logger.LogWarning("Invalid model state: {@ValidationErrors}", errors);
+                    return BadRequest(new { error = "Validation failed", details = errors });
                 }
 
                 var existingEvent = await _calendarEventService.GetEventByIdAsync(id);
@@ -184,9 +198,22 @@ namespace JobTrackingAPI.Controllers
                     return NotFound(new { error = "Event not found" });
                 }
 
-                // Check if the user is the creator of the event
-                var userId = User.Identity?.Name;
-                if (existingEvent.CreatedBy != userId)
+                // Validate dates
+                if (!DateTime.TryParse(calendarEvent.StartDate, out DateTime startDate) ||
+                    !DateTime.TryParse(calendarEvent.EndDate, out DateTime endDate))
+                {
+                    return BadRequest(new { error = "Invalid date format. Use YYYY-MM-DD format." });
+                }
+
+                // Validate start date is not after end date
+                if (startDate > endDate)
+                {
+                    return BadRequest(new { error = "Start date cannot be after end date." });
+                }
+
+                // Validate that the user has permission to update this event
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId) || existingEvent.CreatedBy != userId)
                 {
                     return Forbid();
                 }
@@ -194,9 +221,9 @@ namespace JobTrackingAPI.Controllers
                 calendarEvent.Id = id;
                 calendarEvent.CreatedBy = existingEvent.CreatedBy;
                 calendarEvent.CreatedAt = existingEvent.CreatedAt;
-                
-                await _calendarEventService.UpdateEventAsync(id, calendarEvent);
-                return NoContent();
+
+                var updatedEvent = await _calendarEventService.UpdateEventAsync(id, calendarEvent);
+                return Ok(updatedEvent);
             }
             catch (Exception ex)
             {
@@ -219,9 +246,9 @@ namespace JobTrackingAPI.Controllers
                     return NotFound(new { error = "Event not found" });
                 }
 
-                // Check if the user is the creator of the event
-                var userId = User.Identity?.Name;
-                if (existingEvent.CreatedBy != userId)
+                // Validate that the user has permission to delete this event
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId) || existingEvent.CreatedBy != userId)
                 {
                     return Forbid();
                 }

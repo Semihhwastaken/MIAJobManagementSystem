@@ -28,7 +28,8 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
   const [formData, setFormData] = useState<EventFormData>({
     title: '',
     description: '',
-    date: new Date().toISOString().split('T')[0],
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
     startTime: '09:00',
     endTime: '10:00',
     priority: 'Medium' as 'High' | 'Medium' | 'Low',
@@ -44,7 +45,8 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
       setFormData({
         title: '',
         description: '',
-        date: new Date().toISOString().split('T')[0],
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date().toISOString().split('T')[0],
         startTime: '09:00',
         endTime: '10:00',
         priority: 'Medium',
@@ -62,13 +64,21 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
       return;
     }
 
-    if (!formData.date) {
-      dispatch(setError('Event date is required'));
+    if (!formData.startDate || !formData.endDate) {
+      dispatch(setError('Event dates are required'));
       return;
     }
 
-    if (new Date(formData.date + 'T' + formData.startTime) >= new Date(formData.date + 'T' + formData.endTime)) {
-      dispatch(setError('End time must be after start time'));
+    // Check if end date is before start date
+    if (new Date(formData.endDate) < new Date(formData.startDate)) {
+      dispatch(setError('End date must be after start date'));
+      return;
+    }
+
+    // Check if times are valid when on same day
+    if (formData.startDate === formData.endDate && 
+        new Date(formData.startDate + 'T' + formData.startTime) >= new Date(formData.endDate + 'T' + formData.endTime)) {
+      dispatch(setError('End time must be after start time on the same day'));
       return;
     }
 
@@ -78,7 +88,8 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
       setFormData({
         title: '',
         description: '',
-        date: new Date().toISOString().split('T')[0],
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date().toISOString().split('T')[0],
         startTime: '09:00',
         endTime: '10:00',
         priority: 'Medium',
@@ -165,12 +176,20 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1">
-                        Date
+                        Start Date
                       </label>
                       <input
                         type="date"
-                        value={formData.date}
-                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                        value={formData.startDate}
+                        onChange={(e) => {
+                          const newStartDate = e.target.value;
+                          setFormData(prev => ({
+                            ...prev,
+                            startDate: newStartDate,
+                            // Update end date if it's before new start date
+                            endDate: new Date(prev.endDate) < new Date(newStartDate) ? newStartDate : prev.endDate
+                          }));
+                        }}
                         className={`w-full rounded-lg border p-2 
                           ${isDarkMode 
                             ? 'bg-gray-700 border-gray-600 text-white' 
@@ -182,21 +201,20 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
 
                     <div>
                       <label className="block text-sm font-medium mb-1">
-                        Priority
+                        End Date
                       </label>
-                      <select
-                        value={formData.priority}
-                        onChange={(e) => setFormData({ ...formData, priority: e.target.value as 'High' | 'Medium' | 'Low' })}
+                      <input
+                        type="date"
+                        value={formData.endDate}
+                        min={formData.startDate}
+                        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                         className={`w-full rounded-lg border p-2 
                           ${isDarkMode 
                             ? 'bg-gray-700 border-gray-600 text-white' 
                             : 'bg-white border-gray-300 text-gray-900'
                           }`}
-                      >
-                        <option value="High">High</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Low">Low</option>
-                      </select>
+                        required
+                      />
                     </div>
                   </div>
 
@@ -233,6 +251,79 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
                           }`}
                         required
                       />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Participants
+                    </label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {formData.participants.map((participant, index) => (
+                        <div 
+                          key={index}
+                          className={`flex items-center px-3 py-1 rounded-full text-sm
+                            ${isDarkMode 
+                              ? 'bg-gray-700 text-white' 
+                              : 'bg-gray-100 text-gray-800'
+                            }`}
+                        >
+                          <span>{participant}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newParticipants = [...formData.participants];
+                              newParticipants.splice(index, 1);
+                              setFormData({ ...formData, participants: newParticipants });
+                            }}
+                            className="ml-2 text-gray-500 hover:text-gray-700"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        placeholder="Add participant email"
+                        className={`flex-1 rounded-lg border p-2 
+                          ${isDarkMode 
+                            ? 'bg-gray-700 border-gray-600 text-white' 
+                            : 'bg-white border-gray-300 text-gray-900'
+                          }`}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const input = e.target as HTMLInputElement;
+                            const email = input.value.trim();
+                            if (email && !formData.participants.includes(email)) {
+                              setFormData({
+                                ...formData,
+                                participants: [...formData.participants, email]
+                              });
+                              input.value = '';
+                            }
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const input = document.querySelector('input[type="email"]') as HTMLInputElement;
+                          const email = input.value.trim();
+                          if (email && !formData.participants.includes(email)) {
+                            setFormData({
+                              ...formData,
+                              participants: [...formData.participants, email]
+                            });
+                            input.value = '';
+                          }
+                        }}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                      >
+                        Add
+                      </button>
                     </div>
                   </div>
 

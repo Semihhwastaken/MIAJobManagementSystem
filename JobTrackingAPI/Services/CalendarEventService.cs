@@ -21,10 +21,24 @@ namespace JobTrackingAPI.Services
             _events = database.GetCollection<CalendarEvent>(_settings.CalendarEventsCollectionName);
 
             // Create indexes for better query performance
-            var indexKeysDefinition = Builders<CalendarEvent>.IndexKeys.Ascending(e => e.Date);
-            var indexOptions = new CreateIndexOptions { Name = "DateIndex" };
+            var indexKeysDefinition = Builders<CalendarEvent>.IndexKeys.Combine(
+                Builders<CalendarEvent>.IndexKeys.Ascending(e => e.StartDate),
+                Builders<CalendarEvent>.IndexKeys.Ascending(e => e.EndDate)
+            );
+            var indexOptions = new CreateIndexOptions { Name = "StartEndDateIndex" };
             var indexModel = new CreateIndexModel<CalendarEvent>(indexKeysDefinition, indexOptions);
             _events.Indexes.CreateOne(indexModel);
+        }
+
+        private DateTime CombineDateAndTime(string date, string time)
+        {
+            if (!DateTime.TryParse(date, out DateTime dateValue))
+                throw new ArgumentException("Invalid date format");
+            
+            if (!TimeSpan.TryParse(time, out TimeSpan timeValue))
+                throw new ArgumentException("Invalid time format");
+
+            return dateValue.Date.Add(timeValue);
         }
 
         public async Task<List<CalendarEvent>> GetEventsAsync(string startDate, string endDate)
@@ -38,7 +52,8 @@ namespace JobTrackingAPI.Services
                 }
 
                 var filter = Builders<CalendarEvent>.Filter.And(
-                    Builders<CalendarEvent>.Filter.Eq(e => e.Date, startDate)
+                    Builders<CalendarEvent>.Filter.Lte(e => e.StartDate, endDate),
+                    Builders<CalendarEvent>.Filter.Gte(e => e.EndDate, startDate)
                 );
 
                 return await _events.Find(filter).ToListAsync();
@@ -85,20 +100,19 @@ namespace JobTrackingAPI.Services
         {
             try
             {
-                // Validate that there are no overlapping events for the same time slot
-                var existingEvents = await _events.Find(e =>
-                    e.Date == calendarEvent.Date &&
-                    e.StartTime == calendarEvent.StartTime &&
-                    e.EndTime == calendarEvent.EndTime)
-                    .ToListAsync();
+                // Convert event times to DateTime for comparison
+                var newEventStart = CombineDateAndTime(calendarEvent.StartDate, calendarEvent.StartTime);
+                var newEventEnd = CombineDateAndTime(calendarEvent.StartDate, calendarEvent.EndTime);
 
-                if (existingEvents.Any())
+                // Basic validation
+                if (newEventEnd <= newEventStart)
                 {
-                    throw new InvalidOperationException("An event already exists for this time slot.");
+                    throw new InvalidOperationException("Event end time must be after start time.");
                 }
 
                 calendarEvent.CreatedAt = DateTime.UtcNow;
                 calendarEvent.UpdatedAt = DateTime.UtcNow;
+
                 await _events.InsertOneAsync(calendarEvent);
                 return calendarEvent;
             }
@@ -109,12 +123,23 @@ namespace JobTrackingAPI.Services
             }
         }
 
-        public async Task UpdateEventAsync(string id, CalendarEvent calendarEvent)
+        public async Task<CalendarEvent> UpdateEventAsync(string id, CalendarEvent calendarEvent)
         {
             try
             {
+                // Convert event times to DateTime for comparison
+                var newEventStart = CombineDateAndTime(calendarEvent.StartDate, calendarEvent.StartTime);
+                var newEventEnd = CombineDateAndTime(calendarEvent.StartDate, calendarEvent.EndTime);
+
+                // Basic validation
+                if (newEventEnd <= newEventStart)
+                {
+                    throw new InvalidOperationException("Event end time must be after start time.");
+                }
+
                 calendarEvent.UpdatedAt = DateTime.UtcNow;
                 await _events.ReplaceOneAsync(e => e.Id == id, calendarEvent);
+                return calendarEvent;
             }
             catch (Exception ex)
             {

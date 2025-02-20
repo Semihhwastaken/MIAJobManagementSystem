@@ -19,9 +19,13 @@ namespace JobTrackingAPI.Models
         [BsonElement("description")]
         public string Description { get; set; } = string.Empty;
 
-        [BsonElement("date")]
+        [BsonElement("startDate")]
         [Required]
-        public string Date { get; set; } = string.Empty;
+        public string StartDate { get; set; } = string.Empty;
+
+        [BsonElement("endDate")]
+        [Required]
+        public string EndDate { get; set; } = string.Empty;
 
         [BsonElement("startTime")]
         [Required]

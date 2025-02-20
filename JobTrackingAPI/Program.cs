@@ -24,6 +24,11 @@ builder.Services.AddCors(options =>
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
+if (jwtSettings == null || string.IsNullOrEmpty(jwtSettings.Secret))
+{
+    throw new InvalidOperationException("JWT settings are not properly configured");
+}
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
