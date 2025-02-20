@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { motion, useInView } from "framer-motion";
 import ImageCarousel from "../../components/ImageCarousel";
+import { useNavigate } from "react-router-dom";
 
 const App: React.FC = () => {
   const [activeAccordion, setActiveAccordion] = useState<number | null>(null);
+  const navigate = useNavigate();
 
   // Scroll animasyonları için ref'ler
   const featuresRef = React.useRef(null);
@@ -173,7 +175,10 @@ const App: React.FC = () => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors !rounded-button whitespace-nowrap"
+              className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors !rounded-button whitespace-nowrap cursor-pointer"
+              onClick={() => {
+                navigate("/tasks");
+              }}
             >
               Görevlere Git <i className="fas fa-arrow-right ml-2"></i>
             </motion.button>
@@ -200,7 +205,10 @@ const App: React.FC = () => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="bg-indigo-500 text-white px-6 py-2 rounded-lg hover:bg-indigo-600 transition-colors !rounded-button whitespace-nowrap"
+              onClick={() => {
+                navigate("/team");
+              }}
+              className="bg-indigo-500 text-white px-6 py-2 rounded-lg hover:bg-indigo-600 transition-colors !rounded-button whitespace-nowrap cursor-pointer"
             >
               Ekibe Git <i className="fas fa-arrow-right ml-2"></i>
             </motion.button>
@@ -227,7 +235,10 @@ const App: React.FC = () => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="bg-purple-500 text-white px-6 py-2 rounded-lg hover:bg-purple-600 transition-colors !rounded-button whitespace-nowrap"
+              onClick={() => {
+                navigate("/reports");
+              }}
+              className="bg-purple-500 text-white px-6 py-2 rounded-lg hover:bg-purple-600 transition-colors !rounded-button whitespace-nowrap cursor-pointer"
             >
               Raporlara Git <i className="fas fa-arrow-right ml-2"></i>
             </motion.button>
