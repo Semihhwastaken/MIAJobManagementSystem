@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { motion, useInView } from "framer-motion";
-import * as echarts from "echarts";
 import ImageCarousel from "../../components/ImageCarousel";
 
 const App: React.FC = () => {
