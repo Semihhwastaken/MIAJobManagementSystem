@@ -80,6 +80,10 @@ namespace JobTrackingAPI.Models
         [JsonPropertyName("status")]
         public string Status { get; set; } = "todo";
 
+        [BsonElement("category")]
+        [JsonPropertyName("category")]
+        public string Category { get; set; } = "general";
+
         [BsonElement("dueDate")]
         [JsonPropertyName("dueDate")]
         public DateTime DueDate { get; set; }

@@ -42,104 +42,104 @@ const App: React.FC = () => {
   useEffect(() => {
     console.log(isAuthenticated);
   }, [isAuthenticated, setIsAuthenticated]);
+
   /**
    * Ana uygulama bileşeni
    * Routing ve genel uygulama yapısını içerir
    */
-  function App() {
-    return (
-      <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID">
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <AuthContext.Provider value={{ isAuthenticated, setIsAuthenticated }}>
-            <Router>
-              <div style={{ minHeight: '100vh', width: '100vw', backgroundColor: '#000000' }}>
-                <Layout>
-                  <Routes>
-                    <Route
-                      path="/"
-                      element={
-                        isAuthenticated ? (
-                          <Home />
-                        ) : (
-                          <Navigate to="/auth" replace />
-                        )
-                      }
-                    />
-                    <Route
-                      path="/auth"
-                      element={
-                        !isAuthenticated ? (
-                          <Layout>
-                            <Main />
-                          </Layout>
-                        ) : (
-                          <Navigate to="/" replace />
-                        )
-                      }
-                    />
-                    <Route
-                      path="/login"
-                      element={
-                        !isAuthenticated ? (
-                          <Auth />
-                        ) : (
-                          <Navigate to="/" replace />
-                        )
-                      }
-                    />
-                    <Route
-                      path="/dashboard"
-                      element={
-                        isAuthenticated ? (
-                          <Dashboard />
-                        ) : (
-                          <Navigate to="/auth" replace />
-                        )
-                      }
-                    />
-                    <Route
-                      path="/tasks"
-                      element={
-                        isAuthenticated ? (
-                          <Tasks />
-                        ) : (
-                          <Navigate to="/auth" replace />
-                        )
-                      }
-                    />
-                    <Route
-                      path="/team"
-                      element={
-                        isAuthenticated ? (
-                          <Team />
-                        ) : (
-                          <Navigate to="/auth" replace />
-                        )
-                      }
-                    />
-                    <Route
-                      path="/analytics"
-                      element={<div>Raporlar Sayfası (Yapım aşamasında)</div>}
-                    />
-                  </Routes>
-                </Layout>
-                <Toaster
-                  position="top-right"
-                  toastOptions={{
-                    duration: 3000,
-                    style: {
-                      background: '#333',
-                      color: '#fff',
-                    },
-                  }}
-                />
-              </div>
-            </Router>
-          </AuthContext.Provider>
-        </ThemeProvider>
-      </GoogleOAuthProvider>
-    );
-  }
+  return (
+    <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID">
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <AuthContext.Provider value={{ isAuthenticated, setIsAuthenticated }}>
+          <Router>
+            <div style={{ minHeight: '100vh', width: '100vw', backgroundColor: '#000000' }}>
+              <Layout>
+                <Routes>
+                  <Route
+                    path="/"
+                    element={
+                      isAuthenticated ? (
+                        <Home />
+                      ) : (
+                        <Navigate to="/auth" replace />
+                      )
+                    }
+                  />
+                  <Route
+                    path="/auth"
+                    element={
+                      !isAuthenticated ? (
+                        <Layout>
+                          <Main />
+                        </Layout>
+                      ) : (
+                        <Navigate to="/" replace />
+                      )
+                    }
+                  />
+                  <Route
+                    path="/login"
+                    element={
+                      !isAuthenticated ? (
+                        <Auth />
+                      ) : (
+                        <Navigate to="/" replace />
+                      )
+                    }
+                  />
+                  <Route
+                    path="/dashboard"
+                    element={
+                      isAuthenticated ? (
+                        <Dashboard />
+                      ) : (
+                        <Navigate to="/auth" replace />
+                      )
+                    }
+                  />
+                  <Route
+                    path="/tasks"
+                    element={
+                      isAuthenticated ? (
+                        <Tasks />
+                      ) : (
+                        <Navigate to="/auth" replace />
+                      )
+                    }
+                  />
+                  <Route
+                    path="/team"
+                    element={
+                      isAuthenticated ? (
+                        <Team />
+                      ) : (
+                        <Navigate to="/auth" replace />
+                      )
+                    }
+                  />
+                  <Route
+                    path="/analytics"
+                    element={<div>Raporlar Sayfası (Yapım aşamasında)</div>}
+                  />
+                </Routes>
+              </Layout>
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 3000,
+                  style: {
+                    background: '#333',
+                    color: '#fff',
+                  },
+                }}
+              />
+            </div>
+          </Router>
+        </AuthContext.Provider>
+      </ThemeProvider>
+    </GoogleOAuthProvider>
+  );
+};
 
-  export default App;
+export default App;
