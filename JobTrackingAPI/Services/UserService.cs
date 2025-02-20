@@ -48,5 +48,11 @@ namespace JobTrackingAPI.Services
         {
             return await _users.Find(u => u.Username == username).FirstOrDefaultAsync();
         }
+
+        public async Task<List<User>> GetByDepartmentAsync(string department)
+        {
+            return await _users.Find(u => u.Department == department).ToListAsync();
+        }
+
     }
 }

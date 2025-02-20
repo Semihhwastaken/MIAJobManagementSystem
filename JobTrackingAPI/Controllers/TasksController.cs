@@ -73,6 +73,10 @@ namespace JobTrackingAPI.Controllers
                 if (string.IsNullOrEmpty(task.Priority))
                     task.Priority = "medium";
 
+                if (string.IsNullOrEmpty(task.Category))
+                    task.Category = "Personal";
+
+
                 await _tasksCollection.InsertOneAsync(task);
                 return CreatedAtAction(nameof(GetTask), new { id = task.Id }, task);
             }

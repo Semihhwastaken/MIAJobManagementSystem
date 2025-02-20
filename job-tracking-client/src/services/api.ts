@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { LoginRequest, RegisterRequest, AuthResponse } from '../types/auth';
+import axiosInstance from './axiosInstance';
+
 
 const API_URL = 'http://localhost:5193/api';
 
@@ -12,10 +14,10 @@ const api = axios.create({
 
 export const login = async (data: LoginRequest): Promise<AuthResponse> => {
     try {
-        const response = await api.post<AuthResponse>('/auth/login', data);
+        const response = await axiosInstance.post<AuthResponse>('/auth/login', data);
         if (response.data.token) {
             localStorage.setItem('token', response.data.token);
-            api.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+            axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
         }
         return response.data;
     } catch (error) {
@@ -36,7 +38,8 @@ export const login = async (data: LoginRequest): Promise<AuthResponse> => {
 
 export const register = async (data: RegisterRequest): Promise<AuthResponse> => {
     try {
-        const response = await api.post<AuthResponse>('/auth/register', data);
+        const response = await axiosInstance.post<AuthResponse>('/auth/register', data);
+
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error) && error.response) {
@@ -56,13 +59,13 @@ export const register = async (data: RegisterRequest): Promise<AuthResponse> => 
 
 export const logout = () => {
     localStorage.removeItem('token');
-    delete api.defaults.headers.common['Authorization'];
+    delete axiosInstance.defaults.headers.common['Authorization'];
 };
 
 // Add token to requests if it exists
 const token = localStorage.getItem('token');
 if (token) {
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 }
 
-export default api;
+export default axiosInstance;

@@ -3,8 +3,7 @@ import { Fragment, useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Task, mockUsers, SubTask } from '../../types/task'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { updateTask } from '../../redux/features/tasksSlice'
-import { addTask } from '../../redux/features/tasksSlice'
+import { updateTask, createTask } from '../../redux/features/tasksSlice'
 import toast from 'react-hot-toast'
 import { PlusIcon, XMarkIcon, PaperClipIcon } from '@heroicons/react/24/outline'
 
@@ -21,6 +20,7 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
     description: '',
     status: 'todo',
     priority: 'low',
+    category: 'general', // Varsayılan kategori eklendi
     dueDate: new Date().toISOString().split('T')[0],
     assignedUsers: [],
     subTasks: [],
@@ -217,7 +217,7 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
           createdAt: now,
           updatedAt: now
         }
-        await dispatch(addTask(newTask)).unwrap()
+        await dispatch(createTask(newTask)).unwrap()
         toast.success('Görev başarıyla eklendi!', {
           duration: 3000,
           position: 'top-right',

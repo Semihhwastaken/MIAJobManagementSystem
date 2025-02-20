@@ -7,8 +7,7 @@ namespace JobTrackingAPI.Settings
         public string JobsCollectionName { get; set; } = string.Empty;
         public string UsersCollectionName { get; set; } = string.Empty;
 
-        public MongoDbSettings()
-        {
-        }
+        public string CalendarEventsCollectionName { get; set; } = "CalendarEvents";
+
     }
 }

@@ -23,8 +23,9 @@ export interface Task {
     id?: string;
     title: string;
     description: string;
-    status: 'todo' | 'in-progress' | 'completed';
+    status: 'todo' | 'in-progress' | 'completed' | 'overdue';
     priority: 'low' | 'medium' | 'high';
+    category: string;
     dueDate: string;
     assignedUsers: User[];
     subTasks: SubTask[];
