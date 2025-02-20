@@ -187,7 +187,6 @@ const Auth: React.FC = () => {
                     username: formData.username,
                     password: formData.password,
                 });
-
                 if (response.error || response.message?.toLowerCase().includes('error')) {
                     const errorMessage = response.error || response.message;
                     setErrors(prev => ({ ...prev, general: errorMessage }));

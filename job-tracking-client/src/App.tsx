@@ -1,6 +1,11 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useState } from 'react';
+import { ThemeProvider, createTheme } from '@mui/material';
+import { CssBaseline } from '@mui/material';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { Toaster } from 'react-hot-toast';
-import Navbar from './components/Navbar/Navbar';
+import Auth from './pages/Auth';
+import Layout from './components/Layout/Layout';
 import Home from './pages/Home/Home';
 import Tasks from './pages/Tasks/Tasks';
 import Team from './pages/Team/Team';
