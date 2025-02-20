@@ -80,10 +80,6 @@ namespace JobTrackingAPI.Models
         [JsonPropertyName("status")]
         public string Status { get; set; } = "todo";
 
-        [BsonElement("category")]
-        [JsonPropertyName("category")]
-        public string Category { get; set; } = "general";
-
         [BsonElement("dueDate")]
         [JsonPropertyName("dueDate")]
         public DateTime DueDate { get; set; }
@@ -99,6 +95,10 @@ namespace JobTrackingAPI.Models
         [BsonElement("updatedAt")]
         [JsonPropertyName("updatedAt")]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        [BsonElement("category")]
+        [JsonPropertyName("category")]
+        public string Category { get; set; } = "Personal";
 
         [BsonElement("subTasks")]
         [JsonPropertyName("subTasks")]

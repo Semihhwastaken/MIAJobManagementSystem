@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ThemeProvider, createTheme } from '@mui/material';
+import React, { useState, useMemo } from 'react';
+import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material';
 import { CssBaseline } from '@mui/material';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
@@ -10,133 +10,172 @@ import Home from './pages/Home/Home';
 import Tasks from './pages/Tasks/Tasks';
 import Team from './pages/Team/Team';
 import Dashboard from './pages/Dashboard';
+import Calendar from './pages/Calendar/Calendar';
 import { AuthContext } from './context/AuthContext';
 import { useEffect } from 'react';
 import Main from './pages/Main/Main';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 
-const theme = createTheme({
-  palette: {
-    mode: 'dark',
-    primary: {
-      main: '#2196f3',
-      light: '#64b5f6',
-      dark: '#1976d2',
-    },
-    secondary: {
-      main: '#3f51b5',
-      light: '#7986cb',
-      dark: '#303f9f',
-    },
-    background: {
-      default: '#121212',
-      paper: '#1e1e1e',
-    },
-  },
-});
+const PrivateRoute = ({ children }: any) => {
+  const { isAuthenticated } = React.useContext(AuthContext);
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
+  return children;
+};
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { isDarkMode } = useTheme();
   const [isAuthenticated, setIsAuthenticated] = useState(
     localStorage.getItem('token') !== null
   );
 
+  // Apply dark mode class to html element
   useEffect(() => {
-    console.log(isAuthenticated);
-  }, [isAuthenticated, setIsAuthenticated]);
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
+  const theme = useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode: isDarkMode ? 'dark' : 'light',
+          primary: {
+            main: '#2196f3',
+            light: '#64b5f6',
+            dark: '#1976d2',
+          },
+          secondary: {
+            main: '#3f51b5',
+            light: '#7986cb',
+            dark: '#303f9f',
+          },
+          background: {
+            default: isDarkMode ? '#121212' : '#ffffff',
+            paper: isDarkMode ? '#1e1e1e' : '#ffffff',
+          },
+        },
+      }),
+    [isDarkMode]
+  );
 
   /**
    * Ana uygulama bileşeni
    * Routing ve genel uygulama yapısını içerir
    */
   return (
-    <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID">
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
+    <MuiThemeProvider theme={theme}>
+      <CssBaseline />
+      <div className={`min-h-screen w-screen transition-colors duration-200 ${isDarkMode ? 'dark bg-gray-900' : 'bg-white'}`}>
         <AuthContext.Provider value={{ isAuthenticated, setIsAuthenticated }}>
           <Router>
-            <div style={{ minHeight: '100vh', width: '100vw', backgroundColor: '#000000' }}>
-              <Layout>
-                <Routes>
-                  <Route
-                    path="/"
-                    element={
-                      isAuthenticated ? (
-                        <Home />
-                      ) : (
-                        <Navigate to="/auth" replace />
-                      )
-                    }
-                  />
-                  <Route
-                    path="/auth"
-                    element={
-                      !isAuthenticated ? (
-                        <Layout>
-                          <Main />
-                        </Layout>
-                      ) : (
-                        <Navigate to="/" replace />
-                      )
-                    }
-                  />
-                  <Route
-                    path="/login"
-                    element={
-                      !isAuthenticated ? (
-                        <Auth />
-                      ) : (
-                        <Navigate to="/" replace />
-                      )
-                    }
-                  />
-                  <Route
-                    path="/dashboard"
-                    element={
-                      isAuthenticated ? (
-                        <Dashboard />
-                      ) : (
-                        <Navigate to="/auth" replace />
-                      )
-                    }
-                  />
-                  <Route
-                    path="/tasks"
-                    element={
-                      isAuthenticated ? (
-                        <Tasks />
-                      ) : (
-                        <Navigate to="/auth" replace />
-                      )
-                    }
-                  />
-                  <Route
-                    path="/team"
-                    element={
-                      isAuthenticated ? (
-                        <Team />
-                      ) : (
-                        <Navigate to="/auth" replace />
-                      )
-                    }
-                  />
-                  <Route
-                    path="/analytics"
-                    element={<div>Raporlar Sayfası (Yapım aşamasında)</div>}
-                  />
-                </Routes>
-              </Layout>
-              <Toaster
-                position="top-right"
-                toastOptions={{
-                  duration: 3000,
-                  style: {
-                    background: '#333',
-                    color: '#fff',
-                  },
-                }}
-              />
-            </div>
+            <Layout>
+              <Routes>
+                <Route
+                  path="/"
+                  element={
+                    isAuthenticated ? (
+                      <Home />
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/auth"
+                  element={
+                    !isAuthenticated ? (
+                      <Layout>
+                        <Main />
+                      </Layout>
+                    ) : (
+                      <Navigate to="/" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/login"
+                  element={
+                    !isAuthenticated ? (
+                      <Auth />
+                    ) : (
+                      <Navigate to="/" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/dashboard"
+                  element={
+                    isAuthenticated ? (
+                      <Dashboard />
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/"
+                  element={
+                    isAuthenticated ? (
+                      <Home />
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/tasks"
+                  element={
+                    isAuthenticated ? (
+                      <Tasks />
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/team"
+                  element={
+                    isAuthenticated ? (
+                      <Team />
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/calendar"
+                  element={
+                    isAuthenticated ? (
+                      <Calendar />
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/analytics"
+                  element={<div>Raporlar Sayfası (Yapım aşamasında)</div>}
+                />
+              </Routes>
+            </Layout>
           </Router>
         </AuthContext.Provider>
+      </div>
+      <Toaster position="top-right" />
+    </MuiThemeProvider>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID">
+      <ThemeProvider>
+        <AppContent />
       </ThemeProvider>
     </GoogleOAuthProvider>
   );
