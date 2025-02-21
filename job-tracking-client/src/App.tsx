@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material';
+
 import { CssBaseline } from '@mui/material';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
@@ -15,7 +16,9 @@ import { AuthContext } from './context/AuthContext';
 import { useEffect } from 'react';
 import Main from './pages/Main/Main';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+
 import Profile from './pages/Profile/Profile';
+
 
 const PrivateRoute = ({ children }: any) => {
   const { isAuthenticated } = React.useContext(AuthContext);
@@ -109,6 +112,7 @@ const AppContent: React.FC = () => {
                   }
                 />
                 <Route
+
                   path="/profile"
                   element={
                     isAuthenticated ? (
@@ -119,6 +123,7 @@ const AppContent: React.FC = () => {
                   }
                 />
                 <Route
+
                   path="/dashboard"
                   element={
                     isAuthenticated ? (

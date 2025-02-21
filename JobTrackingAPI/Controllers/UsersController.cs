@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using JobTrackingAPI.Models;
 using JobTrackingAPI.Services;
 using Microsoft.AspNetCore.Mvc;
+
 using System.Security.Claims;
 using System.Text;
 using System.Security.Cryptography;
@@ -269,5 +270,6 @@ namespace JobTrackingAPI.Controllers
             var hashedInput = HashPassword(password);
             return hashedInput == hashedPassword;
         }
+
     }
 }

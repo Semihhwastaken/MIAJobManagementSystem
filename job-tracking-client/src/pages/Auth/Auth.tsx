@@ -125,6 +125,7 @@ const Auth: React.FC = () => {
         phone: '',
         position: '',
         profileImage: ''
+
     });
 
     const [errors, setErrors] = useState<{
@@ -136,6 +137,7 @@ const Auth: React.FC = () => {
         title?: string;
         phone?: string;
         position?: string;
+
         general?: string;
     }>({});
 
@@ -200,6 +202,7 @@ const Auth: React.FC = () => {
                 tempErrors.phone = 'Telefon numarası gereklidir';
                 isValid = false;
             }
+
         }
 
         // Şifre kontrolü
@@ -218,6 +221,7 @@ const Auth: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setErrors({ username: '', email: '', password: '', fullName: '', department: '', title: '', phone: '', position: '', general: '' });
+
 
         if (!validateForm()) {
             return;
@@ -267,6 +271,7 @@ const Auth: React.FC = () => {
             setErrors(prev => ({
                 ...prev,
                 general: 'Bir hata oluştu. Lütfen daha sonra tekrar deneyin.'
+
             }));
         }
     };
@@ -290,6 +295,7 @@ const Auth: React.FC = () => {
             setErrors(prev => ({
                 ...prev,
                 general: error.response?.data?.message || 'Google ile giriş yapılırken bir hata oluştu'
+
             }));
         }
     };
@@ -300,6 +306,7 @@ const Auth: React.FC = () => {
             setErrors(prev => ({
                 ...prev,
                 general: 'Google ile giriş yapılırken bir hata oluştu'
+
             }));
         }
     });
@@ -355,6 +362,7 @@ const Auth: React.FC = () => {
                             }}
                         >
                             MIA Teknoloji
+
                         </Typography>
                         <Typography
                             variant="h2"
@@ -533,6 +541,7 @@ const Auth: React.FC = () => {
                                                 helperText={errors.phone}
                                             />
                                         </>
+
                                     )}
 
                                     <StyledTextField

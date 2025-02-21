@@ -75,6 +75,7 @@ namespace JobTrackingAPI.Services
             {
                 return (false, $"Kayıt işlemi sırasında bir hata oluştu: {ex.Message}", null);
             }
+
         }
 
         public async Task<(bool success, string message, string? token, User? user)> LoginAsync(string username, string password)

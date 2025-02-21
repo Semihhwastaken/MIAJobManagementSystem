@@ -72,6 +72,7 @@ namespace JobTrackingAPI.Controllers
                     task.Status = "todo";
                 if (string.IsNullOrEmpty(task.Priority))
                     task.Priority = "medium";
+
                 if (string.IsNullOrEmpty(task.Category))
                     task.Category = "Personal";
 

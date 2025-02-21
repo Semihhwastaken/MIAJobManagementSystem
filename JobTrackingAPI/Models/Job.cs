@@ -8,7 +8,7 @@ namespace JobTrackingAPI.Models
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; }
+        public string? Id { get; set; } = null;
         
         [BsonElement("title")]
         public string Title { get; set; }
@@ -33,7 +33,9 @@ namespace JobTrackingAPI.Models
 
         public Job(string title, string description, JobStatus status, JobPriority priority, DateTime dueDate, string assignedToUserId)
         {
+
             Id = ObjectId.GenerateNewId().ToString();
+
             Title = title;
             Description = description;
             Status = status;

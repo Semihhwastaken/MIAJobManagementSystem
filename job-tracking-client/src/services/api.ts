@@ -38,6 +38,7 @@ export const login = async (data: LoginRequest): Promise<AuthResponse> => {
 export const register = async (data: RegisterRequest): Promise<AuthResponse> => {
     try {
         const response = await axiosInstance.post<AuthResponse>('/auth/register', data);
+
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error) && error.response) {

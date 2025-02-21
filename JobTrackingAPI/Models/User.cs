@@ -53,7 +53,9 @@ namespace JobTrackingAPI.Models
         {
         }
 
+
         public User(string username, string email, string fullName, string department, string password, string profileImage, string title, string phone, string position)
+
         {
             Username = username;
             Email = email;
@@ -65,6 +67,7 @@ namespace JobTrackingAPI.Models
             Title = title;
             Phone = phone;
             Position = position;
+
         }
     }
 }

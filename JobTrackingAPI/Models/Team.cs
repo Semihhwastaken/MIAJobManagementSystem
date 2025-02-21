@@ -44,5 +44,46 @@ public class Team
     /// <summary>
     /// Takıma ait üyeler
     /// </summary>
-    public List<string> UserIds { get; set; } = new List<string>();
+    public List<TeamMember> Members { get; set; } = new List<TeamMember>();
+
+    /// <summary>
+    /// Takım departmanları
+    /// </summary>
+    public List<DepartmentStats> Departments { get; set; } = new List<DepartmentStats>();
+}
+
+public class TeamMember
+{
+    [BsonId]
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string Id { get; set; }
+
+    public string Username { get; set; }
+    public string Email { get; set; }
+    public string FullName { get; set; }
+    public string Department { get; set; }
+    public List<string> AssignedJobs { get; set; } = new();
+    public string? ProfileImage { get; set; }
+    public List<string> Expertise { get; set; } = new();
+    public string? Phone { get; set; }
+    public string Status { get; set; } = "available";
+    public int CompletedTasksCount { get; set; }
+    public int PerformanceScore { get; set; }
+    public string OnlineStatus { get; set; } = "offline";
+    public AvailabilitySchedule? AvailabilitySchedule { get; set; }
+}
+
+public class AvailabilitySchedule
+{
+    public string StartTime { get; set; }
+    public string EndTime { get; set; }
+}
+
+public class DepartmentStats
+{
+    public string Name { get; set; }
+    public int MemberCount { get; set; }
+    public int CompletedTasks { get; set; }
+    public int OngoingTasks { get; set; }
+    public double Performance { get; set; }
 }

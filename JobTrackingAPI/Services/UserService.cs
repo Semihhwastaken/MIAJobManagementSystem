@@ -53,5 +53,6 @@ namespace JobTrackingAPI.Services
         {
             return await _users.Find(u => u.Department == department).ToListAsync();
         }
+
     }
 }
