@@ -18,11 +18,11 @@ import {
     Email as EmailIcon,
     Lock as LockIcon,
 } from '@mui/icons-material';
-import { login, register } from '../services/api';
+import { login, register } from '../../services/api';
 import { styled } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
-import logo from '../assets/images/logo.png';
+import { AuthContext } from '../../context/AuthContext';
+import logo from '../../assets/images/logo.png';
 import axios from 'axios';
 import { useGoogleLogin } from '@react-oauth/google';
 import { Google } from '@mui/icons-material';
