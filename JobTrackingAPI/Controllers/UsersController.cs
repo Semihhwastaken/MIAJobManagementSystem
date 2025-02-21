@@ -201,7 +201,8 @@ namespace JobTrackingAPI.Controllers
 
         // POST: api/Users/profile/image
         [HttpPost("profile/image")]
-        public async Task<IActionResult> UploadProfileImage([FromForm] IFormFile file)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UploadProfileImage(IFormFile file)
         {
             try
             {

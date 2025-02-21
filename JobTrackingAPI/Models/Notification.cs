@@ -31,7 +31,7 @@ namespace JobTrackingAPI.Models
         [BsonElement("createdDate")]
         public DateTime CreatedDate { get; set; }
 
-        public Notification(string userId, string title, string message, NotificationType type, string relatedJobId = null)
+        public Notification(string userId, string title, string message, NotificationType type, string? relatedJobId = null)
         {
             Id = ObjectId.GenerateNewId().ToString();
             UserId = userId;

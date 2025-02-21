@@ -10,18 +10,27 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure JSON serialization
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+    });
+
 // CORS politikasını ekle
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins("http://localhost:5173") // Frontend URL'si
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
+            policy.WithOrigins(
+                    "http://localhost:5173",
+                    "http://localhost:5193"
+                )
+                .AllowAnyHeader()
+                .AllowAnyMethod();
         });
 });
-
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
@@ -49,24 +58,23 @@ builder.Services.AddAuthentication(options =>
 });
 
 // Add MongoDB services
-builder.Services.AddMongoDb(builder.Configuration);
+builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("MongoDbSettings"));
+builder.Services.AddSingleton<IMongoClient>(sp =>
+{
+    var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
+    return new MongoClient(settings.ConnectionString);
+});
 
 // Configure JWT settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 
-// Add MongoDB services
-builder.Services.AddMongoDb(builder.Configuration);
-
-
-// Add services to the container
-builder.Services.AddSingleton<JobService>();
-builder.Services.AddSingleton<UserService>();
-builder.Services.AddSingleton<TeamService>();
-
+// Add services
+builder.Services.AddScoped<TeamService>();
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<CalendarEventService>();
-
-builder.Services.AddControllers();
+builder.Services.AddSingleton<MessageService>();
+builder.Services.AddSingleton<JobService>();
+builder.Services.AddScoped<UserService>();
 
 // Configure Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
@@ -107,12 +115,6 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
 var app = builder.Build();
 
 // MongoDB bağlantı kontrolü
@@ -139,15 +141,11 @@ catch (Exception ex)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Job Tracking API V1");
         c.RoutePrefix = "swagger";
     });
-
-    app.UseSwaggerUI();
-
 }
 
 app.UseHttpsRedirection();

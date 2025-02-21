@@ -1,14 +1,17 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using JobTrackingAPI.Models;
 using JobTrackingAPI.Services;
 using MongoDB.Driver;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Security.Claims;
 
 namespace JobTrackingAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize] // Tüm endpoint'ler için authentication gerekli
     public class TeamController : ControllerBase
     {
         private readonly TeamService _teamService;
@@ -20,54 +23,28 @@ namespace JobTrackingAPI.Controllers
             _userService = userService;
         }
 
+        /// <summary>
+        /// Kullanıcının üye olduğu tüm ekipleri getirir
+        /// </summary>
         [HttpGet]
-        public async Task<ActionResult<List<Team>>> GetTeams()
+        public async Task<IActionResult> GetTeams()
         {
-            var teams = await _teamService.GetAllAsync();
-            return Ok(teams);
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized();
+                }
+
+                var teams = await _teamService.GetTeamsByUserId(userId);
+                return Ok(teams);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
         }
-
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Team>> GetTeam(string id)
-        {
-            var team = await _teamService.GetByIdAsync(id);
-            if (team == null)
-                return NotFound();
-            return Ok(team);
-        }
-
-        [HttpPost]
-        public async Task<ActionResult<Team>> CreateTeam(Team team)
-        {
-            var createdTeam = await _teamService.CreateAsync(team);
-            return CreatedAtAction(nameof(GetTeam), new { id = createdTeam.Id }, createdTeam);
-        }
-
-        [HttpPut("{id}")]
-
-        public async Task<IActionResult> UpdateTeam(string id, [FromBody] Team team)
-        {
-            var existingTeam = await _teamService.GetByIdAsync(id);
-            if (existingTeam == null)
-                return NotFound($"Team with ID {id} not found");
-
-            var result = await _teamService.UpdateAsync(id, team);
-            if (!result)
-                return StatusCode(500, "Failed to update team");
-
-            return NoContent();
-        }
-
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteTeam(string id)
-        {
-            var success = await _teamService.DeleteAsync(id);
-            if (!success)
-                return NotFound();
-
-            return NoContent();
-        }
-
 
         [HttpGet("members")]
         public async Task<ActionResult<List<TeamMember>>> GetMembers()
@@ -143,11 +120,182 @@ namespace JobTrackingAPI.Controllers
             }
         }
 
-        [HttpGet("by-department/{department}")]
-        public async Task<ActionResult<List<User>>> GetTeamMembersByDepartment(string department)
+        [HttpPost("create")]
+        [Authorize]
+        public async Task<IActionResult> CreateTeam([FromBody] CreateTeamRequest request)
         {
-            var users = await _userService.GetByDepartmentAsync(department);
-            return Ok(users);
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized("Kullanıcı kimliği doğrulanamadı.");
+                }
+
+                // Kullanıcı bilgilerini al
+                var user = await _userService.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    return NotFound("Kullanıcı bulunamadı.");
+                }
+
+                var team = new Team
+                {
+                    Name = request.Name,
+                    CreatedById = userId,
+                    Members = new List<TeamMember>
+                    {
+                        new TeamMember
+                        {
+                            Id = userId,
+                            Username = user.Username,
+                            Email = user.Email,
+                            FullName = user.FullName,
+                            Department = user.Department,
+                            ProfileImage = user.ProfileImage,
+                            Title = user.Title,
+                            Position = user.Position,
+                            Role = "Owner",
+                            AssignedJobs = new List<string>(),
+                            Status = "available",
+                            OnlineStatus = "online"
+                        }
+                    }
+                };
+
+                var createdTeam = await _teamService.CreateAsync(team);
+                return Ok(createdTeam);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPut("{teamId}")]
+        [Authorize]
+        public async Task<IActionResult> UpdateTeam(string teamId, [FromBody] Team team)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized("Kullanıcı kimliği doğrulanamadı.");
+                }
+
+                var existingTeam = await _teamService.GetByIdAsync(teamId);
+                if (existingTeam == null)
+                {
+                    return NotFound("Takım bulunamadı.");
+                }
+
+                // Kullanıcının Owner olup olmadığını kontrol et
+                var isOwner = existingTeam.Members.Any(m => m.Id == userId && m.Role == "Owner");
+                if (!isOwner)
+                {
+                    return Forbid("Bu işlemi sadece takım sahibi yapabilir");
+                }
+
+                await _teamService.UpdateAsync(teamId, existingTeam);
+                return Ok("Takım başarıyla güncellendi");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpDelete("{teamId}")]
+        [Authorize]
+        public async Task<IActionResult> DeleteTeam(string teamId)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized("Kullanıcı kimliği doğrulanamadı.");
+                }
+
+                var result = await _teamService.DeleteTeamAsync(teamId, userId);
+                if (result)
+                {
+                    return Ok(new { message = "Takım başarıyla silindi." });
+                }
+                return BadRequest("Takım silinemedi.");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("invite-link/{teamId}")]
+        public async Task<ActionResult<object>> GenerateInviteLink(string teamId)
+        {
+            try
+            {
+                var inviteLink = await _teamService.GenerateInviteLinkAsync(teamId);
+                return Ok(new { inviteLink = inviteLink });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpPost("join-with-code/{inviteCode}")]
+        public async Task<IActionResult> JoinTeamWithInviteCode(string inviteCode)
+        {
+            try
+            {
+                var userId = HttpContext.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized("Kullanıcı girişi yapılmamış");
+
+                var team = await _teamService.GetTeamByInviteCodeAsync(inviteCode);
+                if (team == null)
+                    return BadRequest("Geçersiz davet kodu");
+
+                if (team.Members.Any(m => m.Id == userId))
+                    return BadRequest("Zaten bu takımın üyesisiniz");
+
+                var result = await _teamService.JoinTeamWithInviteCode(inviteCode, userId);
+                if (!result)
+                    return BadRequest("Ekibe katılırken bir hata oluştu");
+
+                return Ok(new { message = "Ekibe başarıyla katıldınız", teamName = team.Name });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("{teamId}/assign-owner/{targetUserId}")]
+        [Authorize]
+        public async Task<IActionResult> AssignOwnerRole(string teamId, string targetUserId)
+        {
+            try
+            {
+                var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(currentUserId))
+                {
+                    return Unauthorized("Kullanıcı kimliği doğrulanamadı.");
+                }
+
+                var result = await _teamService.AssignOwnerRoleAsync(teamId, currentUserId, targetUserId);
+                if (result)
+                {
+                    return Ok(new { message = "Owner rolü başarıyla atandı." });
+                }
+                return BadRequest("Owner rolü atanamadı.");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
     }
 }

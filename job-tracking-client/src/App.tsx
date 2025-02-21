@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material';
 
 import { CssBaseline } from '@mui/material';
@@ -13,20 +13,11 @@ import Team from './pages/Team/Team';
 import Dashboard from './pages/Dashboard/Dashboard';
 import Calendar from './pages/Calendar/Calendar';
 import { AuthContext } from './context/AuthContext';
-import { useEffect } from 'react';
 import Main from './pages/Main/Main';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
-
 import Profile from './pages/Profile/Profile';
+import TeamInvite from './pages/TeamInvite/TeamInvite';
 
-
-const PrivateRoute = ({ children }: any) => {
-  const { isAuthenticated } = React.useContext(AuthContext);
-  if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
-  }
-  return children;
-};
 
 const AppContent: React.FC = () => {
   const { isDarkMode } = useTheme();
@@ -148,6 +139,26 @@ const AppContent: React.FC = () => {
                   element={
                     isAuthenticated ? (
                       <Tasks />
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/teams"
+                  element={
+                    !isAuthenticated ? (
+                      <Team />
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/team/join-with-code/:inviteCode"
+                  element={
+                    isAuthenticated ? (
+                      <TeamInvite />
                     ) : (
                       <Navigate to="/auth" replace />
                     )

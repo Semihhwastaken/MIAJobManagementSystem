@@ -1,9 +1,10 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { TeamState, TeamMember } from '../../types/team';
+import { TeamState, TeamMember, Team } from '../../types/team';
 import axiosInstance from '../../services/axiosInstance';
 
-const initialState: TeamState = {
+const initialState: TeamState & { teams: Team[] } = {
     members: [],
+    teams: [],
     departments: [],
     departmentProjects: {},
     loading: false,
@@ -19,42 +20,100 @@ const initialState: TeamState = {
 };
 
 export const fetchTeamMembers = createAsyncThunk(
-    'team/fetchTeamMembers',
+    'Team/fetchTeamMembers',
     async () => {
-        const response = await axiosInstance.get('/team/members');
+        const response = await axiosInstance.get('/Team/members');
         return response.data;
     }
 );
 
 export const fetchDepartments = createAsyncThunk(
-    'team/fetchDepartments',
+    'Team/fetchDepartments',
     async () => {
-        const response = await axiosInstance.get('/team/departments');
+        const response = await axiosInstance.get('/Team/departments');
         return response.data;
     }
 );
 
 export const fetchTeamMembersByDepartment = createAsyncThunk(
-    'team/fetchTeamMembersByDepartment',
+    'Team/fetchTeamMembersByDepartment',
     async (department: string) => {
-        const response = await axiosInstance.get(`/team/members/department/${department}`);
+        const response = await axiosInstance.get(`/Team/members/department/${department}`);
         return response.data;
     }
 );
 
 export const updateMemberStatus = createAsyncThunk(
-    'team/updateMemberStatus',
+    'Team/updateMemberStatus',
     async ({ memberId, status }: { memberId: string; status: string }) => {
-        const response = await axiosInstance.patch(`/team/members/${memberId}/status`, { status });
+        const response = await axiosInstance.patch(`/Team/members/${memberId}/status`, { status });
         return response.data;
     }
 );
 
 export const updateMemberProfile = createAsyncThunk(
-    'team/updateMemberProfile',
+    'Team/updateMemberProfile',
     async ({ memberId, profileData }: { memberId: string; profileData: Partial<TeamMember> }) => {
-        const response = await axiosInstance.patch(`/team/members/${memberId}`, profileData);
+        const response = await axiosInstance.patch(`/Team/members/${memberId}`, profileData);
         return response.data;
+    }
+);
+
+export const createTeam = createAsyncThunk(
+    'Team/createTeam',
+    async ({ name, description }: { name: string; description?: string }, { rejectWithValue }) => {
+        try {
+            console.log('Gönderilen veri:', { name, description: description || '' }); // Debug için
+            const response = await axiosInstance.post('/Team/create', {
+                name,
+                description: description || ''
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error('API Hatası:', error.response?.data); // Debug için
+            return rejectWithValue(error.response?.data || error.message);
+        }
+    }
+);
+
+export const generateTeamInviteLink = createAsyncThunk(
+    'Team/generateInviteLink',
+    async (teamId: string, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.post(`/Team/invite-link/${teamId}`);
+            return response.data;
+        } catch (error: any) {
+            console.error('Davet linki oluşturma hatası:', error.response?.data);
+            return rejectWithValue(error.response?.data || error.message);
+        }
+    }
+);
+
+export const joinTeamWithInviteLink = createAsyncThunk(
+    'Team/joinWithInviteLink',
+    async (inviteCode: string) => {
+        const response = await axiosInstance.post(`${axiosInstance.defaults.baseURL}/Team/join-with-code/${inviteCode}`);
+        return response.data;
+    }
+);
+
+export const fetchTeams = createAsyncThunk(
+    'Team/fetchTeams',
+    async () => {
+        const response = await axiosInstance.get('/Team');
+        return response.data;
+    }
+);
+
+export const deleteTeam = createAsyncThunk(
+    'Team/deleteTeam',
+    async (teamId: string, { rejectWithValue }) => {
+        try {
+            await axiosInstance.delete(`Team/${teamId}`);
+            return teamId;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data || 'Takım silinirken bir hata oluştu');
+        }
     }
 );
 
@@ -115,16 +174,58 @@ const teamSlice = createSlice({
                 if (index !== -1) {
                     state.members[index] = updatedMember;
                 }
+            })
+            .addCase(createTeam.pending, (state) => {
+                state.loading = true;
+            })
+            .addCase(createTeam.fulfilled, (state, action) => {
+                state.loading = false;
+                state.teams.push(action.payload);
+            })
+            .addCase(createTeam.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+            .addCase(generateTeamInviteLink.fulfilled, (state, action) => {
+                // İsteğe bağlı olarak state'i güncelleyebilirsiniz
+            })
+            .addCase(joinTeamWithInviteLink.fulfilled, (state, action) => {
+                // Takıma katılma başarılı olduğunda teams listesini güncelle
+                fetchTeams();
+            })
+            .addCase(fetchTeams.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchTeams.fulfilled, (state, action) => {
+                state.loading = false;
+                state.teams = action.payload;
+            })
+            .addCase(fetchTeams.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.error.message || 'Bir hata oluştu';
+            })
+            .addCase(deleteTeam.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(deleteTeam.fulfilled, (state, action) => {
+                state.loading = false;
+                state.teams = state.teams.filter(team => team.id !== action.payload);
+            })
+            .addCase(deleteTeam.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
             });
     }
 });
 
-export const { 
-    setSearchQuery, 
-    setFilters, 
-    setSortBy, 
+export const {
+    setSearchQuery,
+    setFilters,
+    setSortBy,
     setSortOrder,
-    updateMemberOnlineStatus 
+    updateMemberOnlineStatus
 } = teamSlice.actions;
 
 export default teamSlice.reducer;

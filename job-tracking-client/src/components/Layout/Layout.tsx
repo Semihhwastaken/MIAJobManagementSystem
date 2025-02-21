@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { NotificationCenter } from '../Notifications/NotificationCenter';
+import { NotificationContainer } from '../Notification/Notification';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -31,6 +31,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className={`min-h-screen flex flex-col ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
+      <NotificationContainer />
       {/* Header */}
       {!isAuthPage && isAuthenticated && (
         <nav className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} shadow-md transition-colors duration-200`}>
@@ -80,9 +81,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               {/* Right side buttons */}
               <div className="flex items-center space-x-4">
 
-                {/* Notification Center */}
-                <NotificationCenter />
-                
                 {/* Theme Toggle Button */}
                 <button
                   onClick={toggleTheme}

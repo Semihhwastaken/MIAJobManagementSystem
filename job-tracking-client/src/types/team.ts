@@ -4,6 +4,7 @@ export interface TeamMember {
     email: string;
     fullName: string;
     department: string;
+    role: 'Owner' | 'Master' | 'Member';
     assignedJobs: string[];
     // Yeni eklenecek alanlar
     profileImage?: string;
@@ -17,6 +18,7 @@ export interface TeamMember {
         startTime: string;
         endTime: string;
     };
+    joinedAt: string;
 }
 
 export interface TeamState {
@@ -47,4 +49,13 @@ export interface DepartmentStats {
     completedTasks: number;
     ongoingTasks: number;
     performance: number;
+}
+
+export interface Team {
+    id: string;
+    name: string;
+    createdBy: string;
+    inviteLink?: string;
+    members: TeamMember[];
+    createdAt: string;
 }

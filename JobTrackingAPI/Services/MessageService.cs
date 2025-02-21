@@ -1,15 +1,21 @@
 using JobTrackingAPI.Models;
 using MongoDB.Driver;
+using Microsoft.Extensions.Options;
+using JobTrackingAPI.Settings;
 
 namespace JobTrackingAPI.Services
 {
     public class MessageService
     {
+        private readonly IMongoCollection<Team> _teams;
         private readonly IMongoCollection<Message> _messages;
         private readonly IMongoCollection<TeamMember> _members;
 
-        public MessageService(IMongoDatabase database)
+        public MessageService(IOptions<MongoDbSettings> settings)
         {
+            var client = new MongoClient(settings.Value.ConnectionString);
+            var database = client.GetDatabase(settings.Value.DatabaseName);
+            _teams = database.GetCollection<Team>("Teams");
             _messages = database.GetCollection<Message>("Messages");
             _members = database.GetCollection<TeamMember>("TeamMembers");
         }

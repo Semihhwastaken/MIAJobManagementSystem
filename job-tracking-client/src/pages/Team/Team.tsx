@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { RootState } from '../../redux/store';
 import {
     fetchTeamMembers,
@@ -9,25 +10,37 @@ import {
     setFilters,
     setSortBy,
     setSortOrder,
-    updateMemberStatus
+    updateMemberStatus,
+    createTeam,
+    generateTeamInviteLink,
+    joinTeamWithInviteLink,
+    fetchTeams
 } from '../../redux/features/teamSlice';
 import { Menu, Transition } from '@headlessui/react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../../context/ThemeContext';
 import { TeamMember } from '../../types/team';
-import { 
-    ChatBubbleLeftIcon, 
+import {
+    ChatBubbleLeftIcon,
     ClipboardDocumentListIcon,
     ChevronUpIcon,
     ChevronDownIcon,
-    MagnifyingGlassIcon
+    MagnifyingGlassIcon,
+    PlusIcon,
+    ClipboardIcon,
+    ClipboardDocumentIcon
 } from '@heroicons/react/24/outline';
+import axiosInstance from '../../services/axiosInstance';
+import { useSnackbar } from 'notistack';
 
 const Team = () => {
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const { isDarkMode } = useTheme();
+    const { enqueueSnackbar } = useSnackbar();
     const {
         members,
+        teams,
         departments,
         loading,
         error,
@@ -37,11 +50,27 @@ const Team = () => {
         sortOrder
     } = useSelector((state: RootState) => state.team);
     const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+    const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
+    const [newTeamName, setNewTeamName] = useState('');
+    const [newTeamDescription, setNewTeamDescription] = useState('');
+    const [inviteLink, setInviteLink] = useState('');
+    const [showInviteLinkModal, setShowInviteLinkModal] = useState(false);
+    const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+    const [copySuccess, setCopySuccess] = useState(false);
+    const currentUser = useSelector((state: RootState) => state.auth.user);
 
     useEffect(() => {
+        // Kullanıcı girişi kontrolü
+        const token = localStorage.getItem('token');
+        if (!token) {
+            navigate('/auth');
+            return;
+        }
+
         dispatch(fetchTeamMembers() as any);
         dispatch(fetchDepartments() as any);
-    }, [dispatch]);
+        dispatch(fetchTeams() as any);
+    }, [dispatch, navigate]);
 
     const handleDepartmentChange = (department: string) => {
         setSelectedDepartment(department);
@@ -76,47 +105,273 @@ const Team = () => {
         dispatch(updateMemberStatus({ memberId, status }) as any);
     };
 
-    const filteredAndSortedMembers = members
-        .filter(member => {
-            const matchesSearch = member.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                member.email.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesStatus = filters.status.length === 0 || filters.status.includes(member.status);
-            const matchesDepartment = selectedDepartment === 'all' || member.department === selectedDepartment;
-            return matchesSearch && matchesStatus && matchesDepartment;
-        })
-        .sort((a, b) => {
-            let comparison = 0;
-            switch (sortBy) {
-                case 'name':
-                    comparison = a.fullName.localeCompare(b.fullName);
-                    break;
-                case 'performance':
-                    comparison = b.performanceScore - a.performanceScore;
-                    break;
-                case 'tasks':
-                    comparison = b.completedTasksCount - a.completedTasksCount;
-                    break;
-                default:
-                    comparison = a.fullName.localeCompare(b.fullName);
+    const handleCreateTeam = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            navigate('/auth');
+            return;
+        }
+
+        if (newTeamName.trim()) {
+            try {
+                console.log('Takım oluşturma isteği gönderiliyor:', { 
+                    name: newTeamName,
+                    description: newTeamDescription.trim() || undefined 
+                });
+
+                const result = await dispatch(createTeam({ 
+                    name: newTeamName,
+                    description: newTeamDescription.trim() || undefined 
+                }) as any);
+                
+                console.log('API Yanıtı:', result); // Debug için
+
+                if (result.error) {
+                    const errorMessage = result.error.response?.data?.message || result.error.message || 'Ekip oluşturulurken bir hata oluştu';
+                    console.error('Hata detayı:', result.error); // Debug için
+                    enqueueSnackbar(errorMessage, { variant: 'error' });
+                    return;
+                }
+
+                if (result.payload) {
+                    try {
+                        const linkResult = await dispatch(generateTeamInviteLink(result.payload.id) as any);
+                        if (linkResult.error) {
+                            // 401 hatası için özel kontrol
+                            if (linkResult.error.response?.status === 401) {
+                                navigate('/auth');
+                                return;
+                            }
+                            throw new Error(linkResult.error.message || 'Davet linki oluşturulurken bir hata oluştu');
+                        }
+
+                        if (linkResult.payload) {
+                            setInviteLink(linkResult.payload.inviteLink);
+                            enqueueSnackbar('Ekip başarıyla oluşturuldu!', { variant: 'success' });
+                            setShowCreateTeamModal(false);
+                            setNewTeamName('');
+                            setNewTeamDescription('');
+                            dispatch(fetchTeams() as any);
+                        }
+                    } catch (error: any) {
+                        enqueueSnackbar(error.message, { variant: 'error' });
+                    }
+                }
+            } catch (error: any) {
+                enqueueSnackbar(error.message, { variant: 'error' });
+                setShowCreateTeamModal(true);
             }
-            return sortOrder === 'asc' ? comparison : -comparison;
-        });
+        }
+    };
 
-    if (loading) {
+    const handleGenerateInviteLink = async (teamId: string) => {
+        try {
+            const response = await axiosInstance.post(`Team/invite-link/${teamId}`);
+            const inviteCode = response.data.inviteLink.split('code=')[1];
+            const inviteLink = `${window.location.origin}/team/join-with-code/${inviteCode}`;
+            setInviteLink(inviteLink);
+            setSelectedTeamId(teamId);
+            setShowInviteLinkModal(true);
+            await navigator.clipboard.writeText(inviteLink);
+            enqueueSnackbar('Davet linki panoya kopyalandı!', { variant: 'success' });
+        } catch (error: any) {
+            console.error('Davet linki oluşturulurken hata:', error);
+            enqueueSnackbar('Davet linki oluşturulamadı', { variant: 'error' });
+        }
+    };
+
+    const handleCopyInviteLink = async () => {
+        try {
+            await navigator.clipboard.writeText(inviteLink);
+            setCopySuccess(true);
+            setTimeout(() => setCopySuccess(false), 2000);
+        } catch (error: any) {
+            console.error('Link kopyalanırken hata oluştu:', error);
+        }
+    };
+
+    const handleDeleteTeam = async (teamId: string) => {
+        if (window.confirm('Bu takımı silmek istediğinize emin misiniz?')) {
+            try {
+                await axiosInstance.delete(`Team/${teamId}`);
+                enqueueSnackbar('Takım başarıyla silindi!', { variant: 'success' });
+                dispatch(fetchTeams() as any);
+            } catch (error: any) {
+                console.error('Takım silinirken hata:', error);
+                enqueueSnackbar('Takım silinemedi', { variant: 'error' });
+            }
+        }
+    };
+
+    const renderTeamMembers = (teamMembers: TeamMember[], teamName: string, teamId: string) => {
+        const filteredAndSortedMembers = teamMembers
+            .filter(member => {
+                const matchesSearch = member.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    member.email.toLowerCase().includes(searchQuery.toLowerCase());
+                const matchesStatus = filters.status.length === 0 || filters.status.includes(member.status);
+                const matchesDepartment = selectedDepartment === 'all' || member.department === selectedDepartment;
+                return matchesSearch && matchesStatus && matchesDepartment;
+            })
+            .sort((a, b) => {
+                let comparison = 0;
+                switch (sortBy) {
+                    case 'name':
+                        comparison = a.fullName.localeCompare(b.fullName);
+                        break;
+                    case 'performance':
+                        comparison = b.performanceScore - a.performanceScore;
+                        break;
+                    case 'tasks':
+                        comparison = b.completedTasksCount - a.completedTasksCount;
+                        break;
+                    default:
+                        comparison = a.fullName.localeCompare(b.fullName);
+                }
+                return sortOrder === 'asc' ? comparison : -comparison;
+            });
+
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            <div className="mb-8">
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{teamName}</h2>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => handleGenerateInviteLink(teamId)}
+                            className={`flex items-center px-3 py-1 rounded-lg ${isDarkMode
+                                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                                }`}
+                        >
+                            <ClipboardDocumentIcon className="h-5 w-5 mr-2" />
+                            Davet Linki
+                        </button>
+                        {teamMembers.some(member => member.role === 'Owner' && member.id === currentUser?.id) && (
+                            <button
+                                onClick={() => handleDeleteTeam(teamId)}
+                                className={`flex items-center px-3 py-1 rounded-lg ${isDarkMode
+                                    ? 'bg-red-900 hover:bg-red-800 text-red-100'
+                                    : 'bg-red-100 hover:bg-red-200 text-red-700'
+                                    }`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                                Takımı Sil
+                            </button>
+                        )}
+                    </div>
+                </div>
+                <div className={`shadow-lg rounded-lg overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                    <div className="overflow-x-auto">
+                        <table className={`min-w-full divide-y ${isDarkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                            <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
+                                <tr>
+                                    <th scope="col" className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                                        Üye
+                                    </th>
+                                    <th scope="col" className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                                        Departman
+                                    </th>
+                                    <th scope="col" className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                                        Performans
+                                    </th>
+                                    <th scope="col" className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                                        Durum
+                                    </th>
+                                    <th scope="col" className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                                        Uzmanlık
+                                    </th>
+                                    <th scope="col" className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                                        İşlemler
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className={`${isDarkMode ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'}`}>
+                                {filteredAndSortedMembers.map((member) => (
+                                    <tr key={member.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex items-center">
+                                                <div className="flex-shrink-0 h-10 w-10 relative">
+                                                    {member.profileImage ? (
+                                                        <img className="h-10 w-10 rounded-full" src={member.profileImage} alt="" />
+                                                    ) : (
+                                                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}>
+                                                            <span className={`text-xl ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                                {member.fullName.charAt(0).toUpperCase()}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    <span className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white ${getOnlineStatusColor(member.onlineStatus)}`}></span>
+                                                </div>
+                                                <div className="ml-4">
+                                                    <div className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                        {member.fullName}
+                                                    </div>
+                                                    <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                        {member.email}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{member.department}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex items-center">
+                                                <div className="flex-1 h-2 bg-gray-200 rounded-full">
+                                                    <div
+                                                        className="h-2 bg-blue-500 rounded-full"
+                                                        style={{ width: `${member.performanceScore}%` }}
+                                                    ></div>
+                                                </div>
+                                                <span className={`ml-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                    {member.performanceScore}%
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(member.status)}`}>
+                                                {member.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex flex-wrap gap-1">
+                                                {member.expertise.map((skill, index) => (
+                                                    <span
+                                                        key={index}
+                                                        className={`px-2 py-1 text-xs rounded-full ${isDarkMode
+                                                            ? 'bg-blue-900 text-blue-200'
+                                                            : 'bg-blue-100 text-blue-800'
+                                                            }`}
+                                                    >
+                                                        {skill}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <button
+                                                onClick={() => navigate(`/messages/${member.id}`)}
+                                                className={`text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-4`}
+                                            >
+                                                <ChatBubbleLeftIcon className="h-5 w-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => navigate(`/tasks/${member.id}`)}
+                                                className={`text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300`}
+                                            >
+                                                <ClipboardDocumentListIcon className="h-5 w-5" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         );
-    }
-
-    if (error) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-red-500">{error}</div>
-            </div>
-        );
-    }
+    };
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -136,296 +391,161 @@ const Team = () => {
     };
 
     return (
-        <div className={`container mx-auto px-4 py-8 ${isDarkMode ? 'dark' : ''}`}>
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row justify-between items-center mb-8 space-y-4 md:space-y-0">
-                <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                    Takım Üyeleri
-                </h1>
+        <div className="p-6">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+                <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Takım Üyeleri</h1>
 
-                {/* Search and Filter Section */}
-                <div className="flex items-center space-x-4">
-                    <input
-                        type="text"
-                        placeholder="Üye ara..."
-                        value={searchQuery}
-                        onChange={handleSearch}
-                        className={`px-4 py-2 rounded-lg border ${
-                            isDarkMode 
-                                ? 'bg-gray-700 border-gray-600 text-white' 
-                                : 'bg-white border-gray-300'
-                        }`}
-                    />
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="Üye ara..."
+                            className={`pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode
+                                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                                }`}
+                            value={searchQuery}
+                            onChange={(e) => dispatch(setSearchQuery(e.target.value))}
+                        />
+                        <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                    </div>
 
-                    {/* Department Filter */}
-                    <Menu as="div" className="relative">
-                        <Menu.Button className={`inline-flex justify-center px-4 py-2 rounded-lg border ${
-                            isDarkMode
-                                ? 'bg-gray-700 border-gray-600 text-white'
-                                : 'bg-white border-gray-300 text-gray-700'
-                        }`}>
-                            {selectedDepartment === 'all' ? 'Tüm Departmanlar' : selectedDepartment}
-                        </Menu.Button>
-                        <Transition
-                            enter="transition duration-100 ease-out"
-                            enterFrom="transform scale-95 opacity-0"
-                            enterTo="transform scale-100 opacity-100"
-                            leave="transition duration-75 ease-out"
-                            leaveFrom="transform scale-100 opacity-100"
-                            leaveTo="transform scale-95 opacity-0"
-                        >
-                            <Menu.Items className={`absolute right-0 w-56 mt-2 origin-top-right rounded-md shadow-lg ${
-                                isDarkMode
-                                    ? 'bg-gray-800 ring-1 ring-black ring-opacity-5'
-                                    : 'bg-white divide-y divide-gray-100'
-                            }`}>
-                                <div className="py-1">
-                                    <Menu.Item>
-                                        {({ active }) => (
-                                            <button
-                                                onClick={() => handleDepartmentChange('all')}
-                                                className={`${
-                                                    active
-                                                        ? isDarkMode
-                                                            ? 'bg-gray-700 text-white'
-                                                            : 'bg-gray-100 text-gray-900'
-                                                        : isDarkMode
-                                                            ? 'text-gray-200'
-                                                            : 'text-gray-700'
-                                                } block px-4 py-2 text-sm w-full text-left`}
-                                            >
-                                                Tüm Departmanlar
-                                            </button>
-                                        )}
-                                    </Menu.Item>
-                                    {departments.map((department) => (
-                                        <Menu.Item key={department}>
-                                            {({ active }) => (
-                                                <button
-                                                    onClick={() => handleDepartmentChange(department)}
-                                                    className={`${
-                                                        active
-                                                            ? isDarkMode
-                                                                ? 'bg-gray-700 text-white'
-                                                                : 'bg-gray-100 text-gray-900'
-                                                            : isDarkMode
-                                                                ? 'text-gray-200'
-                                                                : 'text-gray-700'
-                                                    } block px-4 py-2 text-sm w-full text-left`}
-                                                >
-                                                    {department}
-                                                </button>
-                                            )}
-                                        </Menu.Item>
-                                    ))}
-                                </div>
-                            </Menu.Items>
-                        </Transition>
-                    </Menu>
+                    <select
+                        className={`px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode
+                            ? 'bg-gray-700 border-gray-600 text-white'
+                            : 'bg-white border-gray-300 text-gray-900'
+                            }`}
+                        value={selectedDepartment}
+                        onChange={(e) => setSelectedDepartment(e.target.value)}
+                    >
+                        <option value="all">Tüm Departmanlar</option>
+                        {departments.map((dept) => (
+                            <option key={dept} value={dept}>
+                                {dept}
+                            </option>
+                        ))}
+                    </select>
 
-                    {/* Sort Options */}
-                    <Menu as="div" className="relative">
-                        <Menu.Button className={`inline-flex justify-center px-4 py-2 rounded-lg border ${
-                            isDarkMode
-                                ? 'bg-gray-700 border-gray-600 text-white'
-                                : 'bg-white border-gray-300 text-gray-700'
-                        }`}>
-                            Sırala
-                        </Menu.Button>
-                        <Transition
-                            enter="transition duration-100 ease-out"
-                            enterFrom="transform scale-95 opacity-0"
-                            enterTo="transform scale-100 opacity-100"
-                            leave="transition duration-75 ease-out"
-                            leaveFrom="transform scale-100 opacity-100"
-                            leaveTo="transform scale-95 opacity-0"
-                        >
-                            <Menu.Items className={`absolute right-0 w-56 mt-2 origin-top-right rounded-md shadow-lg ${
-                                isDarkMode
-                                    ? 'bg-gray-800 ring-1 ring-black ring-opacity-5'
-                                    : 'bg-white divide-y divide-gray-100'
-                            }`}>
-                                <div className="py-1">
-                                    {[
-                                        { id: 'name', label: 'İsim' },
-                                        { id: 'performance', label: 'Performans' },
-                                        { id: 'tasks', label: 'Görev Sayısı' }
-                                    ].map((option) => (
-                                        <Menu.Item key={option.id}>
-                                            {({ active }) => (
-                                                <button
-                                                    onClick={() => handleSort(option.id as any)}
-                                                    className={`${
-                                                        active
-                                                            ? isDarkMode
-                                                                ? 'bg-gray-700 text-white'
-                                                                : 'bg-gray-100 text-gray-900'
-                                                            : isDarkMode
-                                                                ? 'text-gray-200'
-                                                                : 'text-gray-700'
-                                                    } block px-4 py-2 text-sm w-full text-left`}
-                                                >
-                                                    {option.label}
-                                                    {sortBy === option.id && (
-                                                        <span className="ml-2">
-                                                            {sortOrder === 'asc' ? '↑' : '↓'}
-                                                        </span>
-                                                    )}
-                                                </button>
-                                            )}
-                                        </Menu.Item>
-                                    ))}
-                                </div>
-                            </Menu.Items>
-                        </Transition>
-                    </Menu>
+                    <button
+                        onClick={() => setShowCreateTeamModal(true)}
+                        className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                        <PlusIcon className="h-5 w-5 mr-2" />
+                        Yeni Ekip
+                    </button>
                 </div>
             </div>
 
-            {/* Team Members Table */}
-            <div className={`mt-8 overflow-x-auto rounded-lg shadow ${
-                isDarkMode ? 'bg-gray-800' : 'bg-white'
-            }`}>
-                <table className="w-full">
-                    <thead className={`${
-                        isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-                    }`}>
-                        <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                                <button 
-                                    onClick={() => handleSort('name')}
-                                    className="flex items-center space-x-1 hover:text-blue-500"
-                                >
-                                    <span>Üye</span>
-                                    {sortBy === 'name' && (
-                                        sortOrder === 'asc' ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />
-                                    )}
-                                </button>
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Departman</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                                <button 
-                                    onClick={() => handleSort('performance')}
-                                    className="flex items-center space-x-1 hover:text-blue-500"
-                                >
-                                    <span>Performans</span>
-                                    {sortBy === 'performance' && (
-                                        sortOrder === 'asc' ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />
-                                    )}
-                                </button>
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Durum</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Uzmanlık</th>
-                            <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">İşlemler</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {filteredAndSortedMembers.map((member) => (
-                            <motion.tr
-                                key={member.id}
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                className={`${
-                                    isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-                                } transition-colors`}
+            {teams.map((team) => (
+                <div key={team.id}>
+                    {renderTeamMembers(team.members, team.name, team.id)}
+                </div>
+            ))}
+
+            {/* Create Team Modal */}
+            {showCreateTeamModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className={`bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md ${isDarkMode ? 'dark' : ''}`}>
+                        <h2 className="text-2xl font-bold mb-4 dark:text-white">Yeni Ekip Oluştur</h2>
+                        <div className="mb-4">
+                            <label htmlFor="teamName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Ekip Adı
+                            </label>
+                            <input
+                                type="text"
+                                id="teamName"
+                                value={newTeamName}
+                                onChange={(e) => setNewTeamName(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                placeholder="Ekip adını girin"
+                            />
+                        </div>
+                        <div className="mb-4">
+                            <label htmlFor="teamDescription" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Ekip Açıklaması
+                            </label>
+                            <textarea
+                                id="teamDescription"
+                                value={newTeamDescription}
+                                onChange={(e) => setNewTeamDescription(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                placeholder="Ekip açıklamasını girin (opsiyonel)"
+                                rows={3}
+                            />
+                        </div>
+                        <div className="flex justify-end space-x-3">
+                            <button
+                                className="px-4 py-2 text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white"
+                                onClick={() => {
+                                    setShowCreateTeamModal(false);
+                                    setNewTeamName('');
+                                    setNewTeamDescription('');
+                                }}
                             >
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                    <div className="flex items-center">
-                                        <div className="h-8 w-8 flex-shrink-0">
-                                            {member.profileImage ? (
-                                                <img
-                                                    src={member.profileImage}
-                                                    alt={member.fullName}
-                                                    className="h-8 w-8 rounded-full"
-                                                />
-                                            ) : (
-                                                <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                                                    isDarkMode ? 'bg-gray-600' : 'bg-gray-200'
-                                                }`}>
-                                                    <span className="text-sm font-medium">
-                                                        {member.fullName.split(' ').map(n => n[0]).join('')}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="ml-3">
-                                            <div className="text-sm font-medium">{member.fullName}</div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400">{member.email}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm">{member.department}</td>
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                    <div className="flex items-center">
-                                        <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mr-2">
-                                            <div 
-                                                className={`h-full rounded-full ${
-                                                    member.performanceScore >= 80 ? 'bg-green-500' :
-                                                    member.performanceScore >= 60 ? 'bg-yellow-500' : 'bg-red-500'
-                                                }`}
-                                                style={{ width: `${member.performanceScore}%` }}
-                                            />
-                                        </div>
-                                        <span className="text-sm">{member.performanceScore}%</span>
-                                    </div>
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                        member.status === 'available' ? 'bg-green-100 text-green-800' :
-                                        member.status === 'busy' ? 'bg-red-100 text-red-800' :
-                                        'bg-yellow-100 text-yellow-800'
-                                    }`}>
-                                        {member.status.charAt(0).toUpperCase() + member.status.slice(1)}
-                                    </span>
-                                </td>
-                                <td className="px-4 py-3">
-                                    <div className="flex flex-wrap gap-1">
-                                        {member.expertise.slice(0, 2).map((exp, index) => (
-                                            <span
-                                                key={index}
-                                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                                    isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-                                                }`}
-                                            >
-                                                {exp}
-                                            </span>
-                                        ))}
-                                        {member.expertise.length > 2 && (
-                                            <span className="text-xs text-gray-500">+{member.expertise.length - 2}</span>
-                                        )}
-                                    </div>
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-center">
-                                    <div className="flex justify-center space-x-2">
-                                        <motion.button
-                                            whileHover={{ scale: 1.1 }}
-                                            whileTap={{ scale: 0.9 }}
-                                            className={`p-1.5 rounded-full ${
-                                                isDarkMode 
-                                                    ? 'hover:bg-blue-600 text-gray-400 hover:text-white' 
-                                                    : 'hover:bg-blue-100 text-gray-600 hover:text-blue-600'
-                                            }`}
-                                        >
-                                            <ChatBubbleLeftIcon className="w-4 h-4" />
-                                        </motion.button>
-                                        <motion.button
-                                            whileHover={{ scale: 1.1 }}
-                                            whileTap={{ scale: 0.9 }}
-                                            className={`p-1.5 rounded-full ${
-                                                isDarkMode 
-                                                    ? 'hover:bg-purple-600 text-gray-400 hover:text-white' 
-                                                    : 'hover:bg-purple-100 text-gray-600 hover:text-purple-600'
-                                            }`}
-                                        >
-                                            <ClipboardDocumentListIcon className="w-4 h-4" />
-                                        </motion.button>
-                                    </div>
-                                </td>
-                            </motion.tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                                İptal
+                            </button>
+                            <button
+                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                onClick={handleCreateTeam}
+                            >
+                                Oluştur
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Davet Linki Modal */}
+            {showInviteLinkModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+                    <div className={`rounded-lg p-6 w-full max-w-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                        <h2 className={`text-xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            Takım Davet Linki
+                        </h2>
+                        <div className="flex items-center gap-2 mb-4">
+                            <input
+                                type="text"
+                                readOnly
+                                value={inviteLink}
+                                className={`w-full px-4 py-2 border rounded-lg ${isDarkMode
+                                    ? 'bg-gray-700 border-gray-600 text-white'
+                                    : 'bg-gray-50 border-gray-300 text-gray-900'
+                                    }`}
+                            />
+                            <button
+                                onClick={handleCopyInviteLink}
+                                className={`px-4 py-2 rounded-lg ${copySuccess
+                                    ? 'bg-green-500 text-white'
+                                    : isDarkMode
+                                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                                    }`}
+                            >
+                                {copySuccess ? 'Kopyalandı!' : 'Kopyala'}
+                            </button>
+                        </div>
+                        {inviteLink && (
+                            <div className="mt-2">
+                                <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Davet Linki:</h3>
+                                <a href={inviteLink} target="_blank" rel="noopener noreferrer" className={`text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300`}>
+                                    {inviteLink}
+                                </a>
+                            </div>
+                        )}
+                        <div className="flex justify-end">
+                            <button
+                                onClick={() => setShowInviteLinkModal(false)}
+                                className={`px-4 py-2 ${isDarkMode
+                                    ? 'text-gray-400 hover:text-gray-200'
+                                    : 'text-gray-600 hover:text-gray-800'
+                                    }`}
+                            >
+                                Kapat
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

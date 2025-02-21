@@ -30,6 +30,28 @@ public class Team
     public string? Description { get; set; }
 
     /// <summary>
+    /// Takımı oluşturan kullanıcının ID'si
+    /// </summary>
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string CreatedById { get; set; }
+
+    /// <summary>
+    /// Takıma katılmak için kullanılacak davet linki
+    /// </summary>
+    public string? InviteLink { get; set; }
+
+    /// <summary>
+    /// Takıma katılmak için kullanılacak davet kodu
+    /// </summary>
+    public string? InviteCode { get; set; }
+
+    /// <summary>
+    /// Davet linkinin geçerlilik süresi
+    /// </summary>
+    [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+    public DateTime? InviteLinkExpiresAt { get; set; }
+
+    /// <summary>
     /// Takımın oluşturulma tarihi
     /// </summary>
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
@@ -56,21 +78,27 @@ public class TeamMember
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
-    public string Id { get; set; }
+    public string Id { get; set; } = string.Empty;
 
-    public string Username { get; set; }
-    public string Email { get; set; }
-    public string FullName { get; set; }
-    public string Department { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Department { get; set; } = string.Empty;
+    public string Role { get; set; } = "Member";
     public List<string> AssignedJobs { get; set; } = new();
     public string? ProfileImage { get; set; }
     public List<string> Expertise { get; set; } = new();
     public string? Phone { get; set; }
     public string Status { get; set; } = "available";
     public int CompletedTasksCount { get; set; }
-    public int PerformanceScore { get; set; }
+    public double PerformanceScore { get; set; }
     public string OnlineStatus { get; set; } = "offline";
     public AvailabilitySchedule? AvailabilitySchedule { get; set; }
+    public string? Title { get; set; }
+    public string? Position { get; set; }
+    
+    [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+    public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
 }
 
 public class AvailabilitySchedule

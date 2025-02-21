@@ -3,6 +3,7 @@ import tasksReducer from './features/tasksSlice';
 import teamReducer from './features/teamSlice';
 import calendarReducer from './features/calendarSlice';
 import authReducer from './features/authSlice';
+import themeReducer from './features/themeSlice';
 
 
 export const store = configureStore({
@@ -11,6 +12,7 @@ export const store = configureStore({
     team: teamReducer,
     calendar: calendarReducer,
     auth: authReducer,
+    theme: themeReducer,
 
   },
 });

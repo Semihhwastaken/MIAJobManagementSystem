@@ -26,6 +26,7 @@ import logo from '../../assets/images/logo.png';
 import axios from 'axios';
 import { useGoogleLogin } from '@react-oauth/google';
 import { Google } from '@mui/icons-material';
+import { useNotification } from '../../components/Notification/Notification';
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
     padding: theme.spacing(4),
@@ -114,6 +115,7 @@ const Auth: React.FC = () => {
     const theme = useTheme();
     const navigate = useNavigate();
     const { setIsAuthenticated } = useContext(AuthContext);
+    const { showSuccess, showError, showInfo, showWarning } = useNotification();
 
     const [formData, setFormData] = useState({
         username: '',
@@ -224,6 +226,7 @@ const Auth: React.FC = () => {
 
 
         if (!validateForm()) {
+            showError('Lütfen form alanlarını kontrol ediniz.', 'Form Hatası');
             return;
         }
 
@@ -242,32 +245,39 @@ const Auth: React.FC = () => {
                 if (response.token) {
                     localStorage.setItem('token', response.token);
                     setIsAuthenticated(true);
-                    navigate('/');
+                    showSuccess('Başarıyla giriş yaptınız!', 'Giriş Başarılı');
+                    setTimeout(() => {
+                        navigate('/');
+                    }, 1000);
                 }
             } else {
+                showInfo('Hesabınız oluşturuluyor...', 'Kayıt İşlemi');
                 const response = await register(formData);
 
                 if (response.error || response.message?.toLowerCase().includes('error')) {
                     const errorMessage = response.error || response.message;
 
                     if (errorMessage.toLowerCase().includes('kullanıcı adı')) {
-                        setErrors(prev => ({ ...prev, username: 'Bu kullanıcı adı zaten kullanılıyor' }));
+                        showError('Bu kullanıcı adı zaten kullanılıyor', 'Kullanıcı Adı Hatası');
                     } else if (errorMessage.toLowerCase().includes('e-posta')) {
-                        setErrors(prev => ({ ...prev, email: 'Bu e-posta adresi zaten kayıtlı' }));
+                        showError('Bu e-posta adresi zaten kayıtlı', 'E-Posta Hatası');
                     } else {
-                        setErrors(prev => ({ ...prev, general: errorMessage }));
+                        showError(errorMessage, 'Kayıt Hatası');
                     }
                     return;
                 }
 
-                if (response.token) {
-                    localStorage.setItem('token', response.token);
-                    setIsAuthenticated(true);
-                    navigate('/');
-                }
+
+                showSuccess('Başarıyla kayıt olundu!', 'Kayıt Başarılı');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+
+
             }
         } catch (error) {
             console.error('Auth error:', error);
+            showError('Bir hata oluştu. Lütfen daha sonra tekrar deneyin.', 'Kayıt Hatası');
             setErrors(prev => ({
                 ...prev,
                 general: 'Bir hata oluştu. Lütfen daha sonra tekrar deneyin.'
