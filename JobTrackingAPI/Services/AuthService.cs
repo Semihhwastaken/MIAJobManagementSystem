@@ -25,36 +25,56 @@ namespace JobTrackingAPI.Services
             _jwtSecret = jwtSettings.Value.Secret;
         }
 
-        public async Task<(bool success, string message, User? user)> RegisterAsync(string username, string email, string password)
+        public async Task<(bool success, string message, User? user)> RegisterAsync(
+            string username, 
+            string email, 
+            string password,
+            string fullName,
+            string department,
+            string title,
+            string phone,
+            string position,
+            string? profileImage)
         {
-            // Check if username exists
-            var existingUsername = await _users.Find(u => u.Username == username).FirstOrDefaultAsync();
-            if (existingUsername != null)
+            try 
             {
-                return (false, "Bu kullanıcı adı zaten kullanılıyor", null);
+                // Check if username exists
+                var existingUsername = await _users.Find(u => u.Username == username).FirstOrDefaultAsync();
+                if (existingUsername != null)
+                {
+                    return (false, "Bu kullanıcı adı zaten kullanılıyor", null);
+                }
+
+                // Check if email exists
+                var existingEmail = await _users.Find(u => u.Email == email).FirstOrDefaultAsync();
+                if (existingEmail != null)
+                {
+                    return (false, "Bu e-posta adresi zaten kayıtlı", null);
+                }
+
+                // Hash password
+                var hashedPassword = HashPassword(password);
+
+                // Create new user
+                var user = new User(
+                    username: username,
+                    email: email,
+                    fullName: fullName,
+                    department: department,
+                    password: hashedPassword,
+                    profileImage: profileImage,
+                    title: title,
+                    phone: phone,
+                    position: position
+                );
+
+                await _users.InsertOneAsync(user);
+                return (true, "Kayıt işlemi başarılı", user);
             }
-
-            // Check if email exists
-            var existingEmail = await _users.Find(u => u.Email == email).FirstOrDefaultAsync();
-            if (existingEmail != null)
+            catch (Exception ex)
             {
-                return (false, "Bu e-posta adresi zaten kayıtlı", null);
+                return (false, $"Kayıt işlemi sırasında bir hata oluştu: {ex.Message}", null);
             }
-
-            // Hash password
-            var hashedPassword = HashPassword(password);
-
-            // Create new user
-            var user = new User
-            {
-                Username = username,
-                Email = email,
-                Password = hashedPassword,
-                Department = "Unassigned" // Default department for new users
-            };
-
-            await _users.InsertOneAsync(user);
-            return (true, "Kayıt işlemi başarılı", user);
         }
 
         public async Task<(bool success, string message, string? token, User? user)> LoginAsync(string username, string password)

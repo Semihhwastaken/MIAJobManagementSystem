@@ -81,11 +81,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 {/* Theme Toggle Button */}
                 <button
                   onClick={toggleTheme}
-                  className={`p-2 rounded-lg transition-colors ${
-                    isDarkMode
+                  className={`p-2 rounded-lg transition-colors ${isDarkMode
                       ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
+                    }`}
                   aria-label="Toggle Theme"
                 >
                   {isDarkMode ? (
@@ -101,11 +100,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
                 {/* Profile Icon */}
                 <button
-                  className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-150 ease-in-out ${
-                    isDarkMode
+                  className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-150 ease-in-out ${isDarkMode
                       ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
+                    }`}
+                  onClick={() => navigate('/profile')}
                 >
                   <svg
                     className="h-5 w-5"
@@ -125,11 +124,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 {/* Logout Button */}
                 <button
                   onClick={handleLogout}
-                  className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-150 ease-in-out ${
-                    isDarkMode
+                  className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-150 ease-in-out ${isDarkMode
                       ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
+                    }`}
                 >
                   <svg
                     className="h-5 w-5"
@@ -137,14 +135,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
-                    
+
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
                       d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                     />
-                    
+
                   </svg>
                 </button>
               </div>

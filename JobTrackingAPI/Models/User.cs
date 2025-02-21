@@ -26,8 +26,20 @@ namespace JobTrackingAPI.Models
         [BsonElement("password")]
         public string Password { get; set; }
 
+        [BsonElement("title")]
+        public string Title { get; set; }
+
+        [BsonElement("phone")]
+        public string Phone { get; set; }
+
+        [BsonElement("position")]
+        public string Position { get; set; }
+
         [BsonElement("assignedJobs")]
         public List<string> AssignedJobs { get; set; } = new List<string>();
+
+        [BsonElement("profileImage")]
+        public string ProfileImage { get; set; }
 
         [BsonElement("createdDate")]
         [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
@@ -41,7 +53,7 @@ namespace JobTrackingAPI.Models
         {
         }
 
-        public User(string username, string email, string fullName, string department, string password)
+        public User(string username, string email, string fullName, string department, string password, string profileImage, string title, string phone, string position)
         {
             Username = username;
             Email = email;
@@ -49,6 +61,10 @@ namespace JobTrackingAPI.Models
             Department = department;
             Password = password;
             CreatedDate = DateTime.UtcNow;
+            ProfileImage = profileImage;
+            Title = title;
+            Phone = phone;
+            Position = position;
         }
     }
 }

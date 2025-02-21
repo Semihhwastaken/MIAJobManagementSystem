@@ -23,7 +23,13 @@ namespace JobTrackingAPI.Controllers
             var (success, message, user) = await _authService.RegisterAsync(
                 request.Username,
                 request.Email,
-                request.Password
+                request.Password,
+                request.FullName,
+                request.Department,
+                request.Title,
+                request.Phone,
+                request.Position,
+                request.ProfileImage
             );
 
             if (!success)
@@ -63,6 +69,23 @@ namespace JobTrackingAPI.Controllers
         [Required]
         [MinLength(6)]
         public required string Password { get; set; }
+
+        [Required]
+        public required string FullName { get; set; }
+
+        [Required]
+        public required string Department { get; set; }
+
+        [Required]
+        public required string Title { get; set; }
+
+        [Required]
+        public required string Phone { get; set; }
+
+        [Required]
+        public required string Position { get; set; }
+
+        public string? ProfileImage { get; set; }
     }
 
     public class LoginRequest

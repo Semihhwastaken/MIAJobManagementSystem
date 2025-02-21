@@ -4,17 +4,18 @@ import { CssBaseline } from '@mui/material';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { Toaster } from 'react-hot-toast';
-import Auth from './pages/Auth';
+import Auth from './pages/Auth/Auth';
 import Layout from './components/Layout/Layout';
 import Home from './pages/Home/Home';
 import Tasks from './pages/Tasks/Tasks';
 import Team from './pages/Team/Team';
-import Dashboard from './pages/Dashboard';
+import Dashboard from './pages/Dashboard/Dashboard';
 import Calendar from './pages/Calendar/Calendar';
 import { AuthContext } from './context/AuthContext';
 import { useEffect } from 'react';
 import Main from './pages/Main/Main';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import Profile from './pages/Profile/Profile';
 
 const PrivateRoute = ({ children }: any) => {
   const { isAuthenticated } = React.useContext(AuthContext);
@@ -104,6 +105,16 @@ const AppContent: React.FC = () => {
                       <Auth />
                     ) : (
                       <Navigate to="/" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={
+                    isAuthenticated ? (
+                      <Profile />
+                    ) : (
+                      <Navigate to="/auth" replace />
                     )
                   }
                 />

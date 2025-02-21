@@ -7,6 +7,12 @@ export interface RegisterRequest {
     username: string;
     email: string;
     password: string;
+    fullName: string;
+    department: string;
+    title: string;
+    phone: string;
+    position: string;
+    profileImage?: string;
 }
 
 export interface AuthResponse {
@@ -17,5 +23,11 @@ export interface AuthResponse {
         id: string;
         username: string;
         email: string;
+        fullName: string;
+        department: string;
+        title: string;
+        phone: string;
+        position: string;
+        profileImage?: string;
     };
 }

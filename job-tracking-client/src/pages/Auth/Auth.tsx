@@ -18,11 +18,11 @@ import {
     Email as EmailIcon,
     Lock as LockIcon,
 } from '@mui/icons-material';
-import { login, register } from '../services/api';
+import { login, register } from '../../services/api';
 import { styled } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
-import logo from '../assets/images/logo.png';
+import { AuthContext } from '../../context/AuthContext';
+import logo from '../../assets/images/logo.png';
 import axios from 'axios';
 import { useGoogleLogin } from '@react-oauth/google';
 import { Google } from '@mui/icons-material';
@@ -118,13 +118,24 @@ const Auth: React.FC = () => {
     const [formData, setFormData] = useState({
         username: '',
         email: '',
-        password: ''
+        password: '',
+        fullName: '',
+        department: '',
+        title: '',
+        phone: '',
+        position: '',
+        profileImage: ''
     });
 
     const [errors, setErrors] = useState<{
         username?: string;
         email?: string;
         password?: string;
+        fullName?: string;
+        department?: string;
+        title?: string;
+        phone?: string;
+        position?: string;
         general?: string;
     }>({});
 
@@ -133,6 +144,11 @@ const Auth: React.FC = () => {
             username: '',
             email: '',
             password: '',
+            fullName: '',
+            department: '',
+            title: '',
+            phone: '',
+            position: '',
             general: ''
         };
         let isValid = true;
@@ -158,6 +174,32 @@ const Auth: React.FC = () => {
                     isValid = false;
                 }
             }
+
+            // Diğer alanların kontrolü
+            if (!formData.fullName) {
+                tempErrors.fullName = 'Ad Soyad gereklidir';
+                isValid = false;
+            }
+
+            if (!formData.department) {
+                tempErrors.department = 'Departman gereklidir';
+                isValid = false;
+            }
+
+            if (!formData.title) {
+                tempErrors.title = 'Ünvan gereklidir';
+                isValid = false;
+            }
+
+            if (!formData.position) {
+                tempErrors.position = 'Pozisyon gereklidir';
+                isValid = false;
+            }
+
+            if (!formData.phone) {
+                tempErrors.phone = 'Telefon numarası gereklidir';
+                isValid = false;
+            }
         }
 
         // Şifre kontrolü
@@ -175,7 +217,7 @@ const Auth: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setErrors({ username: '', email: '', password: '', general: '' });
+        setErrors({ username: '', email: '', password: '', fullName: '', department: '', title: '', phone: '', position: '', general: '' });
 
         if (!validateForm()) {
             return;
@@ -421,24 +463,76 @@ const Auth: React.FC = () => {
                                     />
 
                                     {!isLogin && (
-                                        <StyledTextField
-                                            required
-                                            fullWidth
-                                            name="email"
-                                            label="E-posta"
-                                            type="email"
-                                            value={formData.email}
-                                            onChange={handleChange}
-                                            error={!!errors.email}
-                                            helperText={errors.email}
-                                            InputProps={{
-                                                startAdornment: (
-                                                    <InputAdornment position="start">
-                                                        <EmailIcon color={errors.email ? "error" : "primary"} />
-                                                    </InputAdornment>
-                                                ),
-                                            }}
-                                        />
+                                        <>
+                                            <StyledTextField
+                                                required
+                                                fullWidth
+                                                name="email"
+                                                label="E-posta"
+                                                type="email"
+                                                value={formData.email}
+                                                onChange={handleChange}
+                                                error={!!errors.email}
+                                                helperText={errors.email}
+                                                InputProps={{
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <EmailIcon color={errors.email ? "error" : "primary"} />
+                                                        </InputAdornment>
+                                                    ),
+                                                }}
+                                            />
+
+                                            <StyledTextField
+                                                fullWidth
+                                                name="fullName"
+                                                label="Ad Soyad"
+                                                value={formData.fullName}
+                                                onChange={handleChange}
+                                                error={!!errors.fullName}
+                                                helperText={errors.fullName}
+                                            />
+
+                                            <StyledTextField
+                                                fullWidth
+                                                name="department"
+                                                label="Departman"
+                                                value={formData.department}
+                                                onChange={handleChange}
+                                                error={!!errors.department}
+                                                helperText={errors.department}
+                                            />
+
+                                            <StyledTextField
+                                                fullWidth
+                                                name="title"
+                                                label="Ünvan"
+                                                value={formData.title}
+                                                onChange={handleChange}
+                                                error={!!errors.title}
+                                                helperText={errors.title}
+                                            />
+
+                                            <StyledTextField
+                                                fullWidth
+                                                name="position"
+                                                label="Pozisyon"
+                                                value={formData.position}
+                                                onChange={handleChange}
+                                                error={!!errors.position}
+                                                helperText={errors.position}
+                                            />
+
+                                            <StyledTextField
+                                                fullWidth
+                                                name="phone"
+                                                label="Telefon"
+                                                value={formData.phone}
+                                                onChange={handleChange}
+                                                error={!!errors.phone}
+                                                helperText={errors.phone}
+                                            />
+                                        </>
                                     )}
 
                                     <StyledTextField
