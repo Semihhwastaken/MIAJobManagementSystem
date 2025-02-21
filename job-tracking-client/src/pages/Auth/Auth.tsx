@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Box,
@@ -9,7 +9,11 @@ import {
     useTheme,
     IconButton,
     InputAdornment,
-    Button
+    Button,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions
 } from '@mui/material';
 import {
     Visibility,
@@ -18,7 +22,7 @@ import {
     Email as EmailIcon,
     Lock as LockIcon,
 } from '@mui/icons-material';
-import { login, register } from '../../services/api';
+import { verifyAndRegister } from '../../services/api';
 import { styled } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
@@ -26,6 +30,9 @@ import logo from '../../assets/images/logo.png';
 import axios from 'axios';
 import { useGoogleLogin } from '@react-oauth/google';
 import { Google } from '@mui/icons-material';
+import { useDispatch } from 'react-redux';
+import { setUser, setToken } from '../../redux/features/authSlice';
+import SignalRService from '../../services/signalRService';
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
     padding: theme.spacing(4),
@@ -108,9 +115,24 @@ const ToggleButton = styled(motion.button)(({ theme }) => ({
     },
 }));
 
+interface VerificationResponse {
+    token: string;
+    user: {
+        id: string;
+        username: string;
+        email: string;
+        fullName: string;
+        department: string;
+    };
+    error?: string;
+}
+
 const Auth: React.FC = () => {
+    const dispatch = useDispatch();
     const [isLogin, setIsLogin] = useState(true);
     const [showPassword, setShowPassword] = useState(false);
+    const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
+    const [verificationCode, setVerificationCode] = useState('');
     const theme = useTheme();
     const navigate = useNavigate();
     const { setIsAuthenticated } = useContext(AuthContext);
@@ -137,9 +159,12 @@ const Auth: React.FC = () => {
         title?: string;
         phone?: string;
         position?: string;
-
+        verificationCode?: string;
         general?: string;
     }>({});
+
+    // Initialize SignalR service
+    const signalRService = SignalRService.getInstance();
 
     const validateForm = () => {
         let tempErrors = {
@@ -220,58 +245,98 @@ const Auth: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setErrors({ username: '', email: '', password: '', fullName: '', department: '', title: '', phone: '', position: '', general: '' });
+        
+        if (!validateForm()) return;
 
+        try {
+            const response = await fetch(`http://localhost:5193/api/auth/${isLogin ? 'login' : 'register'}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            });
 
-        if (!validateForm()) {
+            const data = await response.json();
+
+            if (response.ok) {
+                console.log('Authentication successful:', data);
+                
+                // Store the token and user data
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                
+                // Update Redux state
+                dispatch(setToken(data.token));
+                dispatch(setUser(data.user));
+                
+                // Update authentication context
+                setIsAuthenticated(true);
+                
+                // Initialize SignalR connections
+                const signalRService = SignalRService.getInstance();
+                await signalRService.startConnection(data.user.id);
+                
+                console.log('SignalR connections initialized');
+                
+                // Navigate to home page
+                navigate('/');
+            } else {
+                setErrors({ general: data.message || 'An error occurred' });
+            }
+        } catch (error) {
+            console.error('Auth error:', error);
+            setErrors({ general: 'An unexpected error occurred' });
+        }
+    };
+
+    const handleVerificationSubmit = async () => {
+        if (!verificationCode) {
+            setErrors(prev => ({
+                ...prev,
+                verificationCode: 'Doğrulama kodu gereklidir'
+            }));
             return;
         }
 
         try {
-            if (isLogin) {
-                const response = await login({
-                    username: formData.username,
-                    password: formData.password,
-                });
-                if (response.error || response.message?.toLowerCase().includes('error')) {
-                    const errorMessage = response.error || response.message;
-                    setErrors(prev => ({ ...prev, general: errorMessage }));
-                    return;
-                }
+            const response = await verifyAndRegister({
+                ...formData,
+                code: verificationCode
+            }) as VerificationResponse;
 
-                if (response.token) {
-                    localStorage.setItem('token', response.token);
-                    setIsAuthenticated(true);
-                    navigate('/');
-                }
-            } else {
-                const response = await register(formData);
+            if (response.error) {
+                setErrors(prev => ({
+                    ...prev,
+                    verificationCode: response.error
+                }));
+                return;
+            }
 
-                if (response.error || response.message?.toLowerCase().includes('error')) {
-                    const errorMessage = response.error || response.message;
-
-                    if (errorMessage.toLowerCase().includes('kullanıcı adı')) {
-                        setErrors(prev => ({ ...prev, username: 'Bu kullanıcı adı zaten kullanılıyor' }));
-                    } else if (errorMessage.toLowerCase().includes('e-posta')) {
-                        setErrors(prev => ({ ...prev, email: 'Bu e-posta adresi zaten kayıtlı' }));
-                    } else {
-                        setErrors(prev => ({ ...prev, general: errorMessage }));
-                    }
-                    return;
-                }
-
-                if (response.token) {
-                    localStorage.setItem('token', response.token);
-                    setIsAuthenticated(true);
-                    navigate('/');
-                }
+            if (response.token && response.user) {
+                // Store the token and user data
+                localStorage.setItem('token', response.token);
+                localStorage.setItem('user', JSON.stringify(response.user));
+                
+                // Update Redux state
+                dispatch(setToken(response.token));
+                dispatch(setUser(response.user));
+                
+                // Update authentication context
+                setIsAuthenticated(true);
+                setVerificationDialogOpen(false);
+                
+                // Initialize SignalR connections
+                await signalRService.startConnection(response.user.id);
+                
+                // Navigate to home page
+                navigate('/');
             }
         } catch (error) {
-            console.error('Auth error:', error);
+            console.error('Verification error:', error);
             setErrors(prev => ({
                 ...prev,
-                general: 'Bir hata oluştu. Lütfen daha sonra tekrar deneyin.'
-
+                verificationCode: 'An unexpected error occurred'
             }));
         }
     };
@@ -288,6 +353,7 @@ const Auth: React.FC = () => {
 
             if (response.data.token) {
                 localStorage.setItem('token', response.data.token);
+                dispatch(setToken(response.data.token));
                 setIsAuthenticated(true);
                 navigate('/');
             }
@@ -311,20 +377,25 @@ const Auth: React.FC = () => {
         }
     });
 
+    useEffect(() => {
+        console.log('Modal state changed:', verificationDialogOpen);
+    }, [verificationDialogOpen]);
+
     return (
         <Container
-            component="main"
-            maxWidth={false}
-            sx={{
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-                padding: '2rem 1rem'
-            }}
-        >
+        component="main"
+        maxWidth={false}
+        sx={{
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            padding: '2rem 1rem'
+        }}
+    >
+
             <Box
                 sx={{
                     minHeight: '100vh',
@@ -444,6 +515,28 @@ const Auth: React.FC = () => {
                         </motion.div>
 
                         <FormContainer onSubmit={handleSubmit}>
+                            {errors.general && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    transition={{ duration: 0.3 }}
+                                >
+                                    <Typography
+                                        color="error"
+                                        variant="body2"
+                                        sx={{
+                                            textAlign: 'center',
+                                            mb: 2,
+                                            padding: '8px',
+                                            backgroundColor: '#ffebee',
+                                            borderRadius: '4px'
+                                        }}
+                                    >
+                                        {errors.general}
+                                    </Typography>
+                                </motion.div>
+                            )}
                             <AnimatePresence mode="wait">
                                 <motion.div
                                     key={isLogin ? 'login' : 'register'}
@@ -626,6 +719,58 @@ const Auth: React.FC = () => {
                     </StyledPaper>
                 </Box>
             </Box>
+
+            {/* Verification Dialog */}
+            <Dialog 
+                open={verificationDialogOpen} 
+                onClose={() => {
+                    console.log('Modal closing');
+                    setVerificationDialogOpen(false);
+                }}
+                PaperProps={{
+                    style: {
+                        borderRadius: '15px',
+                        padding: '20px',
+                        minWidth: '400px'
+                    }
+                }}
+            >
+                <DialogTitle>
+                    Email Doğrulama
+                </DialogTitle>
+                <DialogContent>
+                    <Typography variant="body1" style={{ marginBottom: '20px' }}>
+                        Email adresinize gönderilen 6 haneli doğrulama kodunu giriniz.
+                    </Typography>
+                    <StyledTextField
+                        fullWidth
+                        label="Doğrulama Kodu"
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value)}
+                        error={!!errors.verificationCode}
+                        helperText={errors.verificationCode}
+                        variant="outlined"
+                        margin="normal"
+                        autoFocus
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setVerificationDialogOpen(false)} color="primary">
+                        İptal
+                    </Button>
+                    <Button 
+                        onClick={handleVerificationSubmit} 
+                        color="primary" 
+                        variant="contained"
+                        style={{
+                            borderRadius: '8px',
+                            padding: '8px 20px'
+                        }}
+                    >
+                        Doğrula
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Container>
     );
 };

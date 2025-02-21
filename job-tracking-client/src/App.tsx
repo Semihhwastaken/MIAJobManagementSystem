@@ -1,5 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material';
+import { useDispatch } from 'react-redux';
+import { setUser, setToken } from './redux/features/authSlice';
+
 
 import { CssBaseline } from '@mui/material';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -12,27 +15,56 @@ import Tasks from './pages/Tasks/Tasks';
 import Team from './pages/Team/Team';
 import Dashboard from './pages/Dashboard/Dashboard';
 import Calendar from './pages/Calendar/Calendar';
+import Chat from './pages/Chat/Chat';
 import { AuthContext } from './context/AuthContext';
-import { useEffect } from 'react';
-import Main from './pages/Main/Main';
-import { ThemeProvider, useTheme } from './context/ThemeContext';
 
 import Profile from './pages/Profile/Profile';
 
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 
-const PrivateRoute = ({ children }: any) => {
-  const { isAuthenticated } = React.useContext(AuthContext);
-  if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
-  }
-  return children;
-};
+import Main from './pages/Main/Main';
 
 const AppContent: React.FC = () => {
   const { isDarkMode } = useTheme();
+  const dispatch = useDispatch();
   const [isAuthenticated, setIsAuthenticated] = useState(
     localStorage.getItem('token') !== null
   );
+
+  // Load stored auth data on startup
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    
+    if (token && storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        dispatch(setToken(token));
+        dispatch(setUser(user));
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.error('Failed to parse stored user data:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setIsAuthenticated(false);
+      }
+    } else {
+      console.log('No stored auth data found');
+    }
+  }, [dispatch]);
+
+  // Listen for auth errors
+  useEffect(() => {
+    const handleAuthError = () => {
+      setIsAuthenticated(false);
+      window.location.href = '/auth';
+    };
+
+    window.addEventListener('authError', handleAuthError);
+    return () => {
+      window.removeEventListener('authError', handleAuthError);
+    };
+  }, []);
 
   // Apply dark mode class to html element
   useEffect(() => {
@@ -174,6 +206,16 @@ const AppContent: React.FC = () => {
                   }
                 />
                 <Route
+                  path="/chat"
+                  element={
+                    isAuthenticated ? (
+                      <Chat />
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
+                <Route
                   path="/analytics"
                   element={<div>Raporlar Sayfası (Yapım aşamasında)</div>}
                 />
@@ -188,6 +230,42 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    // Initialize auth state from localStorage
+    const token = localStorage.getItem('token');
+    const userDataStr = localStorage.getItem('user');
+    
+    if (token && userDataStr) {
+      try {
+        console.log('Initializing auth state from localStorage');
+        const userData = JSON.parse(userDataStr);
+        
+        // Set token first
+        dispatch(setToken(token));
+        
+        // Then set user data
+        dispatch(setUser({
+          id: userData.id,
+          username: userData.username,
+          email: userData.email,
+          fullName: userData.fullName,
+          department: userData.department
+        }));
+
+        console.log('Auth state initialized successfully');
+      } catch (error) {
+        console.error('Error initializing auth state:', error);
+        // Clear invalid data
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+      }
+    } else {
+      console.log('No stored auth data found');
+    }
+  }, [dispatch]);
+
   return (
     <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID">
       <ThemeProvider>

@@ -27,6 +27,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { path: '/tasks', label: 'Görevler' },
     { path: '/team', label: 'Ekip' },
     { path: '/calendar', label: 'Takvim' },
+    { path: '/chat', label: 'Mesajlar' },
   ];
 
   return (

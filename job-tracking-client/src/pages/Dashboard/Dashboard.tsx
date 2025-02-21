@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Line, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, ChartOptions, Filler } from 'chart.js';
 import { useTheme } from '../../context/ThemeContext';
-
+import Footer from "../../components/Footer/Footer";
 
 // Register ChartJS components
 ChartJS.register(
@@ -339,6 +339,7 @@ const Dashboard = () => {
           </div>
         </motion.div>
       </div>
+      <Footer />
     </motion.div>
   );
 };
