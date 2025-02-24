@@ -1,55 +1,101 @@
 import axios from 'axios';
-import { LoginRequest, RegisterRequest, AuthResponse } from '../types/auth';
+import { LoginRequest, AuthResponse } from '../types/auth';
 import axiosInstance from './axiosInstance';
 
+export interface InitiateRegistrationRequest {
+    username: string;
+    email: string;
+    password: string;
+    fullName: string;
+    department: string;
+    title: string;
+    phone: string;
+    position: string;
+    profileImage?: string;
+}
 
-const API_URL = 'http://localhost:5193/api';
-
-const api = axios.create({
-    baseURL: API_URL,
-    headers: {
-        'Content-Type': 'application/json',
-    },
-});
+export interface VerificationRequest {
+    email: string;
+    code: string;
+    username: string;
+    password: string;
+    fullName: string;
+    department: string;
+    title: string;
+    phone: string;
+    position: string;
+    profileImage?: string;
+}
 
 export const login = async (data: LoginRequest): Promise<AuthResponse> => {
     try {
         const response = await axiosInstance.post<AuthResponse>('/auth/login', data);
-        if (response.data.token) {
-            localStorage.setItem('token', response.data.token);
-            axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-        }
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error) && error.response) {
-            // API'den gelen hata mesajını döndür
-            return {
+            throw {
                 message: error.response.data.message || 'Giriş işlemi başarısız oldu',
                 error: error.response.data.error || error.response.data.message
             };
         }
-        // Genel hata durumu
-        return {
+        throw {
             message: 'Bir hata oluştu',
             error: 'Sunucu ile bağlantı kurulamadı'
         };
     }
 };
 
-export const register = async (data: RegisterRequest): Promise<AuthResponse> => {
+export const initiateRegister = async (data: InitiateRegistrationRequest): Promise<any> => {
     try {
-        const response = await axiosInstance.post<AuthResponse>('/auth/register', data);
+        console.log('Sending registration request:', data);
+        const response = await axiosInstance.post('/auth/register/initiate', data);
+        console.log('Registration response:', response.data);
 
+        // Başarılı yanıt kontrolü
+        if (response.data && !response.data.error) {
+            return response.data;
+        } else {
+            throw new Error(response.data.error || 'Kayıt işlemi başarısız oldu');
+        }
+    } catch (error) {
+        console.error('Registration error:', error);
+        if (axios.isAxiosError(error) && error.response) {
+            throw new Error(error.response.data.message || 'Kayıt işlemi başarısız oldu');
+        }
+        throw new Error('Sunucu ile bağlantı kurulamadı');
+    }
+};
+
+export const verifyAndRegister = async (data: VerificationRequest): Promise<AuthResponse> => {
+    try {
+        const response = await axiosInstance.post<AuthResponse>('/auth/register/verify', data);
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error) && error.response) {
-            // API'den gelen hata mesajını döndür
-            return {
-                message: error.response.data.message || 'Kayıt işlemi başarısız oldu',
+            throw {
+                message: error.response.data.message || 'Doğrulama işlemi başarısız oldu',
                 error: error.response.data.error || error.response.data.message
             };
         }
-        // Genel hata durumu
+        throw {
+            message: 'Bir hata oluştu',
+            error: 'Sunucu ile bağlantı kurulamadı'
+        };
+    }
+};
+
+
+export const getCurrentUser = async (): Promise<AuthResponse> => {
+    try {
+        const response = await axiosInstance.get<AuthResponse>('/auth/current-user');
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error) && error.response) {
+            return {
+                message: error.response.data.message || 'Kullanıcı bilgileri alınamadı',
+                error: error.response.data.error || error.response.data.message
+            };
+        }
         return {
             message: 'Bir hata oluştu',
             error: 'Sunucu ile bağlantı kurulamadı'

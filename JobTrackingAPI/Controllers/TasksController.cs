@@ -4,6 +4,8 @@ using MongoDB.Driver;
 using MongoDB.Bson;
 using JobTrackingAPI.Models;
 using JobTrackingAPI.Settings;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -12,29 +14,34 @@ namespace JobTrackingAPI.Controllers
     public class TasksController : ControllerBase
     {
         private readonly IMongoCollection<TaskItem> _tasksCollection;
+        private readonly IMongoCollection<User> _usersCollection;
 
         public TasksController(IMongoClient mongoClient, IOptions<MongoDbSettings> settings)
         {
             var database = mongoClient.GetDatabase(settings.Value.DatabaseName);
             _tasksCollection = database.GetCollection<TaskItem>("Tasks");
+            _usersCollection = database.GetCollection<User>("Users");
         }
 
         [HttpGet]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<TaskItem>>> GetTasks()
         {
             try
             {
-                var tasks = await _tasksCollection.Find(_ => true).ToListAsync();
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized();
+                }
+
+                var filter = Builders<TaskItem>.Filter.ElemMatch(t => t.AssignedUsers, u => u.Id == userId);
+                var tasks = await _tasksCollection.Find(filter).ToListAsync();
                 return Ok(tasks);
             }
             catch (Exception ex)
             {
-                // Loglama yapılmalı
-                return StatusCode(500, new { 
-                    error = "Internal Server Error",
-                    message = ex.Message,
-                    stackTrace = ex.StackTrace 
-                });
+                return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
@@ -63,6 +70,38 @@ namespace JobTrackingAPI.Controllers
                 task.Dependencies ??= new List<string>();
                 task.Attachments ??= new List<TaskAttachment>();
 
+                // Atanan kullanıcıları doğrula ve bilgilerini güncelle
+                if (task.AssignedUsers != null && task.AssignedUsers.Any())
+                {
+                    var updatedAssignedUsers = new List<AssignedUser>();
+                    foreach (var assignedUser in task.AssignedUsers)
+                    {
+                        if (string.IsNullOrEmpty(assignedUser.Id))
+                        {
+                            return BadRequest($"Atanan kullanıcı ID'si boş olamaz.");
+                        }
+
+                        var user = await _usersCollection.Find(u => u.Id == assignedUser.Id).FirstOrDefaultAsync();
+                        if (user == null)
+                        {
+                            return BadRequest($"ID'si {assignedUser.Id} olan kullanıcı bulunamadı.");
+                        }
+
+                        updatedAssignedUsers.Add(new AssignedUser
+                        {
+                            Id = user.Id,
+                            Username = user.Username,
+                            Email = user.Email,
+                            FullName = user.FullName,
+                            Department = user.Department,
+                            Title = user.Title,
+                            Position = user.Position,
+                            ProfileImage = user.ProfileImage
+                        });
+                    }
+                    task.AssignedUsers = updatedAssignedUsers;
+                }
+
                 // Tarihleri ayarla
                 task.CreatedAt = DateTime.UtcNow;
                 task.UpdatedAt = DateTime.UtcNow;
@@ -72,10 +111,8 @@ namespace JobTrackingAPI.Controllers
                     task.Status = "todo";
                 if (string.IsNullOrEmpty(task.Priority))
                     task.Priority = "medium";
-
                 if (string.IsNullOrEmpty(task.Category))
                     task.Category = "Personal";
-
 
                 await _tasksCollection.InsertOneAsync(task);
                 return CreatedAtAction(nameof(GetTask), new { id = task.Id }, task);
@@ -139,6 +176,28 @@ namespace JobTrackingAPI.Controllers
                 return NotFound();
             }
             return NoContent();
+        }
+
+        [HttpGet("my-tasks")]
+        [Authorize]
+        public async Task<ActionResult<IEnumerable<TaskItem>>> GetMyTasks()
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized();
+                }
+
+                var filter = Builders<TaskItem>.Filter.ElemMatch(t => t.AssignedUsers, u => u.Id == userId);
+                var tasks = await _tasksCollection.Find(filter).ToListAsync();
+                return Ok(tasks);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
     }
 }

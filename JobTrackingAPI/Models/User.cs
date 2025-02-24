@@ -2,32 +2,49 @@ using System;
 using System.Collections.Generic;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System.ComponentModel.DataAnnotations;
 
 namespace JobTrackingAPI.Models
 {
+    [BsonIgnoreExtraElements]
     public class User
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; }
+        [Required]
+        public string Id { get; set; } = null!;
 
         [BsonElement("username")]
-        public string Username { get; set; }
+        [Required]
+        public string Username { get; set; } = null!;
 
         [BsonElement("email")]
-        public string Email { get; set; }
+        [Required]
+        public string Email { get; set; } = null!;
 
         [BsonElement("fullName")]
-        public string FullName { get; set; }
+        public string? FullName { get; set; }
 
         [BsonElement("department")]
-        public string Department { get; set; }
+        public string? Department { get; set; }
 
         [BsonElement("password")]
-        public string Password { get; set; }
+        public string Password { get; set; } = null!;
+
+        [BsonElement("title")]
+        public string? Title { get; set; }
+
+        [BsonElement("phone")]
+        public string? Phone { get; set; }
+
+        [BsonElement("position")]
+        public string? Position { get; set; }
 
         [BsonElement("assignedJobs")]
         public List<string> AssignedJobs { get; set; } = new List<string>();
+
+        [BsonElement("profileImage")]
+        public string? ProfileImage { get; set; }
 
         [BsonElement("createdDate")]
         [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
@@ -41,7 +58,9 @@ namespace JobTrackingAPI.Models
         {
         }
 
-        public User(string username, string email, string fullName, string department, string password)
+
+        public User(string username, string email, string fullName, string department, string password, string profileImage, string title, string phone, string position)
+
         {
             Username = username;
             Email = email;
@@ -49,6 +68,11 @@ namespace JobTrackingAPI.Models
             Department = department;
             Password = password;
             CreatedDate = DateTime.UtcNow;
+            ProfileImage = profileImage;
+            Title = title;
+            Phone = phone;
+            Position = position;
+
         }
     }
 }

@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Task, User, SubTask, Attachment, mockUsers } from '../../types/task';
+import { Task, User, SubTask, Attachment } from '../../types/task';
+import { Team, TeamMember } from '../../types/team';
+import teamService from '../../services/teamService';
+import { Listbox, Transition } from '@headlessui/react';
+import { CheckIcon, ChevronUpDownIcon, XCircleIcon } from '@heroicons/react/24/outline';
 
 interface TaskFormProps {
   isOpen: boolean;
@@ -17,7 +21,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     priority: task?.priority || 'medium',
     status: task?.status || 'todo',
     category: task?.category || 'Personal',
-    assignedUsers: task?.assignedUsers || [] as User[],
+    assignedUsers: task?.assignedUsers || [] as TeamMember[],
     subTasks: task?.subTasks || [] as SubTask[],
     dependencies: task?.dependencies || [] as string[],
     attachments: task?.attachments || [] as Attachment[]
@@ -25,6 +29,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
 
   const [newSubTask, setNewSubTask] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [users, setUsers] = useState<TeamMember[]>([]);
 
   useEffect(() => {
     if (task) {
@@ -42,6 +49,39 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
       });
     }
   }, [task]);
+
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const myTeams = await teamService.getMyTeams();
+        setTeams(myTeams);
+        if (myTeams.length > 0) {
+          setSelectedTeam(myTeams[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching teams:', error);
+        // toast.error('Ekipler yüklenirken bir hata oluştu');
+      }
+    };
+
+    fetchTeams();
+  }, []);
+
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      if (selectedTeam) {
+        try {
+          const members = await teamService.getTeamMembers(selectedTeam.id);
+          setUsers(members);
+        } catch (error) {
+          console.error('Error fetching team members:', error);
+          // toast.error('Ekip üyeleri yüklenirken bir hata oluştu');
+        }
+      }
+    };
+
+    fetchTeamMembers();
+  }, [selectedTeam]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +141,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     });
   };
 
-  const handleUserToggle = (user: User) => {
+  const handleUserToggle = (user: TeamMember) => {
     const isSelected = formData.assignedUsers.some(u => u.id === user.id);
     setFormData({
       ...formData,
@@ -118,6 +158,13 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
       dependencies: isSelected
         ? formData.dependencies.filter(id => id !== taskId)
         : [...formData.dependencies, taskId]
+    });
+  };
+
+  const handleRemoveUser = (userId: string) => {
+    setFormData({
+      ...formData,
+      assignedUsers: formData.assignedUsers.filter(user => user.id !== userId)
     });
   };
 
@@ -212,6 +259,24 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
             </select>
           </div>
 
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700">Ekip Seçin</label>
+            <select
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              value={selectedTeam?.id || ''}
+              onChange={(e) => {
+                const team = teams.find(t => t.id === e.target.value);
+                setSelectedTeam(team || null);
+              }}
+            >
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Alt Görevler */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -252,26 +317,118 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
           </div>
 
           {/* Kişi Atama */}
-          <div>
+          <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Görevli Kişiler
             </label>
             <div className="space-y-2">
-              {mockUsers.map((user) => (
-                <div
-                  key={user.id}
-                  className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${formData.assignedUsers.some(u => u.id === user.id)
-                    ? 'bg-indigo-50'
-                    : 'hover:bg-gray-50'
-                    }`}
-                  onClick={() => handleUserToggle(user)}
-                >
-                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600">
-                    {user.name.charAt(0)}
+              {/* Seçili kullanıcılar */}
+              <div className="flex flex-wrap gap-2 mb-2">
+                {formData.assignedUsers.map((user) => (
+                  <div
+                    key={user.id}
+                    className="flex items-center gap-2 bg-indigo-50 px-3 py-1 rounded-full text-sm"
+                  >
+                    {user.profileImage ? (
+                      <img
+                        src={user.profileImage}
+                        alt={user.fullName || user.username}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-indigo-200 flex items-center justify-center">
+                        <span className="text-xs text-indigo-600">
+                          {(user.fullName || user.username).charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <span>{user.fullName || user.username}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveUser(user.id || '')}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <XCircleIcon className="w-4 h-4" />
+                    </button>
                   </div>
-                  <span className="text-gray-900">{user.name}</span>
+                ))}
+              </div>
+
+              {/* Kullanıcı seçme dropdown */}
+              <Listbox
+                value={null}
+                onChange={(selectedUser: TeamMember) => {
+                  if (selectedUser && !formData.assignedUsers.some(u => u.id === selectedUser.id)) {
+                    setFormData({
+                      ...formData,
+                      assignedUsers: [...formData.assignedUsers, selectedUser]
+                    });
+                  }
+                }}
+              >
+                <div className="relative">
+                  <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-white py-2 pl-3 pr-10 text-left border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm">
+                    <span className="block truncate text-gray-500">Kullanıcı seç...</span>
+                    <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                      <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                    </span>
+                  </Listbox.Button>
+                  <Transition
+                    as={React.Fragment}
+                    leave="transition ease-in duration-100"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                  >
+                    <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                      {users
+                        .filter(user => !formData.assignedUsers.some(u => u.id === user.id))
+                        .map((user) => (
+                          <Listbox.Option
+                            key={user.id}
+                            className={({ active }) =>
+                              `relative cursor-pointer select-none py-2 pl-10 pr-4 ${active ? 'bg-indigo-100 text-indigo-900' : 'text-gray-900'
+                              }`
+                            }
+                            value={user}
+                          >
+                            {({ selected }) => (
+                              <>
+                                <div className="flex items-center">
+                                  {user.profileImage ? (
+                                    <img
+                                      src={user.profileImage}
+                                      alt={user.fullName || user.username}
+                                      className="w-6 h-6 rounded-full object-cover mr-3"
+                                    />
+                                  ) : (
+                                    <div className="w-6 h-6 rounded-full bg-indigo-200 flex items-center justify-center mr-3">
+                                      <span className="text-xs text-indigo-600">
+                                        {(user.fullName || user.username).charAt(0).toUpperCase()}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <span className="block truncate">
+                                    {user.fullName || user.username}
+                                    {user.department && (
+                                      <span className="text-gray-500 text-sm ml-2">
+                                        ({user.department})
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                                {selected ? (
+                                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-indigo-600">
+                                    <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                  </span>
+                                ) : null}
+                              </>
+                            )}
+                          </Listbox.Option>
+                        ))}
+                    </Listbox.Options>
+                  </Transition>
                 </div>
-              ))}
+              </Listbox>
             </div>
           </div>
 
