@@ -1,40 +1,32 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { RootState } from '../../redux/store';
+import { AppDispatch, RootState } from '../../redux/store';
 import {
     fetchTeamMembers,
     fetchDepartments,
-    fetchTeamMembersByDepartment,
     setSearchQuery,
-    setFilters,
-    setSortBy,
-    setSortOrder,
-    updateMemberStatus,
     createTeam,
     generateTeamInviteLink,
-    joinTeamWithInviteLink,
-    fetchTeams
+    fetchTeams,
+    deleteTeam,
+    removeTeamMember
 } from '../../redux/features/teamSlice';
-import { Menu, Transition } from '@headlessui/react';
-import { motion } from 'framer-motion';
 import { useTheme } from '../../context/ThemeContext';
 import { TeamMember } from '../../types/team';
 import {
     ChatBubbleLeftIcon,
     ClipboardDocumentListIcon,
-    ChevronUpIcon,
-    ChevronDownIcon,
     MagnifyingGlassIcon,
     PlusIcon,
-    ClipboardIcon,
-    ClipboardDocumentIcon
+    ClipboardDocumentIcon,
+    UserMinusIcon
 } from '@heroicons/react/24/outline';
 import axiosInstance from '../../services/axiosInstance';
 import { useSnackbar } from 'notistack';
 
-const Team = () => {
-    const dispatch = useDispatch();
+const Team: React.FC = () => {
+    const dispatch = useDispatch<AppDispatch>();
     const navigate = useNavigate();
     const { isDarkMode } = useTheme();
     const { enqueueSnackbar } = useSnackbar();
@@ -42,8 +34,6 @@ const Team = () => {
         members,
         teams,
         departments,
-        loading,
-        error,
         searchQuery,
         filters,
         sortBy,
@@ -57,6 +47,10 @@ const Team = () => {
     const [showInviteLinkModal, setShowInviteLinkModal] = useState(false);
     const [selectedTeamId, setSelectedTeamId] = useState<string>('');
     const [copySuccess, setCopySuccess] = useState(false);
+    const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+    const [teamToDelete, setTeamToDelete] = useState<string>('');
+    const [showRemoveMemberModal, setShowRemoveMemberModal] = useState(false);
+    const [memberToRemove, setMemberToRemove] = useState<{ teamId: string, memberId: string } | null>(null);
     const currentUser = useSelector((state: RootState) => state.auth.user);
 
     useEffect(() => {
@@ -72,39 +66,6 @@ const Team = () => {
         dispatch(fetchTeams() as any);
     }, [dispatch, navigate]);
 
-    const handleDepartmentChange = (department: string) => {
-        setSelectedDepartment(department);
-        if (department === 'all') {
-            dispatch(fetchTeamMembers() as any);
-        } else {
-            dispatch(fetchTeamMembersByDepartment(department) as any);
-        }
-    };
-
-    const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-        dispatch(setSearchQuery(e.target.value));
-    };
-
-    const handleStatusFilter = (status: string) => {
-        const newStatuses = filters.status.includes(status)
-            ? filters.status.filter(s => s !== status)
-            : [...filters.status, status];
-        dispatch(setFilters({ status: newStatuses }));
-    };
-
-    const handleSort = (newSortBy: 'name' | 'performance' | 'tasks' | 'seniority') => {
-        if (sortBy === newSortBy) {
-            dispatch(setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'));
-        } else {
-            dispatch(setSortBy(newSortBy));
-            dispatch(setSortOrder('asc'));
-        }
-    };
-
-    const handleStatusChange = (memberId: string, status: string) => {
-        dispatch(updateMemberStatus({ memberId, status }) as any);
-    };
-
     const handleCreateTeam = async () => {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -114,16 +75,16 @@ const Team = () => {
 
         if (newTeamName.trim()) {
             try {
-                console.log('Takım oluşturma isteği gönderiliyor:', { 
+                console.log('Takım oluşturma isteği gönderiliyor:', {
                     name: newTeamName,
-                    description: newTeamDescription.trim() || undefined 
+                    description: newTeamDescription.trim() || undefined
                 });
 
-                const result = await dispatch(createTeam({ 
+                const result = await dispatch(createTeam({
                     name: newTeamName,
-                    description: newTeamDescription.trim() || undefined 
+                    description: newTeamDescription.trim() || undefined
                 }) as any);
-                
+
                 console.log('API Yanıtı:', result); // Debug için
 
                 if (result.error) {
@@ -190,18 +151,52 @@ const Team = () => {
         }
     };
 
-    const handleDeleteTeam = async (teamId: string) => {
-        if (window.confirm('Bu takımı silmek istediğinize emin misiniz?')) {
-            try {
-                await axiosInstance.delete(`Team/${teamId}`);
-                enqueueSnackbar('Takım başarıyla silindi!', { variant: 'success' });
-                dispatch(fetchTeams() as any);
-            } catch (error: any) {
-                console.error('Takım silinirken hata:', error);
-                enqueueSnackbar('Takım silinemedi', { variant: 'error' });
-            }
+    const handleDeleteTeamClick = (teamId: string) => {
+        setTeamToDelete(teamId);
+        setShowDeleteConfirmModal(true);
+    };
+
+    const handleDeleteTeam = async () => {
+        if (!teamToDelete) return;
+
+        try {
+            const result = await dispatch(deleteTeam(teamToDelete)).unwrap();
+            enqueueSnackbar('Takım başarıyla silindi', { variant: 'success' });
+            setShowDeleteConfirmModal(false);
+            setTeamToDelete('');
+
+            // Ana sayfaya yönlendir
+            navigate('/');
+        } catch (error: any) {
+            enqueueSnackbar(error.message || 'Takım silinirken bir hata oluştu', { variant: 'error' });
         }
     };
+
+    const handleRemoveMemberClick = (teamId: string, memberId: string) => {
+        setMemberToRemove({ teamId, memberId });
+        setShowRemoveMemberModal(true);
+    };
+
+    const handleRemoveMember = async () => {
+        if (!memberToRemove) return;
+
+        try {
+            const result = await dispatch(removeTeamMember({
+                teamId: memberToRemove.teamId,
+                memberId: memberToRemove.memberId
+            })).unwrap();
+
+            enqueueSnackbar('Üye başarıyla çıkartıldı', { variant: 'success' });
+            setShowRemoveMemberModal(false);
+            setMemberToRemove(null);
+
+            // Takım listesini yenile
+            dispatch(fetchTeams() as any);
+        } catch (error: any) {
+            enqueueSnackbar(error.message || 'Üye çıkartılırken bir hata oluştu', { variant: 'error' });
+        }
+    };
+
 
     const renderTeamMembers = (teamMembers: TeamMember[], teamName: string, teamId: string) => {
         const filteredAndSortedMembers = teamMembers
@@ -229,25 +224,29 @@ const Team = () => {
                 }
                 return sortOrder === 'asc' ? comparison : -comparison;
             });
+        const owner = members.filter(member => member.role === 'Owner')
+        const isOwner = owner.length > 0 && currentUser ? owner[0].id === currentUser.id : false;
+
 
         return (
             <div className="mb-8">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{teamName}</h2>
                     <div className="flex gap-2">
-                        <button
-                            onClick={() => handleGenerateInviteLink(teamId)}
-                            className={`flex items-center px-3 py-1 rounded-lg ${isDarkMode
-                                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                                }`}
-                        >
-                            <ClipboardDocumentIcon className="h-5 w-5 mr-2" />
-                            Davet Linki
-                        </button>
                         {teamMembers.some(member => member.role === 'Owner' && member.id === currentUser?.id) && (
                             <button
-                                onClick={() => handleDeleteTeam(teamId)}
+                                onClick={() => handleGenerateInviteLink(teamId)}
+                                className={`flex items-center px-3 py-1 rounded-lg ${isDarkMode
+                                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                                    }`}
+                            >
+                                <ClipboardDocumentIcon className="h-5 w-5 mr-2" />
+                                Davet Linki
+                            </button>)}
+                        {teamMembers.some(member => member.role === 'Owner' && member.id === currentUser?.id) && (
+                            <button
+                                onClick={() => handleDeleteTeamClick(teamId)}
                                 className={`flex items-center px-3 py-1 rounded-lg ${isDarkMode
                                     ? 'bg-red-900 hover:bg-red-800 text-red-100'
                                     : 'bg-red-100 hover:bg-red-200 text-red-700'
@@ -362,6 +361,15 @@ const Team = () => {
                                             >
                                                 <ClipboardDocumentListIcon className="h-5 w-5" />
                                             </button>
+                                            {isOwner && member.id !== currentUser?.id && (
+                                                <button
+                                                    onClick={() => handleRemoveMemberClick(teamId, member.id)}
+                                                    className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900"
+                                                    title="Üyeyi Çıkart"
+                                                >
+                                                    <UserMinusIcon className="h-5 w-5" />
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
@@ -541,6 +549,54 @@ const Team = () => {
                                     }`}
                             >
                                 Kapat
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Silme Onay Modalı */}
+            {showDeleteConfirmModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} max-w-md w-full mx-4`}>
+                        <h3 className="text-xl font-semibold mb-4">Ekibi Sil</h3>
+                        <p className="mb-6">Bu ekibi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</p>
+                        <div className="flex justify-end gap-4">
+                            <button
+                                onClick={() => setShowDeleteConfirmModal(false)}
+                                className="px-4 py-2 rounded-lg bg-gray-300 hover:bg-gray-400 text-gray-800"
+                            >
+                                İptal
+                            </button>
+                            <button
+                                onClick={handleDeleteTeam}
+                                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                            >
+                                Sil
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Üye Çıkartma Onay Modalı */}
+            {showRemoveMemberModal && memberToRemove && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} max-w-md w-full mx-4`}>
+                        <h3 className="text-xl font-semibold mb-4">Üyeyi Çıkart</h3>
+                        <p className="mb-6">Bu üyeyi ekipten çıkartmak istediğinizden emin misiniz? Bu işlem geri alınamaz.</p>
+                        <div className="flex justify-end gap-4">
+                            <button
+                                onClick={() => setShowRemoveMemberModal(false)}
+                                className="px-4 py-2 rounded-lg bg-gray-300 hover:bg-gray-400 text-gray-800"
+                            >
+                                İptal
+                            </button>
+                            <button
+                                onClick={handleRemoveMember}
+                                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                            >
+                                Çıkart
                             </button>
                         </div>
                     </div>

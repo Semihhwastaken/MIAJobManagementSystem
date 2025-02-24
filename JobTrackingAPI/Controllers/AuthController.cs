@@ -3,6 +3,8 @@ using System.Threading.Tasks;
 using JobTrackingAPI.Models;
 using JobTrackingAPI.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -54,6 +56,32 @@ namespace JobTrackingAPI.Controllers
             }
 
             return Ok(new { message, token, user });
+        }
+
+        [Authorize]
+        [HttpGet("current-user")]
+        public async Task<IActionResult> GetCurrentUser()
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { message = "Kullanıcı girişi yapılmamış" });
+                }
+
+                var user = await _authService.GetUserByIdAsync(userId);
+                if (user == null)
+                {
+                    return NotFound(new { message = "Kullanıcı bulunamadı" });
+                }
+
+                return Ok(new { user });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
     }
 

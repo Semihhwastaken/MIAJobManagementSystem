@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { TeamState, TeamMember, Team } from '../../types/team';
 import axiosInstance from '../../services/axiosInstance';
 
@@ -18,6 +18,18 @@ const initialState: TeamState & { teams: Team[] } = {
     sortBy: 'name',
     sortOrder: 'asc'
 };
+
+// Response tipleri
+interface DeleteTeamResponse {
+    teamId: string;
+    message: string;
+}
+
+interface RemoveTeamMemberResponse {
+    teamId: string;
+    memberId: string;
+    message: string;
+}
 
 export const fetchTeamMembers = createAsyncThunk(
     'Team/fetchTeamMembers',
@@ -105,14 +117,27 @@ export const fetchTeams = createAsyncThunk(
     }
 );
 
-export const deleteTeam = createAsyncThunk(
+export const deleteTeam = createAsyncThunk<DeleteTeamResponse, string>(
     'Team/deleteTeam',
     async (teamId: string, { rejectWithValue }) => {
         try {
-            await axiosInstance.delete(`Team/${teamId}`);
-            return teamId;
+            const response = await axiosInstance.delete(`/Team/${teamId}`);
+            return { teamId, ...response.data };
         } catch (error: any) {
-            return rejectWithValue(error.response?.data || 'Takım silinirken bir hata oluştu');
+            return rejectWithValue(error.response?.data || error.message);
+        }
+    }
+);
+
+// Remove team member action
+export const removeTeamMember = createAsyncThunk<RemoveTeamMemberResponse, { teamId: string; memberId: string }>(
+    'Team/removeTeamMember',
+    async ({ teamId, memberId }, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.delete(`/Team/${teamId}/members/${memberId}`);
+            return { teamId, memberId, ...response.data };
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data || error.message);
         }
     }
 );
@@ -211,9 +236,27 @@ const teamSlice = createSlice({
             })
             .addCase(deleteTeam.fulfilled, (state, action) => {
                 state.loading = false;
-                state.teams = state.teams.filter(team => team.id !== action.payload);
+                // Takımı listeden çıkar
+                state.teams = state.teams.filter(team => team.id !== action.payload.teamId);
             })
             .addCase(deleteTeam.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+            // Remove team member reducers
+            .addCase(removeTeamMember.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(removeTeamMember.fulfilled, (state, action) => {
+                state.loading = false;
+                // Üyeyi teams listesinden çıkar
+                const team = state.teams.find(t => t.id === action.payload.teamId);
+                if (team) {
+                    team.members = team.members.filter(m => m.id !== action.payload.memberId);
+                }
+            })
+            .addCase(removeTeamMember.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
             });

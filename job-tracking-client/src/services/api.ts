@@ -14,10 +14,6 @@ const api = axios.create({
 export const login = async (data: LoginRequest): Promise<AuthResponse> => {
     try {
         const response = await axiosInstance.post<AuthResponse>('/auth/login', data);
-        if (response.data.token) {
-            localStorage.setItem('token', response.data.token);
-            axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-        }
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error) && error.response) {
@@ -59,6 +55,24 @@ export const register = async (data: RegisterRequest): Promise<AuthResponse> => 
 export const logout = () => {
     localStorage.removeItem('token');
     delete axiosInstance.defaults.headers.common['Authorization'];
+};
+
+export const getCurrentUser = async (): Promise<AuthResponse> => {
+    try {
+        const response = await axiosInstance.get<AuthResponse>('/auth/current-user');
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error) && error.response) {
+            return {
+                message: error.response.data.message || 'Kullanıcı bilgileri alınamadı',
+                error: error.response.data.error || error.response.data.message
+            };
+        }
+        return {
+            message: 'Bir hata oluştu',
+            error: 'Sunucu ile bağlantı kurulamadı'
+        };
+    }
 };
 
 // Add token to requests if it exists

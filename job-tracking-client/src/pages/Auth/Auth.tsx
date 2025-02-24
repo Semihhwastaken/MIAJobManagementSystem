@@ -27,6 +27,8 @@ import axios from 'axios';
 import { useGoogleLogin } from '@react-oauth/google';
 import { Google } from '@mui/icons-material';
 import { useNotification } from '../../components/Notification/Notification';
+import { useDispatch } from 'react-redux';
+import { setUser, setToken } from '../../redux/features/authSlice';
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
     padding: theme.spacing(4),
@@ -116,6 +118,7 @@ const Auth: React.FC = () => {
     const navigate = useNavigate();
     const { setIsAuthenticated } = useContext(AuthContext);
     const { showSuccess, showError, showInfo, showWarning } = useNotification();
+    const dispatch = useDispatch();
 
     const [formData, setFormData] = useState({
         username: '',
@@ -236,19 +239,25 @@ const Auth: React.FC = () => {
                     username: formData.username,
                     password: formData.password,
                 });
+
                 if (response.error || response.message?.toLowerCase().includes('error')) {
                     const errorMessage = response.error || response.message;
                     setErrors(prev => ({ ...prev, general: errorMessage }));
                     return;
                 }
 
-                if (response.token) {
+                if (response.token && response.user) {
                     localStorage.setItem('token', response.token);
+                    axios.defaults.headers.common['Authorization'] = `Bearer ${response.token}`;
+                    dispatch(setToken(response.token));
+                    dispatch(setUser(response.user));
                     setIsAuthenticated(true);
                     showSuccess('Başarıyla giriş yaptınız!', 'Giriş Başarılı');
                     setTimeout(() => {
                         navigate('/');
                     }, 1000);
+                } else {
+                    showError('Kullanıcı bilgileri alınamadı', 'Giriş Hatası');
                 }
             } else {
                 showInfo('Hesabınız oluşturuluyor...', 'Kayıt İşlemi');
@@ -298,6 +307,9 @@ const Auth: React.FC = () => {
 
             if (response.data.token) {
                 localStorage.setItem('token', response.data.token);
+                axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+                dispatch(setToken(response.data.token));
+                dispatch(setUser(response.data.user));
                 setIsAuthenticated(true);
                 navigate('/');
             }

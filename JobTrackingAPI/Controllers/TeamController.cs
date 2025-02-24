@@ -215,19 +215,20 @@ namespace JobTrackingAPI.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                 {
-                    return Unauthorized("Kullanıcı kimliği doğrulanamadı.");
+                    return Unauthorized(new { message = "Kullanıcı girişi yapılmamış" });
                 }
 
                 var result = await _teamService.DeleteTeamAsync(teamId, userId);
-                if (result)
+                if (!result.success)
                 {
-                    return Ok(new { message = "Takım başarıyla silindi." });
+                    return BadRequest(new { message = result.message });
                 }
-                return BadRequest("Takım silinemedi.");
+
+                return Ok(new { message = result.message });
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -295,6 +296,31 @@ namespace JobTrackingAPI.Controllers
             catch (Exception ex)
             {
                 return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpDelete("{teamId}/members/{memberId}")]
+        public async Task<IActionResult> RemoveTeamMember(string teamId, string memberId)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { message = "Kullanıcı girişi yapılmamış" });
+                }
+
+                var result = await _teamService.RemoveTeamMemberAsync(teamId, memberId, userId);
+                if (!result.success)
+                {
+                    return BadRequest(new { message = result.message });
+                }
+
+                return Ok(new { message = result.message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
     }

@@ -95,6 +95,11 @@ namespace JobTrackingAPI.Services
             return (true, "Login successful", token, user);
         }
 
+        public async Task<User?> GetUserByIdAsync(string userId)
+        {
+            return await _users.Find(u => u.Id == userId).FirstOrDefaultAsync();
+        }
+
         private string HashPassword(string password)
         {
             using (var sha256 = SHA256.Create())

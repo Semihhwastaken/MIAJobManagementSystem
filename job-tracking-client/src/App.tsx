@@ -1,5 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material';
+import { useDispatch } from 'react-redux';
+import { setUser } from './redux/features/authSlice';
+import { getCurrentUser } from './services/api';
 
 import { CssBaseline } from '@mui/material';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -21,6 +24,7 @@ import TeamInvite from './pages/TeamInvite/TeamInvite';
 
 const AppContent: React.FC = () => {
   const { isDarkMode } = useTheme();
+  const dispatch = useDispatch();
   const [isAuthenticated, setIsAuthenticated] = useState(
     localStorage.getItem('token') !== null
   );
@@ -33,6 +37,25 @@ const AppContent: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
+
+  // Kullanıcı bilgilerini yükle
+  useEffect(() => {
+    const loadUserData = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const response = await getCurrentUser();
+          if (response.user) {
+            dispatch(setUser(response.user));
+          }
+        } catch (error) {
+          console.error('Kullanıcı bilgileri yüklenirken hata oluştu:', error);
+        }
+      }
+    };
+
+    loadUserData();
+  }, [dispatch]);
 
   const theme = useMemo(
     () =>

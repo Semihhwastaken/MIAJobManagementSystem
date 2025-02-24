@@ -309,28 +309,36 @@ public class TeamService
         }
     }
 
-    public async Task<bool> DeleteTeamAsync(string teamId, string userId)
+    public async Task<(bool success, string message)> DeleteTeamAsync(string teamId, string userId)
     {
         try
         {
             var team = await _teams.Find(t => t.Id == teamId).FirstOrDefaultAsync();
             if (team == null)
             {
-                throw new Exception("Takım bulunamadı.");
+                return (false, "Takım bulunamadı");
             }
 
-            var userIsOwner = team.Members.Any(m => m.Id == userId && m.Role == "Owner");
-            if (!userIsOwner)
+            // İşlemi yapan kullanıcının owner olup olmadığını kontrol et
+            var isOwner = team.Members.Any(m => m.Id == userId && m.Role == "Owner");
+            if (!isOwner)
             {
-                throw new Exception("Bu işlem için yetkiniz bulunmamaktadır.");
+                return (false, "Bu işlemi yapmak için takım sahibi olmanız gerekiyor");
             }
 
             var result = await _teams.DeleteOneAsync(t => t.Id == teamId);
-            return result.DeletedCount > 0;
+            if (result.DeletedCount > 0)
+            {
+                return (true, "Takım başarıyla silindi");
+            }
+            else
+            {
+                return (false, "Takım silme işlemi başarısız oldu");
+            }
         }
         catch (Exception ex)
         {
-            throw new Exception($"Takım silinirken bir hata oluştu: {ex.Message}");
+            return (false, $"Bir hata oluştu: {ex.Message}");
         }
     }
 
@@ -380,6 +388,56 @@ public class TeamService
         catch (Exception ex)
         {
             throw new Exception($"Owner rolü atanırken bir hata oluştu: {ex.Message}");
+        }
+    }
+
+    public async Task<(bool success, string message)> RemoveTeamMemberAsync(string teamId, string memberId, string requestUserId)
+    {
+        try
+        {
+            var team = await _teams.Find(t => t.Id == teamId).FirstOrDefaultAsync();
+            if (team == null)
+            {
+                return (false, "Takım bulunamadı");
+            }
+
+            // İşlemi yapan kullanıcının owner olup olmadığını kontrol et
+            var isOwner = team.Members.Any(m => m.Id == requestUserId && m.Role == "Owner");
+            if (!isOwner)
+            {
+                return (false, "Bu işlemi yapmak için takım sahibi olmanız gerekiyor");
+            }
+
+            // Çıkarılacak üyenin owner olup olmadığını kontrol et
+            var memberToRemove = team.Members.FirstOrDefault(m => m.Id == memberId);
+            if (memberToRemove == null)
+            {
+                return (false, "Üye bulunamadı");
+            }
+
+            if (memberToRemove.Role == "Owner")
+            {
+                return (false, "Takım sahibi takımdan çıkarılamaz");
+            }
+
+            // Üyeyi listeden çıkar
+            var updateResult = await _teams.UpdateOneAsync(
+                t => t.Id == teamId,
+                Builders<Team>.Update.Pull(t => t.Members, memberToRemove)
+            );
+
+            if (updateResult.ModifiedCount > 0)
+            {
+                return (true, "Üye başarıyla takımdan çıkarıldı");
+            }
+            else
+            {
+                return (false, "Üye çıkarma işlemi başarısız oldu");
+            }
+        }
+        catch (Exception ex)
+        {
+            return (false, $"Bir hata oluştu: {ex.Message}");
         }
     }
 
