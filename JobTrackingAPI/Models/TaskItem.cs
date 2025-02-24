@@ -49,17 +49,33 @@ namespace JobTrackingAPI.Models
         [JsonPropertyName("id")]
         public string Id { get; set; } = string.Empty;
 
-        [BsonElement("name")]
-        [JsonPropertyName("name")]
-        public string Name { get; set; } = string.Empty;
+        [BsonElement("username")]
+        [JsonPropertyName("username")]
+        public string Username { get; set; } = string.Empty;
 
         [BsonElement("email")]
         [JsonPropertyName("email")]
         public string Email { get; set; } = string.Empty;
 
-        [BsonElement("avatar")]
-        [JsonPropertyName("avatar")]
-        public string Avatar { get; set; } = string.Empty;
+        [BsonElement("fullName")]
+        [JsonPropertyName("fullName")]
+        public string? FullName { get; set; }
+
+        [BsonElement("department")]
+        [JsonPropertyName("department")]
+        public string? Department { get; set; }
+
+        [BsonElement("title")]
+        [JsonPropertyName("title")]
+        public string? Title { get; set; }
+
+        [BsonElement("position")]
+        [JsonPropertyName("position")]
+        public string? Position { get; set; }
+
+        [BsonElement("profileImage")]
+        [JsonPropertyName("profileImage")]
+        public string? ProfileImage { get; set; }
     }
 
     public class TaskItem

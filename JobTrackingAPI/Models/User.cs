@@ -6,6 +6,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace JobTrackingAPI.Models
 {
+    [BsonIgnoreExtraElements]
     public class User
     {
         [BsonId]

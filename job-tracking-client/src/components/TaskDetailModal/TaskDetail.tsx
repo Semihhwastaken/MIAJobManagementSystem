@@ -169,11 +169,30 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                             <h4 className="text-sm font-medium text-gray-900">Atanan Kişiler</h4>
                             <div className="mt-2 flex flex-wrap gap-2">
                                 {localTask.assignedUsers.map((user, index) => (
-                                    <div key={index} className="flex items-center space-x-2 bg-gray-50 rounded-full px-3 py-1">
-                                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600">
-                                            {user.name.charAt(0)}
-                                        </div>
-                                        <span className="text-sm text-gray-700">{user.name}</span>
+                                    <div 
+                                        key={user.id || index} 
+                                        className="flex items-center space-x-2 bg-gray-50 rounded-full px-3 py-1 group relative"
+                                        title={`${user.fullName || user.username}${user.department ? ` (${user.department})` : ''}`}
+                                    >
+                                        {user.profileImage ? (
+                                            <img
+                                                src={user.profileImage}
+                                                alt={user.fullName || user.username}
+                                                className="w-6 h-6 rounded-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600">
+                                                {(user.fullName || user.username).charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                        <span className="text-sm text-gray-700">
+                                            {user.fullName || user.username}
+                                            {user.department && (
+                                                <span className="text-gray-500 text-xs ml-1">
+                                                    ({user.department})
+                                                </span>
+                                            )}
+                                        </span>
                                     </div>
                                 ))}
                             </div>

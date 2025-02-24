@@ -46,6 +46,29 @@ namespace JobTrackingAPI.Controllers
             }
         }
 
+        /// <summary>
+        /// Kullanıcının sahibi olduğu tüm ekipleri getirir
+        /// </summary>
+        [HttpGet("my-teams")]
+        public async Task<IActionResult> GetMyTeams()
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized();
+                }
+
+                var teams = await _teamService.GetTeamsByOwnerId(userId);
+                return Ok(teams);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
         [HttpGet("members")]
         public async Task<ActionResult<List<TeamMember>>> GetMembers()
         {
@@ -85,6 +108,33 @@ namespace JobTrackingAPI.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpGet("{teamId}/members")]
+        public async Task<IActionResult> GetTeamMembers(string teamId)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized();
+                }
+
+                // Kullanıcının bu takıma erişim yetkisi var mı kontrol et
+                var team = await _teamService.GetTeamById(teamId);
+                if (team == null || team.CreatedById != userId)
+                {
+                    return Forbid();
+                }
+
+                var members = await _teamService.GetTeamMembers(teamId);
+                return Ok(members);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
             }
         }
 

@@ -1,8 +1,12 @@
 export interface User {
     id?: string;
-    name: string;
+    username: string;
     email: string;
-    avatar?: string;
+    fullName?: string;
+    department?: string;
+    title?: string;
+    position?: string;
+    profileImage?: string;
 }
 
 export interface SubTask {
@@ -36,10 +40,3 @@ export interface Task {
 }
 
 export type NewTask = Omit<Task, 'id' | 'createdAt' | 'updatedAt'>;
-
-// Mock kullanıcı verileri
-export const mockUsers: User[] = [
-    { id: '1', name: 'Ahmet Yılmaz', email: 'ahmet@example.com', avatar: 'https://i.pravatar.cc/150?u=1' },
-    { id: '2', name: 'Mehmet Demir', email: 'mehmet@example.com', avatar: 'https://i.pravatar.cc/150?u=2' },
-    { id: '3', name: 'Ayşe Kaya', email: 'ayse@example.com', avatar: 'https://i.pravatar.cc/150?u=3' },
-];

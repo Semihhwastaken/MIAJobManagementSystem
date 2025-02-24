@@ -441,6 +441,37 @@ public class TeamService
         }
     }
 
+    /// <summary>
+    /// Kullanıcının sahibi olduğu tüm takımları getirir
+    /// </summary>
+    public async Task<List<Team>> GetTeamsByOwnerId(string userId)
+    {
+        return await _teams.Find(t => t.CreatedById == userId).ToListAsync();
+    }
+
+    /// <summary>
+    /// ID'ye göre takım getirir
+    /// </summary>
+    public async Task<Team> GetTeamById(string id)
+    {
+        return await _teams.Find(t => t.Id == id).FirstOrDefaultAsync();
+    }
+
+    /// <summary>
+    /// Belirli bir takımın üyelerini getirir
+    /// </summary>
+    public async Task<List<TeamMember>> GetTeamMembers(string teamId)
+    {
+        var team = await GetTeamById(teamId);
+        if (team == null)
+        {
+            return new List<TeamMember>();
+        }
+
+        // Takım üyelerini doğrudan döndür
+        return team.Members;
+    }
+
     // Yardımcı metodlar
     private string GenerateInviteCode()
     {

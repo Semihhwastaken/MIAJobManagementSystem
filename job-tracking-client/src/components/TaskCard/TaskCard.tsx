@@ -140,11 +140,23 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onClick, onEdit, onDelete }) 
         <div className="flex items-center space-x-2">
           {task.assignedUsers.map((user, index) => (
             <div
-              key={index}
-              className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600"
-              title={user.name}
+              key={user.id || index}
+              className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600 relative group"
+              title={user.fullName || user.username}
             >
-              {user.name.charAt(0)}
+              {user.profileImage ? (
+                <img
+                  src={user.profileImage}
+                  alt={user.fullName || user.username}
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <span>{(user.fullName || user.username).charAt(0).toUpperCase()}</span>
+              )}
+              <div className="absolute invisible group-hover:visible bg-gray-800 text-white text-xs rounded py-1 px-2 -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                {user.fullName || user.username}
+                {user.department && ` (${user.department})`}
+              </div>
             </div>
           ))}
         </div>

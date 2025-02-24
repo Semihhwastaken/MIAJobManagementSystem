@@ -1,11 +1,14 @@
 import { Dialog, Transition } from '@headlessui/react'
 import { Fragment, useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Task, mockUsers, SubTask } from '../../types/task'
+import { Task, User, SubTask } from '../../types/task'
+import { Team, TeamMember } from '../../types/team'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { updateTask, createTask } from '../../redux/features/tasksSlice'
+import teamService from '../../services/teamService'
 import toast from 'react-hot-toast'
-import { PlusIcon, XMarkIcon, PaperClipIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, XMarkIcon, PaperClipIcon, ChevronUpDownIcon, CheckIcon } from '@heroicons/react/24/outline'
+import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react'
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -35,6 +38,9 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
   const dispatch = useAppDispatch()
   const tasks = useAppSelector((state) => state.tasks.items)
   const [selectedDependencies, setSelectedDependencies] = useState<string[]>(formData.dependencies || [])
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [users, setUsers] = useState<TeamMember[]>([]);
 
   // editTask değiştiğinde veya modal açıldığında/kapandığında formData'yı güncelle
   useEffect(() => {
@@ -54,6 +60,43 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
       }
     }
   }, [editTask, isOpen])
+
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const myTeams = await teamService.getMyTeams();
+        setTeams(myTeams);
+        if (myTeams.length > 0) {
+          setSelectedTeam(myTeams[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching teams:', error);
+        toast.error('Ekipler yüklenirken bir hata oluştu');
+      }
+    };
+
+    if (isOpen) {
+      fetchTeams();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      if (selectedTeam) {
+        try {
+          const members = await teamService.getTeamMembers(selectedTeam.id);
+          setUsers(members);
+        } catch (error) {
+          console.error('Error fetching team members:', error);
+          toast.error('Ekip üyeleri yüklenirken bir hata oluştu');
+        }
+      }
+    };
+
+    if (isOpen && selectedTeam) {
+      fetchTeamMembers();
+    }
+  }, [isOpen, selectedTeam]);
 
   // Dosya yükleme işlemi
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,26 +208,36 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
     )
   }
 
+  // Seçili kullanıcıları kaldırma fonksiyonu
+  const handleRemoveUser = (userId: string) => {
+    setFormData({
+      ...formData,
+      assignedUsers: formData.assignedUsers.filter(user => user.id !== userId)
+    });
+  };
+
   // Form gönderme
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const now = new Date().toISOString()
 
     try {
-      const now = new Date().toISOString();
-
-      // Form verilerini hazırla
       const taskData = {
         ...formData,
-        dependencies: selectedDependencies,
         subTasks: formData.subTasks.map(task => ({
-          ...task,
-          completed: task.completed || false
+          id: task.id,
+          title: task.title,
+          completed: task.completed
         })),
         assignedUsers: formData.assignedUsers.map(user => ({
           id: user.id,
-          name: user.name,
+          username: user.username,
           email: user.email,
-          avatar: user.avatar
+          fullName: user.fullName,
+          department: user.department,
+          title: user.title,
+          position: user.position,
+          profileImage: user.profileImage
         })),
         attachments: formData.attachments.map(attachment => ({
           id: attachment.id,
@@ -192,8 +245,9 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
           fileUrl: attachment.fileUrl,
           fileType: attachment.fileType,
           uploadDate: attachment.uploadDate
-        }))
-      };
+        })),
+        dependencies: selectedDependencies
+      }
 
       if (editTask) {
         await dispatch(updateTask({
@@ -204,47 +258,31 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
         })).unwrap()
         toast.success('Görev başarıyla güncellendi!', {
           duration: 3000,
-          position: 'top-right',
-          style: {
-            background: '#10B981',
-            color: '#fff',
-          }
+          position: 'bottom-right'
         })
       } else {
-        const newTask = {
+        await dispatch(createTask({
           ...taskData,
-          id: Date.now().toString(),
           createdAt: now,
           updatedAt: now
-        }
-        await dispatch(createTask(newTask)).unwrap()
-        toast.success('Görev başarıyla eklendi!', {
+        })).unwrap()
+        toast.success('Görev başarıyla oluşturuldu!', {
           duration: 3000,
-          position: 'top-right',
-          style: {
-            background: '#10B981',
-            color: '#fff',
-          }
+          position: 'bottom-right'
         })
       }
-
       onClose()
-      setFormData(defaultFormData)
     } catch (error) {
-      console.error('Error submitting task:', error)
       toast.error('Bir hata oluştu!', {
         duration: 3000,
-        position: 'top-right',
-        style: {
-          background: '#EF4444',
-          color: '#fff',
-        }
+        position: 'bottom-right'
       })
+      console.error('Error:', error)
     }
   }
 
   return (
-    <Transition.Root show={isOpen} as={Fragment}>
+    <Transition appear show={isOpen} as={Fragment}>
       <Dialog
         as="div"
         className="relative z-50"
@@ -384,6 +422,141 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
                     </div>
                   </div>
 
+                  {/* Ekip seçimi */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700">Ekip Seçin</label>
+                    <select
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      value={selectedTeam?.id || ''}
+                      onChange={(e) => {
+                        const team = teams.find(t => t.id === e.target.value);
+                        setSelectedTeam(team || null);
+                      }}
+                    >
+                      {teams.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Görevli Kişiler */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Görevli Kişiler
+                    </label>
+                    <div className="space-y-2">
+                      {/* Seçili kullanıcılar */}
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {formData.assignedUsers.map((user) => (
+                          <div
+                            key={user.id}
+                            className="flex items-center gap-2 bg-indigo-50 px-3 py-1 rounded-full text-sm"
+                          >
+                            {user.profileImage ? (
+                              <img
+                                src={user.profileImage}
+                                alt={user.fullName || user.username}
+                                className="w-6 h-6 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-6 h-6 rounded-full bg-indigo-200 flex items-center justify-center">
+                                <span className="text-xs text-indigo-600">
+                                  {(user.fullName || user.username).charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+                            <span>{user.fullName || user.username}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveUser(user.id || '')}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              <XMarkIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Kullanıcı seçme dropdown */}
+                      <Listbox
+                        value={null}
+                        onChange={(selectedUser: TeamMember) => {
+                          if (selectedUser && !formData.assignedUsers.some(u => u.id === selectedUser.id)) {
+                            setFormData({
+                              ...formData,
+                              assignedUsers: [...formData.assignedUsers, selectedUser]
+                            });
+                          }
+                        }}
+                      >
+                        <div className="relative">
+                          <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-white py-2 pl-3 pr-10 text-left border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm">
+                            <span className="block truncate text-gray-500">Kullanıcı seç...</span>
+                            <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                              <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                            </span>
+                          </Listbox.Button>
+                          <Transition
+                            as={Fragment}
+                            leave="transition ease-in duration-100"
+                            leaveFrom="opacity-100"
+                            leaveTo="opacity-0"
+                          >
+                            <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                              {users
+                                .filter(user => !formData.assignedUsers.some(u => u.id === user.id))
+                                .map((user) => (
+                                  <Listbox.Option
+                                    key={user.id}
+                                    className={({ active }) =>
+                                      `relative cursor-pointer select-none py-2 pl-10 pr-4 ${active ? 'bg-indigo-100 text-indigo-900' : 'text-gray-900'
+                                      }`
+                                    }
+                                    value={user}
+                                  >
+                                    {({ selected }) => (
+                                      <>
+                                        <div className="flex items-center">
+                                          {user.profileImage ? (
+                                            <img
+                                              src={user.profileImage}
+                                              alt={user.fullName || user.username}
+                                              className="w-6 h-6 rounded-full object-cover mr-3"
+                                            />
+                                          ) : (
+                                            <div className="w-6 h-6 rounded-full bg-indigo-200 flex items-center justify-center mr-3">
+                                              <span className="text-xs text-indigo-600">
+                                                {(user.fullName || user.username).charAt(0).toUpperCase()}
+                                              </span>
+                                            </div>
+                                          )}
+                                          <span className="block truncate">
+                                            {user.fullName || user.username}
+                                            {user.department && (
+                                              <span className="text-gray-500 text-sm ml-2">
+                                                ({user.department})
+                                              </span>
+                                            )}
+                                          </span>
+                                        </div>
+                                        {selected ? (
+                                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-indigo-600">
+                                            <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                          </span>
+                                        ) : null}
+                                      </>
+                                    )}
+                                  </Listbox.Option>
+                                ))}
+                            </Listbox.Options>
+                          </Transition>
+                        </div>
+                      </Listbox>
+                    </div>
+                  </div>
+
                   {/* Alt görevler */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -426,70 +599,12 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
                         <button
                           type="button"
                           onClick={handleAddSubTask}
-                          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                         >
                           <PlusIcon className="h-5 w-5" />
                         </button>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Bağımlı görevler */}
-                  <div>
-                    <label htmlFor="dependencies" className="block text-sm font-medium text-gray-700 mb-2">
-                      Bağımlı Görevler
-                    </label>
-                    <select
-                      id="dependencies"
-                      multiple
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      value={selectedDependencies}
-                      onChange={(e) => {
-                        const selected = Array.from(e.target.selectedOptions, option => option.value);
-                        setSelectedDependencies(selected);
-                      }}
-                    >
-                      {tasks.filter(t => t.id !== editTask?.id).map(task => (
-                        <option key={task.id} value={task.id}>
-                          {task.title}
-                        </option>
-                      ))}
-                    </select>
-                    {selectedDependencies.length > 0 && (
-                      <div className="mt-2">
-                        <h4 className="text-sm font-medium text-gray-700">Seçili Bağımlı Görevler:</h4>
-                        <ul className="mt-1 space-y-1">
-                          {selectedDependencies.map(depId => {
-                            const dependentTask = tasks.find(t => t.id === depId);
-                            return (
-                              <li key={depId} className="text-sm text-gray-600">
-                                • {dependentTask?.title || 'Silinmiş görev'}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Atanan kullanıcılar */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {mockUsers.map((user) => (
-                      <div key={user.id} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={formData.assignedUsers?.some(u => u.id === user.id)}
-                          onChange={() => handleUserToggle(user)}
-                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <label className="flex items-center space-x-2">
-                          {user.avatar && (
-                            <img src={user.avatar} alt={user.name} className="h-8 w-8 rounded-full" />
-                          )}
-                          <span>{user.name}</span>
-                        </label>
-                      </div>
-                    ))}
                   </div>
 
                   {/* Dosya ekleme */}
@@ -558,7 +673,7 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
           </div>
         </div>
       </Dialog>
-    </Transition.Root>
+    </Transition>
   )
 }
 
