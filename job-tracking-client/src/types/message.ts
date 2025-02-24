@@ -1,3 +1,9 @@
+export interface Attachment {
+    url: string;
+    fileName?: string;
+    fileType?: string;
+}
+
 export interface Message {
     id?: string;
     senderId: string;
@@ -8,6 +14,7 @@ export interface Message {
     isRead: boolean;
     senderName?: string;
     receiverName?: string;
+    attachments?: Attachment[];
 }
 
 export interface MessageResponse extends Message {

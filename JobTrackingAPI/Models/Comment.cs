@@ -1,6 +1,7 @@
 using System;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System.ComponentModel.DataAnnotations;
 
 namespace JobTrackingAPI.Models
 {
@@ -8,19 +9,22 @@ namespace JobTrackingAPI.Models
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; }
+        public string Id { get; set; } = string.Empty;
 
         [BsonElement("jobId")]
-        public string JobId { get; set; }
+        [Required]
+        public string JobId { get; set; } = string.Empty;
 
         [BsonElement("userId")]
-        public string UserId { get; set; }
+        [Required]
+        public string UserId { get; set; } = string.Empty;
 
         [BsonElement("content")]
-        public string Content { get; set; }
+        [Required]
+        public string Content { get; set; } = string.Empty;
 
         [BsonElement("createdDate")]
-        public DateTime CreatedDate { get; set; }
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
         [BsonElement("mentions")]
         public List<string> Mentions { get; set; } = new List<string>();
@@ -41,13 +45,16 @@ namespace JobTrackingAPI.Models
     public class Attachment
     {
         [BsonElement("fileName")]
-        public string FileName { get; set; }
+        [Required]
+        public string FileName { get; set; } = string.Empty;
 
         [BsonElement("fileUrl")]
-        public string FileUrl { get; set; }
+        [Required]
+        public string FileUrl { get; set; } = string.Empty;
 
         [BsonElement("fileType")]
-        public string FileType { get; set; }
+        [Required]
+        public string FileType { get; set; } = string.Empty;
 
         [BsonElement("fileSize")]
         public long FileSize { get; set; }

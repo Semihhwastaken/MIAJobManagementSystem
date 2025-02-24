@@ -133,6 +133,7 @@ const Auth: React.FC = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
     const [verificationCode, setVerificationCode] = useState('');
+    const [verificationStep, setVerificationStep] = useState<'initiate' | 'verify' | null>(null);
     const theme = useTheme();
     const navigate = useNavigate();
     const { setIsAuthenticated } = useContext(AuthContext);
@@ -249,44 +250,142 @@ const Auth: React.FC = () => {
         if (!validateForm()) return;
 
         try {
-            const response = await fetch(`http://localhost:5193/api/auth/${isLogin ? 'login' : 'register'}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData)
-            });
+            if (!isLogin) {
+                // Registration flow
+                if (!verificationStep) {
+                    // Step 1: Initiate registration
+                    const response = await fetch('http://localhost:5193/api/auth/register/initiate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            email: formData.email,
+                            username: formData.username,
+                            password: formData.password,
+                            fullName: formData.fullName,
+                            department: formData.department,
+                            title: formData.title,
+                            phone: formData.phone,
+                            position: formData.position,
+                            profileImage: formData.profileImage
+                        })
+                    });
 
-            const data = await response.json();
+                    const data = await response.json();
+                    console.log('Initiate Response:', data);
 
-            if (response.ok) {
-                console.log('Authentication successful:', data);
-                
-                // Store the token and user data
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('user', JSON.stringify(data.user));
-                
-                // Update Redux state
-                dispatch(setToken(data.token));
-                dispatch(setUser(data.user));
-                
-                // Update authentication context
-                setIsAuthenticated(true);
-                
-                // Initialize SignalR connections
-                const signalRService = SignalRService.getInstance();
-                await signalRService.startConnection(data.user.id);
-                
-                console.log('SignalR connections initialized');
-                
-                // Navigate to home page
-                navigate('/');
+                    if (response.ok) {
+                        setVerificationStep('verify');
+                        setErrors({});
+                    } else {
+                        const errorMessage = data.errors ? Object.values(data.errors).flat().join(', ') : 
+                                          data.Message || data.message || 'An error occurred';
+                        setErrors({ general: errorMessage });
+                    }
+                } else if (verificationStep === 'verify') {
+                    // Step 2: Complete registration with verification
+                    const response = await fetch('http://localhost:5193/api/auth/register/verify', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            email: formData.email,
+                            code: verificationCode,
+                            username: formData.username,
+                            password: formData.password,
+                            fullName: formData.fullName || '',
+                            department: formData.department || '',
+                            title: formData.title || '',
+                            phone: formData.phone || '',
+                            position: formData.position || '',
+                            profileImage: formData.profileImage
+                        })
+                    });
+
+                    const data = await response.json();
+                    console.log('Verify Response:', data);
+
+                    if (response.ok) {
+                        // Store the token and user data
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        
+                        // Update Redux state
+                        dispatch(setToken(data.token));
+                        dispatch(setUser(data.user));
+                        
+                        // Update authentication context
+                        setIsAuthenticated(true);
+                        
+                        // Initialize SignalR connections
+                        const signalRService = SignalRService.getInstance();
+                        await signalRService.startConnection(data.user.id);
+                        
+                        // Navigate to home page
+                        navigate('/');
+                    } else {
+                        const errorMessage = data.Message || data.message || 'An error occurred';
+                        setErrors({ general: errorMessage });
+                    }
+                }
             } else {
-                setErrors({ general: data.message || 'An error occurred' });
+                // Login flow
+                const response = await fetch('http://localhost:5193/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: formData.username,
+                        password: formData.password
+                    })
+                });
+
+                const data = await response.json();
+                console.log('Login Response:', data);
+
+                if (response.ok) {
+                    if (!data.token || !data.user) {
+                        throw new Error('Invalid response format from server');
+                    }
+
+                    try {
+                        // Store auth data
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        
+                        // Update Redux state
+                        dispatch(setToken(data.token));
+                        dispatch(setUser(data.user));
+                        
+                        // Update authentication context
+                        setIsAuthenticated(true);
+                        
+                        // Initialize SignalR connections
+                        const signalRService = SignalRService.getInstance();
+                        await signalRService.startConnection(data.user.id);
+                        
+                        // Only navigate if everything is successful
+                        navigate('/');
+                    } catch (error) {
+                        console.error('Error during post-login setup:', error);
+                        setErrors({ general: 'Error during login setup. Please try again.' });
+                        // Clear any partial auth state
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                        setIsAuthenticated(false);
+                    }
+                } else {
+                    const data = await response.json();
+                    const errorMessage = data.message || 'An error occurred';
+                    setErrors({ general: errorMessage });
+                }
             }
         } catch (error) {
             console.error('Auth error:', error);
-            setErrors({ general: 'An unexpected error occurred' });
+            setErrors({ general: 'An unexpected error occurred. Please try again.' });
         }
     };
 
@@ -586,55 +685,55 @@ const Auth: React.FC = () => {
 
                                             <StyledTextField
                                                 fullWidth
-                                                name="fullName"
-                                                label="Ad Soyad"
-                                                value={formData.fullName}
-                                                onChange={handleChange}
+                                                margin="normal"
+                                                label="Full Name"
+                                                type="text"
+                                                value={formData.fullName || ''}
+                                                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                                                 error={!!errors.fullName}
                                                 helperText={errors.fullName}
                                             />
-
                                             <StyledTextField
                                                 fullWidth
-                                                name="department"
-                                                label="Departman"
-                                                value={formData.department}
-                                                onChange={handleChange}
+                                                margin="normal"
+                                                label="Department"
+                                                type="text"
+                                                value={formData.department || ''}
+                                                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                                                 error={!!errors.department}
                                                 helperText={errors.department}
                                             />
-
                                             <StyledTextField
                                                 fullWidth
-                                                name="title"
-                                                label="Ünvan"
-                                                value={formData.title}
-                                                onChange={handleChange}
+                                                margin="normal"
+                                                label="Title"
+                                                type="text"
+                                                value={formData.title || ''}
+                                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                                                 error={!!errors.title}
                                                 helperText={errors.title}
                                             />
-
                                             <StyledTextField
                                                 fullWidth
-                                                name="position"
-                                                label="Pozisyon"
-                                                value={formData.position}
-                                                onChange={handleChange}
-                                                error={!!errors.position}
-                                                helperText={errors.position}
-                                            />
-
-                                            <StyledTextField
-                                                fullWidth
-                                                name="phone"
-                                                label="Telefon"
-                                                value={formData.phone}
-                                                onChange={handleChange}
+                                                margin="normal"
+                                                label="Phone"
+                                                type="text"
+                                                value={formData.phone || ''}
+                                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                                 error={!!errors.phone}
                                                 helperText={errors.phone}
                                             />
+                                            <StyledTextField
+                                                fullWidth
+                                                margin="normal"
+                                                label="Position"
+                                                type="text"
+                                                value={formData.position || ''}
+                                                onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                                                error={!!errors.position}
+                                                helperText={errors.position}
+                                            />
                                         </>
-
                                     )}
 
                                     <StyledTextField
@@ -666,6 +765,19 @@ const Auth: React.FC = () => {
                                             ),
                                         }}
                                     />
+
+                                    {!isLogin && verificationStep === 'verify' && (
+                                        <StyledTextField
+                                            fullWidth
+                                            margin="normal"
+                                            label="Verification Code"
+                                            type="text"
+                                            value={verificationCode}
+                                            onChange={(e) => setVerificationCode(e.target.value)}
+                                            error={!!errors.verificationCode}
+                                            helperText={errors.verificationCode}
+                                        />
+                                    )}
 
                                     {errors.general && (
                                         <Typography

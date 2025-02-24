@@ -13,17 +13,15 @@ namespace JobTrackingAPI.Services;
 public class TeamService
 {
     private readonly IMongoCollection<Team> _teams;
-    private readonly IMongoCollection<TeamMember> _members;
+    private readonly IMongoCollection<User> _users;
     private readonly IMongoCollection<JobTask> _tasks;
-
 
     public TeamService(IOptions<MongoDbSettings> mongoDbSettings, IMongoClient mongoClient)
     {
         var database = mongoClient.GetDatabase(mongoDbSettings.Value.DatabaseName);
         _teams = database.GetCollection<Team>("Teams");
-        _members = database.GetCollection<TeamMember>("TeamMembers");
+        _users = database.GetCollection<User>("Users");
         _tasks = database.GetCollection<JobTask>("Tasks");
-
     }
 
     /// <summary>
@@ -38,7 +36,6 @@ public class TeamService
     /// ID'ye göre takım getirir
     /// </summary>
     public async Task<Team> GetByIdAsync(string id)
-
     {
         return await _teams.Find(t => t.Id == id).FirstOrDefaultAsync();
     }
@@ -52,8 +49,12 @@ public class TeamService
         return team;
     }
 
+    /// <summary>
     /// Takımı günceller
     /// </summary>
+    /// <param name="id">Takım ID'si</param>
+    /// <param name="team">Güncellenmiş takım verileri</param>
+    /// <returns>Güncelleme başarılı ise true, aksi halde false</returns>
     public async Task<bool> UpdateAsync(string id, Team team)
     {
         var result = await _teams.ReplaceOneAsync(t => t.Id == id, team);
@@ -74,7 +75,13 @@ public class TeamService
     /// </summary>
     public async Task<List<TeamMember>> GetAllMembersAsync()
     {
-        return await _members.Find(member => true).ToListAsync();
+        var teams = await GetAllAsync();
+        var allMembers = new List<TeamMember>();
+        foreach (var team in teams)
+        {
+            allMembers.AddRange(team.Members);
+        }
+        return allMembers;
     }
 
     /// <summary>
@@ -82,7 +89,8 @@ public class TeamService
     /// </summary>
     public async Task<List<string>> GetDepartmentsAsync()
     {
-        return await _members.Distinct<string>("Department", Builders<TeamMember>.Filter.Empty).ToListAsync();
+        var teams = await GetAllAsync();
+        return teams.SelectMany(t => t.Departments).Distinct().ToList();
     }
 
     /// <summary>
@@ -90,72 +98,157 @@ public class TeamService
     /// </summary>
     public async Task<List<TeamMember>> GetMembersByDepartmentAsync(string department)
     {
-        var filter = Builders<TeamMember>.Filter.Eq(m => m.Department, department);
-        return await _members.Find(filter).ToListAsync();
+        var teams = await GetAllAsync();
+        return teams
+            .SelectMany(t => t.Members)
+            .Where(m => m.Department == department)
+            .ToList();
     }
 
     /// <summary>
     /// Takım üyesinin durumunu günceller
     /// </summary>
-    public async Task<TeamMember> UpdateMemberStatusAsync(string id, string status)
+    public async Task<TeamMember?> UpdateMemberStatusAsync(string teamId, string userId, string status)
     {
-        var filter = Builders<TeamMember>.Filter.Eq(m => m.Id, id);
-        var update = Builders<TeamMember>.Update.Set(m => m.Status, status);
+        var team = await GetByIdAsync(teamId);
+        if (team == null) return null;
+
+        var member = team.Members.FirstOrDefault(m => m.UserId == userId);
+        if (member == null) return null;
+
+        member.Status = status;
+        await UpdateAsync(teamId, team);
         
-        await _members.UpdateOneAsync(filter, update);
-        return await _members.Find(filter).FirstOrDefaultAsync();
+        return member;
     }
 
     /// <summary>
     /// Takım üyesini günceller
     /// </summary>
-    public async Task<TeamMember> UpdateMemberAsync(string id, TeamMemberUpdateDto updateDto)
+    public async Task<TeamMember?> UpdateMemberAsync(string teamId, string userId, TeamMember updatedMember)
     {
-        var filter = Builders<TeamMember>.Filter.Eq(m => m.Id, id);
-        var update = Builders<TeamMember>.Update;
-        var updateDefinition = new List<UpdateDefinition<TeamMember>>();
+        var team = await GetByIdAsync(teamId);
+        if (team == null) return null;
 
-        if (updateDto.ProfileImage != null)
-            updateDefinition.Add(update.Set(m => m.ProfileImage, updateDto.ProfileImage));
-        
-        if (updateDto.Expertise != null)
-            updateDefinition.Add(update.Set(m => m.Expertise, updateDto.Expertise));
-        
-        if (updateDto.Phone != null)
-            updateDefinition.Add(update.Set(m => m.Phone, updateDto.Phone));
-        
-        if (updateDto.AvailabilitySchedule != null)
-            updateDefinition.Add(update.Set(m => m.AvailabilitySchedule, updateDto.AvailabilitySchedule));
+        var member = team.Members.FirstOrDefault(m => m.UserId == userId);
+        if (member == null) return null;
 
-        await _members.UpdateOneAsync(filter, update.Combine(updateDefinition));
-        return await _members.Find(filter).FirstOrDefaultAsync();
+        member.Role = updatedMember.Role;
+        member.Status = updatedMember.Status;
+
+        await UpdateAsync(teamId, team);
+        return member;
     }
 
-    // Yardımcı metodlar
-    private async Task UpdateMemberPerformanceScores()
+    /// <summary>
+    /// Takım üyesinin metriklerini günceller
+    /// </summary>
+    public async Task<bool> UpdateMemberMetricsAsync(string teamId, string userId, int completedTasks, double performanceScore)
     {
-        var members = await GetAllMembersAsync();
-        foreach (var member in members)
+        var team = await GetByIdAsync(teamId);
+        if (team == null) return false;
+
+        var member = team.Members.FirstOrDefault(m => m.UserId == userId);
+        if (member == null) return false;
+
+        member.CompletedTasksCount = completedTasks;
+        member.PerformanceScore = performanceScore;
+
+        return await UpdateAsync(teamId, team);
+    }
+
+    /// <summary>
+    /// Kullanıcının lider olduğu takımları getirir
+    /// </summary>
+    public async Task<List<Team>> GetTeamsByLeaderIdAsync(string userId)
+    {
+        return await _teams.Find(t => t.LeaderId == userId).ToListAsync();
+    }
+
+    /// <summary>
+    /// Kullanıcının üye olduğu takımları getirir
+    /// </summary>
+    public async Task<List<Team>> GetTeamsByMemberIdAsync(string userId)
+    {
+        return await _teams.Find(t => t.Members.Any(m => m.UserId == userId)).ToListAsync();
+    }
+
+    /// <summary>
+    /// Kullanıcının tüm takımlarını getirir (lider olduğu ve üye olduğu)
+    /// </summary>
+    public async Task<(List<Team> LeadingTeams, List<Team> MemberTeams)> GetAllTeamsByUserIdAsync(string userId)
+    {
+        var leadingTeams = await GetTeamsByLeaderIdAsync(userId);
+        var memberTeams = await GetTeamsByMemberIdAsync(userId);
+        return (leadingTeams, memberTeams);
+    }
+
+    /// <summary>
+    /// Takıma yeni üye ekler
+    /// </summary>
+    public async Task<bool> AddTeamMemberAsync(string teamId, string userId, string role = "member")
+    {
+        var team = await GetByIdAsync(teamId);
+        if (team == null) return false;
+
+        var user = await _users.Find(u => u.Id == userId).FirstOrDefaultAsync();
+        if (user == null) return false;
+
+        var member = new TeamMember
         {
-            var completedTasks = await _tasks.CountDocumentsAsync(
-                Builders<JobTask>.Filter.And(
-                    Builders<JobTask>.Filter.Eq(t => t.AssignedToUserId, member.Id),
-                    Builders<JobTask>.Filter.Eq(t => t.Status, "completed")
-                )
-            );
+            UserId = userId,
+            Role = role,
+            JoinDate = DateTime.UtcNow,
+            Status = "active"
+        };
 
-            var totalTasks = await _tasks.CountDocumentsAsync(
-                Builders<JobTask>.Filter.Eq(t => t.AssignedToUserId, member.Id)
-            );
+        var update = Builders<Team>.Update.Push(t => t.Members, member);
+        var teamResult = await _teams.UpdateOneAsync(t => t.Id == teamId, update);
 
-            var performanceScore = totalTasks > 0 ? (int)((completedTasks / (double)totalTasks) * 100) : 0;
+        var userUpdate = Builders<User>.Update.Push(u => u.MemberOfTeams, teamId);
+        var userResult = await _users.UpdateOneAsync(u => u.Id == userId, userUpdate);
 
-            var filter = Builders<TeamMember>.Filter.Eq(m => m.Id, member.Id);
-            var update = Builders<TeamMember>.Update
-                .Set(m => m.CompletedTasksCount, (int)completedTasks)
-                .Set(m => m.PerformanceScore, performanceScore);
+        return teamResult.IsAcknowledged && teamResult.ModifiedCount > 0 &&
+               userResult.IsAcknowledged && userResult.ModifiedCount > 0;
+    }
 
-            await _members.UpdateOneAsync(filter, update);
-        }
+    /// <summary>
+    /// Takımdan üye çıkarır
+    /// </summary>
+    public async Task<bool> RemoveTeamMemberAsync(string teamId, string userId)
+    {
+        var team = await GetByIdAsync(teamId);
+        if (team == null) return false;
+
+        var update = Builders<Team>.Update.PullFilter(t => t.Members, m => m.UserId == userId);
+        var teamResult = await _teams.UpdateOneAsync(t => t.Id == teamId, update);
+
+        var userUpdate = Builders<User>.Update.Pull(u => u.MemberOfTeams, teamId);
+        var userResult = await _users.UpdateOneAsync(u => u.Id == userId, userUpdate);
+
+        return teamResult.IsAcknowledged && teamResult.ModifiedCount > 0 &&
+               userResult.IsAcknowledged && userResult.ModifiedCount > 0;
+    }
+
+    /// <summary>
+    /// Yeni takım oluşturur ve kullanıcıyı lider olarak atar
+    /// </summary>
+    public async Task<Team> CreateTeamWithLeaderAsync(Team team, string userId)
+    {
+        team.LeaderId = userId;
+        await _teams.InsertOneAsync(team);
+
+        var update = Builders<User>.Update.Push(u => u.LeadingTeams, team.Id);
+        await _users.UpdateOneAsync(u => u.Id == userId, update);
+
+        return team;
+    }
+
+    /// <summary>
+    /// Departmana göre takımları getirir
+    /// </summary>
+    public async Task<List<Team>> GetTeamsByDepartmentAsync(string department)
+    {
+        return await _teams.Find(t => t.Departments.Contains(department)).ToListAsync();
     }
 }

@@ -5,19 +5,19 @@ namespace JobTrackingAPI.Models
     public class UpdateProfileRequest
     {
         [Required]
-        public string FullName { get; set; }
+        public string FullName { get; set; } = string.Empty;
 
         [Required]
-        public string Department { get; set; }
+        public string Department { get; set; } = string.Empty;
 
         [Required]
-        public string Title { get; set; }
+        public string Title { get; set; } = string.Empty;
 
         [Required]
-        public string Phone { get; set; }
+        public string Phone { get; set; } = string.Empty;
 
         [Required]
-        public string Position { get; set; }
+        public string Position { get; set; } = string.Empty;
 
         public string? ProfileImage { get; set; }
     }

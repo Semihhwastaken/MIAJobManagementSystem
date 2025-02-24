@@ -30,6 +30,13 @@ public class Team
     public string? Description { get; set; }
 
     /// <summary>
+    /// Takım lideri ID'si
+    /// </summary>
+    [Required(ErrorMessage = "Takım lideri zorunludur")]
+    [BsonElement("leaderId")]
+    public string LeaderId { get; set; } = string.Empty;
+
+    /// <summary>
     /// Takımın oluşturulma tarihi
     /// </summary>
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
@@ -49,41 +56,69 @@ public class Team
     /// <summary>
     /// Takım departmanları
     /// </summary>
-    public List<DepartmentStats> Departments { get; set; } = new List<DepartmentStats>();
+    public List<string> Departments { get; set; } = new List<string>();
 }
 
+/// <summary>
+/// Takım üyesi bilgilerini temsil eden model sınıfı
+/// </summary>
 public class TeamMember
 {
-    [BsonId]
-    [BsonRepresentation(BsonType.ObjectId)]
-    public string Id { get; set; }
+    /// <summary>
+    /// Üye ID'si (User tablosundaki ID)
+    /// </summary>
+    [Required]
+    public string UserId { get; set; } = string.Empty;
 
-    public string Username { get; set; }
-    public string Email { get; set; }
-    public string FullName { get; set; }
-    public string Department { get; set; }
-    public List<string> AssignedJobs { get; set; } = new();
-    public string? ProfileImage { get; set; }
-    public List<string> Expertise { get; set; } = new();
-    public string? Phone { get; set; }
-    public string Status { get; set; } = "available";
-    public int CompletedTasksCount { get; set; }
-    public int PerformanceScore { get; set; }
-    public string OnlineStatus { get; set; } = "offline";
-    public AvailabilitySchedule? AvailabilitySchedule { get; set; }
+    /// <summary>
+    /// Üyenin takımdaki rolü
+    /// </summary>
+    public string Role { get; set; } = "member";
+
+    /// <summary>
+    /// Üyenin departmanı
+    /// </summary>
+    public string Department { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Üyenin takıma katılma tarihi
+    /// </summary>
+    [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+    public DateTime JoinDate { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Üyenin takımdaki durumu (active, inactive, pending)
+    /// </summary>
+    public string Status { get; set; } = "active";
+
+    /// <summary>
+    /// Üyenin tamamladığı görev sayısı
+    /// </summary>
+    public int CompletedTasksCount { get; set; } = 0;
+
+    /// <summary>
+    /// Üyenin performans puanı (0-100 arası)
+    /// </summary>
+    public double PerformanceScore { get; set; } = 0;
 }
 
+/// <summary>
+/// Üye müsaitlik programını temsil eden model sınıfı
+/// </summary>
 public class AvailabilitySchedule
 {
-    public string StartTime { get; set; }
-    public string EndTime { get; set; }
+    public DayOfWeek Day { get; set; }
+    public TimeSpan StartTime { get; set; }
+    public TimeSpan EndTime { get; set; }
 }
 
+/// <summary>
+/// Departman istatistiklerini temsil eden model sınıfı
+/// </summary>
 public class DepartmentStats
 {
-    public string Name { get; set; }
+    public string DepartmentName { get; set; } = string.Empty;
     public int MemberCount { get; set; }
-    public int CompletedTasks { get; set; }
-    public int OngoingTasks { get; set; }
-    public double Performance { get; set; }
+    public int CompletedTaskCount { get; set; }
+    public double AveragePerformance { get; set; }
 }

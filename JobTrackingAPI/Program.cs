@@ -1,10 +1,12 @@
 using JobTrackingAPI.Extensions;
 using JobTrackingAPI.Services;
 using JobTrackingAPI.Settings;
+using JobTrackingAPI.Hubs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using JobTrackingAPI.Filters;
 using MongoDB.Driver;
 using System.Text;
 
@@ -16,12 +18,12 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins("http://localhost:5173") // Frontend URL'si
+            policy.WithOrigins("http://localhost:5173")
                   .AllowAnyHeader()
-                  .AllowAnyMethod();
+                  .AllowAnyMethod()
+                  .AllowCredentials();
         });
 });
-
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
@@ -46,6 +48,23 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
+
+    // SignalR için JWT ayarları
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            
+            if (!string.IsNullOrEmpty(accessToken) && 
+                (path.StartsWithSegments("/chatHub") || path.StartsWithSegments("/notificationHub")))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 // Add MongoDB services
@@ -54,17 +73,27 @@ builder.Services.AddMongoDb(builder.Configuration);
 // Configure JWT settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 
-// Add MongoDB services
-builder.Services.AddMongoDb(builder.Configuration);
-
+// Add EmailService configuration
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddScoped<EmailService>(sp =>
+{
+    var emailSettings = sp.GetRequiredService<IOptions<EmailSettings>>().Value;
+    return new EmailService(
+        emailSettings.SmtpServer,
+        emailSettings.SmtpPort,
+        emailSettings.SmtpUsername,
+        emailSettings.SmtpPassword
+    );
+});
 
 // Add services to the container
-builder.Services.AddSingleton<JobService>();
-builder.Services.AddSingleton<UserService>();
-builder.Services.AddSingleton<TeamService>();
-
-builder.Services.AddSingleton<AuthService>();
-builder.Services.AddSingleton<CalendarEventService>();
+builder.Services.AddScoped<JobService>();
+builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<TeamService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<CalendarEventService>();
+builder.Services.AddScoped<IConnectionService, ConnectionService>();
 
 builder.Services.AddControllers();
 
@@ -72,13 +101,19 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { 
+    c.SwaggerDoc("v1", new OpenApiInfo 
+    { 
         Title = "Job Tracking API", 
         Version = "v1",
         Description = "API for the Job Tracking Application"
     });
 
-    // Add JWT Authentication support to Swagger UI
+    // XML belgeleme dosyasını ekle
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    c.IncludeXmlComments(xmlPath);
+
+    // JWT Bearer Authentication için
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
@@ -88,7 +123,7 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "Bearer"
     });
 
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement()
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
             new OpenApiSecurityScheme
@@ -97,21 +132,17 @@ builder.Services.AddSwaggerGen(c =>
                 {
                     Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
-                },
-                Scheme = "oauth2",
-                Name = "Bearer",
-                In = ParameterLocation.Header,
+                }
             },
-            new List<string>()
+            Array.Empty<string>()
         }
     });
+
+    // Dosya yükleme için
+    c.OperationFilter<FileUploadOperationFilter>();
 });
 
-
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -152,13 +183,17 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// CORS middleware'ini ekle
+// CORS'u etkinleştir
 app.UseCors("AllowFrontend");
 
-// Add authentication middleware before authorization
+// Authentication ve Authorization middleware'lerini ekle
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Configure SignalR Hub
+app.MapHub<ChatHub>("/chatHub");
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();

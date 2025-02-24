@@ -1,5 +1,6 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System.ComponentModel.DataAnnotations;
 
 namespace JobTrackingAPI.Models
 {
@@ -7,33 +8,47 @@ namespace JobTrackingAPI.Models
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; }
+        public string Id { get; set; } = string.Empty;
 
-        public string SenderId { get; set; }
-        public string ReceiverId { get; set; }
-        public string Content { get; set; }
-        public DateTime SentAt { get; set; }
+        [Required]
+        public string SenderId { get; set; } = string.Empty;
+
+        [Required]
+        public string ReceiverId { get; set; } = string.Empty;
+
+        [Required]
+        public string Content { get; set; } = string.Empty;
+
+        public DateTime SentAt { get; set; } = DateTime.UtcNow;
+
         public bool IsRead { get; set; }
-        public string Subject { get; set; }
+
+        [Required]
+        public string Subject { get; set; } = string.Empty;
     }
 
     public class SendMessageDto
     {
-        public string ReceiverId { get; set; }
-        public string Content { get; set; }
-        public string Subject { get; set; }
+        [Required]
+        public string ReceiverId { get; set; } = string.Empty;
+
+        [Required]
+        public string Content { get; set; } = string.Empty;
+
+        [Required]
+        public string Subject { get; set; } = string.Empty;
     }
 
     public class MessageResponse
     {
-        public string Id { get; set; }
-        public string SenderId { get; set; }
-        public string SenderName { get; set; }
-        public string ReceiverId { get; set; }
-        public string ReceiverName { get; set; }
-        public string Content { get; set; }
+        public string Id { get; set; } = string.Empty;
+        public string SenderId { get; set; } = string.Empty;
+        public string SenderName { get; set; } = string.Empty;
+        public string ReceiverId { get; set; } = string.Empty;
+        public string ReceiverName { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
         public DateTime SentAt { get; set; }
         public bool IsRead { get; set; }
-        public string Subject { get; set; }
+        public string Subject { get; set; } = string.Empty;
     }
 }

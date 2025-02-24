@@ -1,6 +1,7 @@
 using System;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using JobTrackingAPI.Enums;
 
 namespace JobTrackingAPI.Models
 {
@@ -8,30 +9,59 @@ namespace JobTrackingAPI.Models
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; }
+        public string? Id { get; set; }
 
+        /// <summary>
+        /// Bildirimin gönderileceği kullanıcı ID'si
+        /// </summary>
         [BsonElement("userId")]
-        public string UserId { get; set; }
+        public string UserId { get; set; } = null!;
 
+        /// <summary>
+        /// Bildirimin başlığı
+        /// </summary>
         [BsonElement("title")]
-        public string Title { get; set; }
+        public string Title { get; set; } = null!;
 
+        /// <summary>
+        /// Bildirimin mesajı
+        /// </summary>
         [BsonElement("message")]
-        public string Message { get; set; }
+        public string Message { get; set; } = null!;
 
+        /// <summary>
+        /// Bildirimin tipi
+        /// </summary>
         [BsonElement("type")]
-        public NotificationType Type { get; set; }
+        public Enums.NotificationType Type { get; set; }
 
+        /// <summary>
+        /// İlgili iş kaydının ID'si
+        /// </summary>
         [BsonElement("relatedJobId")]
-        public string RelatedJobId { get; set; }
+        public string? RelatedJobId { get; set; }
 
+        /// <summary>
+        /// Bildirimin okunup okunmadığı
+        /// </summary>
         [BsonElement("isRead")]
         public bool IsRead { get; set; }
 
+        /// <summary>
+        /// Bildirimin oluşturulma tarihi
+        /// </summary>
         [BsonElement("createdDate")]
         public DateTime CreatedDate { get; set; }
 
-        public Notification(string userId, string title, string message, NotificationType type, string relatedJobId = null)
+        /// <summary>
+        /// Yeni bir bildirim oluşturur
+        /// </summary>
+        /// <param name="userId">Bildirimin gönderileceği kullanıcı ID'si</param>
+        /// <param name="title">Bildirimin başlığı</param>
+        /// <param name="message">Bildirimin mesajı</param>
+        /// <param name="type">Bildirimin tipi</param>
+        /// <param name="relatedJobId">İlgili iş kaydının ID'si (opsiyonel)</param>
+        public Notification(string userId, string title, string message, Enums.NotificationType type, string? relatedJobId)
         {
             Id = ObjectId.GenerateNewId().ToString();
             UserId = userId;
@@ -42,15 +72,14 @@ namespace JobTrackingAPI.Models
             IsRead = false;
             CreatedDate = DateTime.UtcNow;
         }
-    }
 
-    public enum NotificationType
-    {
-        Comment,
-        Mention,
-        TaskAssigned,
-        TaskUpdated,
-        TaskCompleted,
-        Reminder
+        /// <summary>
+        /// MongoDB serileştirmesi için gerekli olan parametre almayan constructor
+        /// </summary>
+        private Notification()
+        {
+            CreatedDate = DateTime.UtcNow;
+            IsRead = false;
+        }
     }
 }

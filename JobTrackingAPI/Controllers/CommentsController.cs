@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 using JobTrackingAPI.Models;
+using JobTrackingAPI.Enums;
 using System.Text.RegularExpressions;
 
 namespace JobTrackingAPI.Controllers

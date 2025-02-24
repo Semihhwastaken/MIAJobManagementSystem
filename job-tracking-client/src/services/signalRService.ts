@@ -11,6 +11,8 @@ class SignalRService {
     private typingCallbacks: ((userId: string) => void)[] = [];
     private stoppedTypingCallbacks: ((userId: string) => void)[] = [];
     private messageReadCallbacks: ((messageId: string) => void)[] = [];
+    private userConnectedCallbacks: ((userId: string) => void)[] = [];
+    private userDisconnectedCallbacks: ((userId: string) => void)[] = [];
 
     private constructor() {
         
@@ -36,6 +38,16 @@ class SignalRService {
         // Chat event listeners
         this.hubConnection.on("ReceiveMessage", (message: Message) => {
             this.messageCallbacks.forEach(callback => callback(message));
+        });
+
+        this.hubConnection.on("UserConnected", (userId: string) => {
+            console.log(`User connected: ${userId}`);
+            this.userConnectedCallbacks.forEach(callback => callback(userId));
+        });
+
+        this.hubConnection.on("UserDisconnected", (userId: string) => {
+            console.log(`User disconnected: ${userId}`);
+            this.userDisconnectedCallbacks.forEach(callback => callback(userId));
         });
 
         this.hubConnection.on("UserIsTyping", (userId: string) => {
@@ -66,14 +78,13 @@ class SignalRService {
         try {
             this.userId = userId;
 
-            // Chat Hub bağlantısı
+            // Start Chat Hub connection
             if (this.hubConnection.state === signalR.HubConnectionState.Disconnected) {
                 await this.hubConnection.start();
                 console.log("Chat Hub Connected!");
-                await this.hubConnection.invoke("RegisterUser", userId);
             }
 
-            // Notification Hub bağlantısı
+            // Start Notification Hub connection
             if (this.notificationHubConnection.state === signalR.HubConnectionState.Disconnected) {
                 await this.notificationHubConnection.start();
                 console.log("Notification Hub Connected!");
@@ -120,6 +131,40 @@ class SignalRService {
         await this.hubConnection.invoke("StoppedTyping", this.userId, receiverId);
     }
 
+    // Public methods for message handling
+    public addMessageCallback(callback: (message: Message) => void): void {
+        this.messageCallbacks.push(callback);
+    }
+
+    public removeMessageCallback(callback: (message: Message) => void): void {
+        const index = this.messageCallbacks.indexOf(callback);
+        if (index > -1) {
+            this.messageCallbacks.splice(index, 1);
+        }
+    }
+
+    public addTypingCallback(callback: (userId: string) => void): void {
+        this.typingCallbacks.push(callback);
+    }
+
+    public removeTypingCallback(callback: (userId: string) => void): void {
+        const index = this.typingCallbacks.indexOf(callback);
+        if (index > -1) {
+            this.typingCallbacks.splice(index, 1);
+        }
+    }
+
+    public addStoppedTypingCallback(callback: (userId: string) => void): void {
+        this.stoppedTypingCallbacks.push(callback);
+    }
+
+    public removeStoppedTypingCallback(callback: (userId: string) => void): void {
+        const index = this.stoppedTypingCallbacks.indexOf(callback);
+        if (index > -1) {
+            this.stoppedTypingCallbacks.splice(index, 1);
+        }
+    }
+
     // Event Listeners
     onReceiveMessage(callback: (message: Message) => void): void {
         this.messageCallbacks.push(callback);
@@ -135,6 +180,14 @@ class SignalRService {
 
     onMessageRead(callback: (messageId: string) => void): void {
         this.messageReadCallbacks.push(callback);
+    }
+
+    onUserConnected(callback: (userId: string) => void): void {
+        this.userConnectedCallbacks.push(callback);
+    }
+
+    onUserDisconnected(callback: (userId: string) => void): void {
+        this.userDisconnectedCallbacks.push(callback);
     }
 
     // Notification Methods
