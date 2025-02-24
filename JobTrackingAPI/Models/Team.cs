@@ -51,6 +51,7 @@ public class Team
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
     public DateTime? InviteLinkExpiresAt { get; set; }
 
+
     /// <summary>
     /// Takımın oluşturulma tarihi
     /// </summary>
@@ -71,9 +72,12 @@ public class Team
     /// <summary>
     /// Takım departmanları
     /// </summary>
-    public List<DepartmentStats> Departments { get; set; } = new List<DepartmentStats>();
+    public List<string> Departments { get; set; } = new List<string>();
 }
 
+/// <summary>
+/// Takım üyesi bilgilerini temsil eden model sınıfı
+/// </summary>
 public class TeamMember
 {
     [BsonId]
@@ -99,19 +103,26 @@ public class TeamMember
     
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
     public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
+
 }
 
+/// <summary>
+/// Üye müsaitlik programını temsil eden model sınıfı
+/// </summary>
 public class AvailabilitySchedule
 {
-    public string StartTime { get; set; }
-    public string EndTime { get; set; }
+    public DayOfWeek Day { get; set; }
+    public TimeSpan StartTime { get; set; }
+    public TimeSpan EndTime { get; set; }
 }
 
+/// <summary>
+/// Departman istatistiklerini temsil eden model sınıfı
+/// </summary>
 public class DepartmentStats
 {
-    public string Name { get; set; }
+    public string DepartmentName { get; set; } = string.Empty;
     public int MemberCount { get; set; }
-    public int CompletedTasks { get; set; }
-    public int OngoingTasks { get; set; }
-    public double Performance { get; set; }
+    public int CompletedTaskCount { get; set; }
+    public double AveragePerformance { get; set; }
 }

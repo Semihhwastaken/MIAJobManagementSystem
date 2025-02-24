@@ -3,6 +3,7 @@ import * as echarts from 'echarts';
 import TaskCard from '../../components/TaskCard/TaskCard';
 import TaskDetail from '../../components/TaskDetailModal/TaskDetail';
 import TaskForm from '../../components/TaskForm/TaskForm';
+import Footer from "../../components/Footer/Footer";
 import { Task } from '../../types/task';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchTasks, createTask, updateTask, deleteTask } from '../../redux/features/tasksSlice';
@@ -227,85 +228,7 @@ const Tasks: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Task Form Modal */}
-      <TaskForm
-        isOpen={isNewTaskModalOpen}
-        onClose={() => setIsNewTaskModalOpen(false)}
-        onSave={handleCreateTask}
-        existingTasks={tasks}
-      />
-
-      {/* Edit Task Modal */}
-      <TaskForm
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        onSave={handleUpdateTask}
-        existingTasks={tasks}
-        task={selectedTask || undefined}
-      />
-
-      {/* Task Detail Modal */}
-      {selectedTask && (
-        <TaskDetail
-          isOpen={isDetailModalOpen}
-          onClose={handleCloseModal}
-          task={selectedTask}
-        />
-      )}
-
-      {/* Date Filter Modal */}
-      {isDateFilterModalOpen && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white/90 backdrop-blur-md p-6 rounded-lg shadow-xl w-96">
-            <h2 className="text-xl font-semibold mb-4 text-gray-900">Tarih Aralığı Seçin</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Başlangıç Tarihi</label>
-                <input
-                  type="date"
-                  value={dateFilter.startDate}
-                  onChange={(e) => setDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Bitiş Tarihi</label>
-                <input
-                  type="date"
-                  value={dateFilter.endDate}
-                  onChange={(e) => setDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
-                />
-              </div>
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  onClick={() => {
-                    setDateFilter({ startDate: '', endDate: '' });
-                    setIsFilterActive(false);
-                    setIsDateFilterModalOpen(false);
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                >
-                  Filtreyi Temizle
-                </button>
-                <button
-                  onClick={() => {
-                    if (dateFilter.startDate && dateFilter.endDate) {
-                      setIsFilterActive(true);
-                      setIsDateFilterModalOpen(false);
-                    }
-                  }}
-                  disabled={!dateFilter.startDate || !dateFilter.endDate}
-                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                >
-                  Uygula
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <Footer />
     </div>
   );
 };

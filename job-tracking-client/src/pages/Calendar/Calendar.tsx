@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
 import CreateEventModal from '../../components/Calendar/CreateEventModal';
+import Footer from "../../components/Footer/Footer";
 import { calendarService } from '../../services/calendarService';
 import {
   addEvent,
@@ -428,6 +429,7 @@ const Calendar = () => {
         onSubmit={handleUpdateEvent}
         initialData={selectedEvent || undefined}
       />
+      <Footer />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Box,
@@ -9,7 +9,11 @@ import {
     useTheme,
     IconButton,
     InputAdornment,
-    Button
+    Button,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions
 } from '@mui/material';
 import {
     Visibility,
@@ -18,7 +22,7 @@ import {
     Email as EmailIcon,
     Lock as LockIcon,
 } from '@mui/icons-material';
-import { login, register } from '../../services/api';
+import { verifyAndRegister } from '../../services/api';
 import { styled } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
@@ -29,6 +33,8 @@ import { Google } from '@mui/icons-material';
 import { useNotification } from '../../components/Notification/Notification';
 import { useDispatch } from 'react-redux';
 import { setUser, setToken } from '../../redux/features/authSlice';
+import SignalRService from '../../services/signalRService';
+
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
     padding: theme.spacing(4),
@@ -111,9 +117,25 @@ const ToggleButton = styled(motion.button)(({ theme }) => ({
     },
 }));
 
+interface VerificationResponse {
+    token: string;
+    user: {
+        id: string;
+        username: string;
+        email: string;
+        fullName: string;
+        department: string;
+    };
+    error?: string;
+}
+
 const Auth: React.FC = () => {
+    const dispatch = useDispatch();
     const [isLogin, setIsLogin] = useState(true);
     const [showPassword, setShowPassword] = useState(false);
+    const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
+    const [verificationCode, setVerificationCode] = useState('');
+    const [verificationStep, setVerificationStep] = useState<'initiate' | 'verify' | null>(null);
     const theme = useTheme();
     const navigate = useNavigate();
     const { setIsAuthenticated } = useContext(AuthContext);
@@ -142,9 +164,12 @@ const Auth: React.FC = () => {
         title?: string;
         phone?: string;
         position?: string;
-
+        verificationCode?: string;
         general?: string;
     }>({});
+
+    // Initialize SignalR service
+    const signalRService = SignalRService.getInstance();
 
     const validateForm = () => {
         let tempErrors = {
@@ -225,72 +250,196 @@ const Auth: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setErrors({ username: '', email: '', password: '', fullName: '', department: '', title: '', phone: '', position: '', general: '' });
+        
+        if (!validateForm()) return;
 
+        try {
+            if (!isLogin) {
+                // Registration flow
+                if (!verificationStep) {
+                    // Step 1: Initiate registration
+                    const response = await fetch('http://localhost:5193/api/auth/register/initiate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            email: formData.email,
+                            username: formData.username,
+                            password: formData.password,
+                            fullName: formData.fullName,
+                            department: formData.department,
+                            title: formData.title,
+                            phone: formData.phone,
+                            position: formData.position,
+                            profileImage: formData.profileImage
+                        })
+                    });
 
-        if (!validateForm()) {
-            showError('Lütfen form alanlarını kontrol ediniz.', 'Form Hatası');
+                    const data = await response.json();
+                    console.log('Initiate Response:', data);
+
+                    if (response.ok) {
+                        setVerificationStep('verify');
+                        setErrors({});
+                    } else {
+                        const errorMessage = data.errors ? Object.values(data.errors).flat().join(', ') : 
+                                          data.Message || data.message || 'An error occurred';
+                        setErrors({ general: errorMessage });
+                    }
+                } else if (verificationStep === 'verify') {
+                    // Step 2: Complete registration with verification
+                    const response = await fetch('http://localhost:5193/api/auth/register/verify', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            email: formData.email,
+                            code: verificationCode,
+                            username: formData.username,
+                            password: formData.password,
+                            fullName: formData.fullName || '',
+                            department: formData.department || '',
+                            title: formData.title || '',
+                            phone: formData.phone || '',
+                            position: formData.position || '',
+                            profileImage: formData.profileImage
+                        })
+                    });
+
+                    const data = await response.json();
+                    console.log('Verify Response:', data);
+
+                    if (response.ok) {
+                        // Store the token and user data
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        
+                        // Update Redux state
+                        dispatch(setToken(data.token));
+                        dispatch(setUser(data.user));
+                        
+                        // Update authentication context
+                        setIsAuthenticated(true);
+                        
+                        // Initialize SignalR connections
+                        const signalRService = SignalRService.getInstance();
+                        await signalRService.startConnection(data.user.id);
+                        
+                        // Navigate to home page
+                        navigate('/');
+                    } else {
+                        const errorMessage = data.Message || data.message || 'An error occurred';
+                        setErrors({ general: errorMessage });
+                    }
+                }
+            } else {
+                // Login flow
+                const response = await fetch('http://localhost:5193/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: formData.username,
+                        password: formData.password
+                    })
+                });
+
+                const data = await response.json();
+                console.log('Login Response:', data);
+
+                if (response.ok) {
+                    if (!data.token || !data.user) {
+                        throw new Error('Invalid response format from server');
+
+                    }
+                    try {
+                        // Store auth data
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        
+                        // Update Redux state
+                        dispatch(setToken(data.token));
+                        dispatch(setUser(data.user));
+                        
+                        // Update authentication context
+                        setIsAuthenticated(true);
+                        
+                        // Initialize SignalR connections
+                        const signalRService = SignalRService.getInstance();
+                        await signalRService.startConnection(data.user.id);
+                        
+                        // Only navigate if everything is successful
+                        navigate('/');
+                    } catch (error) {
+                        console.error('Error during post-login setup:', error);
+                        setErrors({ general: 'Error during login setup. Please try again.' });
+                        // Clear any partial auth state
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                        setIsAuthenticated(false);
+                    }
+                } else {
+                    const data = await response.json();
+                    const errorMessage = data.message || 'An error occurred';
+                    setErrors({ general: errorMessage });
+                }
+            }
+        } catch (error) {
+            console.error('Auth error:', error);
+            setErrors({ general: 'An unexpected error occurred. Please try again.' });
+        }
+    };
+
+    const handleVerificationSubmit = async () => {
+        if (!verificationCode) {
+            setErrors(prev => ({
+                ...prev,
+                verificationCode: 'Doğrulama kodu gereklidir'
+            }));
             return;
         }
 
         try {
-            if (isLogin) {
-                const response = await login({
-                    username: formData.username,
-                    password: formData.password,
-                });
+            const response = await verifyAndRegister({
+                ...formData,
+                code: verificationCode
+            }) as VerificationResponse;
 
-                if (response.error || response.message?.toLowerCase().includes('error')) {
-                    const errorMessage = response.error || response.message;
-                    setErrors(prev => ({ ...prev, general: errorMessage }));
-                    return;
-                }
+            if (response.error) {
+                setErrors(prev => ({
+                    ...prev,
+                    verificationCode: response.error
+                }));
+                return;
+            }
 
-                if (response.token && response.user) {
-                    localStorage.setItem('token', response.token);
-                    axios.defaults.headers.common['Authorization'] = `Bearer ${response.token}`;
-                    dispatch(setToken(response.token));
-                    dispatch(setUser(response.user));
-                    setIsAuthenticated(true);
-                    showSuccess('Başarıyla giriş yaptınız!', 'Giriş Başarılı');
-                    setTimeout(() => {
-                        navigate('/');
-                    }, 1000);
-                } else {
-                    showError('Kullanıcı bilgileri alınamadı', 'Giriş Hatası');
-                }
-            } else {
-                showInfo('Hesabınız oluşturuluyor...', 'Kayıt İşlemi');
-                const response = await register(formData);
-
-                if (response.error || response.message?.toLowerCase().includes('error')) {
-                    const errorMessage = response.error || response.message;
-
-                    if (errorMessage.toLowerCase().includes('kullanıcı adı')) {
-                        showError('Bu kullanıcı adı zaten kullanılıyor', 'Kullanıcı Adı Hatası');
-                    } else if (errorMessage.toLowerCase().includes('e-posta')) {
-                        showError('Bu e-posta adresi zaten kayıtlı', 'E-Posta Hatası');
-                    } else {
-                        showError(errorMessage, 'Kayıt Hatası');
-                    }
-                    return;
-                }
-
-
-                showSuccess('Başarıyla kayıt olundu!', 'Kayıt Başarılı');
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
-
-
+            if (response.token && response.user) {
+                // Store the token and user data
+                localStorage.setItem('token', response.token);
+                localStorage.setItem('user', JSON.stringify(response.user));
+                
+                // Update Redux state
+                dispatch(setToken(response.token));
+                dispatch(setUser(response.user));
+                
+                // Update authentication context
+                setIsAuthenticated(true);
+                setVerificationDialogOpen(false);
+                
+                // Initialize SignalR connections
+                await signalRService.startConnection(response.user.id);
+                
+                // Navigate to home page
+                navigate('/');
             }
         } catch (error) {
-            console.error('Auth error:', error);
-            showError('Bir hata oluştu. Lütfen daha sonra tekrar deneyin.', 'Kayıt Hatası');
+            console.error('Verification error:', error);
             setErrors(prev => ({
                 ...prev,
-                general: 'Bir hata oluştu. Lütfen daha sonra tekrar deneyin.'
-
+                verificationCode: 'An unexpected error occurred'
             }));
         }
     };
@@ -307,9 +456,7 @@ const Auth: React.FC = () => {
 
             if (response.data.token) {
                 localStorage.setItem('token', response.data.token);
-                axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
                 dispatch(setToken(response.data.token));
-                dispatch(setUser(response.data.user));
                 setIsAuthenticated(true);
                 navigate('/');
             }
@@ -333,20 +480,25 @@ const Auth: React.FC = () => {
         }
     });
 
+    useEffect(() => {
+        console.log('Modal state changed:', verificationDialogOpen);
+    }, [verificationDialogOpen]);
+
     return (
         <Container
-            component="main"
-            maxWidth={false}
-            sx={{
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-                padding: '2rem 1rem'
-            }}
-        >
+        component="main"
+        maxWidth={false}
+        sx={{
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            padding: '2rem 1rem'
+        }}
+    >
+
             <Box
                 sx={{
                     minHeight: '100vh',
@@ -466,6 +618,28 @@ const Auth: React.FC = () => {
                         </motion.div>
 
                         <FormContainer onSubmit={handleSubmit}>
+                            {errors.general && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    transition={{ duration: 0.3 }}
+                                >
+                                    <Typography
+                                        color="error"
+                                        variant="body2"
+                                        sx={{
+                                            textAlign: 'center',
+                                            mb: 2,
+                                            padding: '8px',
+                                            backgroundColor: '#ffebee',
+                                            borderRadius: '4px'
+                                        }}
+                                    >
+                                        {errors.general}
+                                    </Typography>
+                                </motion.div>
+                            )}
                             <AnimatePresence mode="wait">
                                 <motion.div
                                     key={isLogin ? 'login' : 'register'}
@@ -515,55 +689,55 @@ const Auth: React.FC = () => {
 
                                             <StyledTextField
                                                 fullWidth
-                                                name="fullName"
-                                                label="Ad Soyad"
-                                                value={formData.fullName}
-                                                onChange={handleChange}
+                                                margin="normal"
+                                                label="Full Name"
+                                                type="text"
+                                                value={formData.fullName || ''}
+                                                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                                                 error={!!errors.fullName}
                                                 helperText={errors.fullName}
                                             />
-
                                             <StyledTextField
                                                 fullWidth
-                                                name="department"
-                                                label="Departman"
-                                                value={formData.department}
-                                                onChange={handleChange}
+                                                margin="normal"
+                                                label="Department"
+                                                type="text"
+                                                value={formData.department || ''}
+                                                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                                                 error={!!errors.department}
                                                 helperText={errors.department}
                                             />
-
                                             <StyledTextField
                                                 fullWidth
-                                                name="title"
-                                                label="Ünvan"
-                                                value={formData.title}
-                                                onChange={handleChange}
+                                                margin="normal"
+                                                label="Title"
+                                                type="text"
+                                                value={formData.title || ''}
+                                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                                                 error={!!errors.title}
                                                 helperText={errors.title}
                                             />
-
                                             <StyledTextField
                                                 fullWidth
-                                                name="position"
-                                                label="Pozisyon"
-                                                value={formData.position}
-                                                onChange={handleChange}
-                                                error={!!errors.position}
-                                                helperText={errors.position}
-                                            />
-
-                                            <StyledTextField
-                                                fullWidth
-                                                name="phone"
-                                                label="Telefon"
-                                                value={formData.phone}
-                                                onChange={handleChange}
+                                                margin="normal"
+                                                label="Phone"
+                                                type="text"
+                                                value={formData.phone || ''}
+                                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                                 error={!!errors.phone}
                                                 helperText={errors.phone}
                                             />
+                                            <StyledTextField
+                                                fullWidth
+                                                margin="normal"
+                                                label="Position"
+                                                type="text"
+                                                value={formData.position || ''}
+                                                onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                                                error={!!errors.position}
+                                                helperText={errors.position}
+                                            />
                                         </>
-
                                     )}
 
                                     <StyledTextField
@@ -595,6 +769,19 @@ const Auth: React.FC = () => {
                                             ),
                                         }}
                                     />
+
+                                    {!isLogin && verificationStep === 'verify' && (
+                                        <StyledTextField
+                                            fullWidth
+                                            margin="normal"
+                                            label="Verification Code"
+                                            type="text"
+                                            value={verificationCode}
+                                            onChange={(e) => setVerificationCode(e.target.value)}
+                                            error={!!errors.verificationCode}
+                                            helperText={errors.verificationCode}
+                                        />
+                                    )}
 
                                     {errors.general && (
                                         <Typography
@@ -648,6 +835,58 @@ const Auth: React.FC = () => {
                     </StyledPaper>
                 </Box>
             </Box>
+
+            {/* Verification Dialog */}
+            <Dialog 
+                open={verificationDialogOpen} 
+                onClose={() => {
+                    console.log('Modal closing');
+                    setVerificationDialogOpen(false);
+                }}
+                PaperProps={{
+                    style: {
+                        borderRadius: '15px',
+                        padding: '20px',
+                        minWidth: '400px'
+                    }
+                }}
+            >
+                <DialogTitle>
+                    Email Doğrulama
+                </DialogTitle>
+                <DialogContent>
+                    <Typography variant="body1" style={{ marginBottom: '20px' }}>
+                        Email adresinize gönderilen 6 haneli doğrulama kodunu giriniz.
+                    </Typography>
+                    <StyledTextField
+                        fullWidth
+                        label="Doğrulama Kodu"
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value)}
+                        error={!!errors.verificationCode}
+                        helperText={errors.verificationCode}
+                        variant="outlined"
+                        margin="normal"
+                        autoFocus
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setVerificationDialogOpen(false)} color="primary">
+                        İptal
+                    </Button>
+                    <Button 
+                        onClick={handleVerificationSubmit} 
+                        color="primary" 
+                        variant="contained"
+                        style={{
+                            borderRadius: '8px',
+                            padding: '8px 20px'
+                        }}
+                    >
+                        Doğrula
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Container>
     );
 };

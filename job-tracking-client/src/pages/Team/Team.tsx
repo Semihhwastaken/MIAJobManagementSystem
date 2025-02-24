@@ -35,9 +35,6 @@ const Team: React.FC = () => {
         teams,
         departments,
         searchQuery,
-        filters,
-        sortBy,
-        sortOrder
     } = useSelector((state: RootState) => state.team);
     const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
     const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
@@ -123,7 +120,6 @@ const Team: React.FC = () => {
                 setShowCreateTeamModal(true);
             }
         }
-    };
 
     const handleGenerateInviteLink = async (teamId: string) => {
         try {
@@ -381,23 +377,6 @@ const Team: React.FC = () => {
         );
     };
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'available':
-                return 'bg-green-100 text-green-800';
-            case 'busy':
-                return 'bg-red-100 text-red-800';
-            case 'away':
-                return 'bg-yellow-100 text-yellow-800';
-            default:
-                return 'bg-gray-100 text-gray-800';
-        }
-    };
-
-    const getOnlineStatusColor = (status: 'online' | 'offline') => {
-        return status === 'online' ? 'bg-green-500' : 'bg-gray-400';
-    };
-
     return (
         <div className="p-6">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -442,6 +421,14 @@ const Team: React.FC = () => {
                         Yeni Ekip
                     </button>
                 </div>
+                
+                <button
+                   
+                    className="ml-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center"
+                >
+                    <PlusIcon className="h-5 w-5 mr-2" />
+                    Yeni Takım
+                </button>
             </div>
 
             {teams.map((team) => (

@@ -1,18 +1,15 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { TeamState, TeamMember, Team } from '../../types/team';
 import axiosInstance from '../../services/axiosInstance';
-
 const initialState: TeamState & { teams: Team[] } = {
     members: [],
     teams: [],
     departments: [],
-    departmentProjects: {},
     loading: false,
     error: null,
     searchQuery: '',
     filters: {
         status: [],
-        expertise: [],
         department: []
     },
     sortBy: 'name',
@@ -146,58 +143,122 @@ const teamSlice = createSlice({
     name: 'team',
     initialState,
     reducers: {
-        setSearchQuery: (state, action) => {
+        setSearchQuery(state, action) {
             state.searchQuery = action.payload;
         },
-        setFilters: (state, action) => {
-            state.filters = { ...state.filters, ...action.payload };
+        setFilters(state, action) {
+            state.filters = action.payload;
         },
-        setSortBy: (state, action) => {
+        setSortBy(state, action) {
             state.sortBy = action.payload;
         },
-        setSortOrder: (state, action) => {
+        setSortOrder(state, action) {
             state.sortOrder = action.payload;
         },
-        updateMemberOnlineStatus: (state, action) => {
-            const { memberId, status } = action.payload;
-            const member = state.members.find(m => m.id === memberId);
-            if (member) {
-                member.onlineStatus = status;
-            }
-        }
     },
     extraReducers: (builder) => {
+        // fetchMyTeams
         builder
-            .addCase(fetchTeamMembers.pending, (state) => {
+            .addCase(fetchMyTeams.pending, (state) => {
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(fetchTeamMembers.fulfilled, (state, action) => {
+            .addCase(fetchMyTeams.fulfilled, (state, action) => {
                 state.loading = false;
-                state.members = action.payload;
+                state.allTeams = Array.isArray(action.payload) ? action.payload : [];
+                state.error = null;
             })
-            .addCase(fetchTeamMembers.rejected, (state, action) => {
+            .addCase(fetchMyTeams.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.error.message || 'Ekip üyeleri yüklenirken bir hata oluştu';
+                state.error = action.payload as string;
             })
-            .addCase(fetchDepartments.fulfilled, (state, action) => {
-                state.departments = action.payload;
+
+            // fetchLeadingTeams
+            .addCase(fetchLeadingTeams.pending, (state) => {
+                state.loading = true;
+                state.error = null;
             })
-            .addCase(fetchTeamMembersByDepartment.fulfilled, (state, action) => {
-                state.members = action.payload;
+            .addCase(fetchLeadingTeams.fulfilled, (state, action) => {
+                state.loading = false;
+                state.leadingTeams = action.payload;
             })
-            .addCase(updateMemberStatus.fulfilled, (state, action) => {
-                const updatedMember = action.payload;
-                const index = state.members.findIndex(m => m.id === updatedMember.id);
-                if (index !== -1) {
-                    state.members[index] = updatedMember;
+            .addCase(fetchLeadingTeams.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            // fetchMemberTeams
+            .addCase(fetchMemberTeams.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchMemberTeams.fulfilled, (state, action) => {
+                state.loading = false;
+                state.memberTeams = action.payload;
+            })
+            .addCase(fetchMemberTeams.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            // createTeam
+            .addCase(createTeam.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(createTeam.fulfilled, (state, action) => {
+                state.loading = false;
+                state.allTeams = [...state.allTeams, action.payload];
+            })
+            .addCase(createTeam.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            // addTeamMember
+            .addCase(addTeamMember.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(addTeamMember.fulfilled, (state, action) => {
+                state.loading = false;
+                const team = state.allTeams.find(t => t.id === action.payload.teamId);
+                if (team) {
+                    team.members.push(action.payload.member);
                 }
             })
-            .addCase(updateMemberProfile.fulfilled, (state, action) => {
-                const updatedMember = action.payload;
-                const index = state.members.findIndex(m => m.id === updatedMember.id);
+            .addCase(addTeamMember.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            // removeTeamMember
+            .addCase(removeTeamMember.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(removeTeamMember.fulfilled, (state, action) => {
+                state.loading = false;
+                const team = state.allTeams.find(t => t.id === action.payload.teamId);
+                if (team) {
+                    team.members = team.members.filter(m => m.userId !== action.payload.userId);
+                }
+            })
+            .addCase(removeTeamMember.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            // updateTeam
+            .addCase(updateTeam.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(updateTeam.fulfilled, (state, action) => {
+                state.loading = false;
+                const index = state.allTeams.findIndex(t => t.id === action.payload.id);
                 if (index !== -1) {
-                    state.members[index] = updatedMember;
+                    state.allTeams[index] = action.payload;
                 }
             })
             .addCase(createTeam.pending, (state) => {
@@ -260,7 +321,7 @@ const teamSlice = createSlice({
                 state.loading = false;
                 state.error = action.payload as string;
             });
-    }
+    },
 });
 
 export const {

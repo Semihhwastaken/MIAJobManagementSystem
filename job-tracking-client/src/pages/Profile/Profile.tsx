@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axiosInstance from "../../services/axiosInstance";
 import defaultAvatar from '../../assets/images/default-avatar.png';
+import Footer from "../../components/Footer/Footer";
 
 interface UserInfo {
     id: string;
@@ -398,6 +399,7 @@ const Profile: React.FC = () => {
                     </div>
                 </div>
             )}
+            <Footer />
         </div>
     );
 };

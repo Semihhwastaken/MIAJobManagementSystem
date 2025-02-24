@@ -1,7 +1,32 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useContext } from 'react';
+import { AuthContext } from '../../context/AuthContext';
+import SignalRService from '../../services/signalRService';
 
 const Navbar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { setIsAuthenticated } = useContext(AuthContext);
+
+  const handleLogout = async () => {
+    try {
+      // Disconnect SignalR
+      const signalRService = SignalRService.getInstance();
+      await signalRService.stopConnection();
+
+      // Clear local storage
+      localStorage.removeItem('token');
+      localStorage.removeItem('userId');
+
+      // Update auth state
+      setIsAuthenticated(false);
+
+      // Navigate to login
+      navigate('/auth');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -28,7 +53,7 @@ const Navbar = () => {
             <span className="text-xl font-bold text-gray-800">MIA İş Yönetimi</span>
           </Link>
 
-          <div className="hidden md:flex space-x-8">
+          <div className="hidden md:flex items-center space-x-8">
             <Link
               to="/"
               className={`${
@@ -61,6 +86,12 @@ const Navbar = () => {
             >
               Raporlar
             </Link>
+            <button
+              onClick={handleLogout}
+              className="text-gray-600 hover:text-blue-500 transition-colors duration-200"
+            >
+              Çıkış Yap
+            </button>
           </div>
 
           <div className="md:hidden">

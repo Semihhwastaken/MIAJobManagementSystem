@@ -8,5 +8,8 @@ namespace JobTrackingAPI.Settings
         public string UsersCollectionName { get; set; } = string.Empty;
         public string CalendarEventsCollectionName { get; set; } = "CalendarEvents";
         public string BaseUrl { get; set; } = string.Empty;
+        public string VerificationCodesCollectionName { get; set; } = string.Empty;
+        public string NotificationsCollectionName { get; set; } = "Notifications";
+
     }
 }
