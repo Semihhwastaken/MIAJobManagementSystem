@@ -5,7 +5,6 @@ using JobTrackingAPI.Services;
 using MongoDB.Driver;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 
 namespace JobTrackingAPI.Controllers
@@ -47,7 +46,6 @@ namespace JobTrackingAPI.Controllers
             }
         }
 
-
         /// <summary>
         /// Kullanıcının sahibi olduğu tüm ekipleri getirir
         /// </summary>
@@ -69,7 +67,6 @@ namespace JobTrackingAPI.Controllers
             {
                 return StatusCode(500, new { message = ex.Message });
             }
-
         }
 
         [HttpGet("members")]
@@ -114,7 +111,6 @@ namespace JobTrackingAPI.Controllers
             }
         }
 
-
         [HttpGet("{teamId}/members")]
         public async Task<IActionResult> GetTeamMembers(string teamId)
         {
@@ -144,57 +140,34 @@ namespace JobTrackingAPI.Controllers
 
         [HttpPatch("members/{id}/status")]
         public async Task<ActionResult<TeamMember>> UpdateMemberStatus(string id, [FromBody] Models.StatusUpdateDto status)
-
         {
-            var teams = await _teamService.GetTeamsByMemberIdAsync(id);
-            return Ok(teams);
-        }
-
-        [HttpGet("leader/{id}")]
-        public async Task<ActionResult<List<Team>>> GetTeamsByLeaderId(string id)
-        {
-            var teams = await _teamService.GetTeamsByLeaderIdAsync(id);
-            return Ok(teams);
-        }
-
-        [HttpGet("department/{department}")]
-        public async Task<ActionResult<List<Team>>> GetTeamsByDepartment(string department)
-        {
-            var teams = await _teamService.GetTeamsByDepartmentAsync(department);
-            return Ok(teams);
-        }
-
-        [HttpPut("{teamId}/member/{userId}/status")]
-        public async Task<IActionResult> UpdateMemberStatus(string teamId, string userId, [FromBody] string status)
-        {
-            var member = await _teamService.UpdateMemberStatusAsync(teamId, userId, status);
-            if (member == null)
+            try
             {
-                return NotFound();
+                var updatedMember = await _teamService.UpdateMemberStatusAsync(id, status.Status);
+                if (updatedMember == null)
+                    return NotFound($"Member with ID {id} not found");
+                return Ok(updatedMember);
             }
-            return Ok(member);
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
-        [HttpPut("{teamId}/member/{userId}")]
-        public async Task<IActionResult> UpdateMember(string teamId, string userId, [FromBody] TeamMember updatedMember)
+        [HttpPatch("members/{id}")]
+        public async Task<ActionResult<TeamMember>> UpdateMember(string id, [FromBody] Models.TeamMemberUpdateDto updateDto)
         {
-            var member = await _teamService.UpdateMemberAsync(teamId, userId, updatedMember);
-            if (member == null)
+            try
             {
-                return NotFound();
+                var updatedMember = await _teamService.UpdateMemberAsync(id, updateDto);
+                if (updatedMember == null)
+                    return NotFound($"Member with ID {id} not found");
+                return Ok(updatedMember);
             }
-            return Ok(member);
-        }
-
-        [HttpPut("{teamId}/member/{userId}/metrics")]
-        public async Task<IActionResult> UpdateMemberMetrics(string teamId, string userId, [FromBody] MemberMetricsUpdateDto metrics)
-        {
-            var success = await _teamService.UpdateMemberMetricsAsync(teamId, userId, metrics.CompletedTasks, metrics.PerformanceScore);
-            if (!success)
+            catch (Exception ex)
             {
-                return NotFound();
+                return StatusCode(500, $"Internal server error: {ex.Message}");
             }
-            return NoContent();
         }
 
         [HttpPost("create")]
@@ -399,144 +372,6 @@ namespace JobTrackingAPI.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
-        }
-
-        [Authorize]
-        [HttpGet("my-teams")]
-        public async Task<ActionResult<(List<Team> LeadingTeams, List<Team> MemberTeams)>> GetMyTeams()
-        {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-                return Unauthorized();
-
-            var teams = await _teamService.GetAllTeamsByUserIdAsync(userId);
-            return Ok(teams);
-        }
-
-        [Authorize]
-        [HttpGet("leading")]
-        public async Task<ActionResult<List<Team>>> GetLeadingTeams()
-        {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-                return Unauthorized();
-
-            var teams = await _teamService.GetTeamsByLeaderIdAsync(userId);
-            return Ok(teams);
-        }
-
-        [Authorize]
-        [HttpGet("member")]
-        public async Task<ActionResult<List<Team>>> GetMemberTeams()
-        {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-                return Unauthorized();
-
-            var teams = await _teamService.GetTeamsByMemberIdAsync(userId);
-            return Ok(teams);
-        }
-
-        [Authorize]
-        [HttpPost("create-with-leader")]
-        public async Task<ActionResult<Team>> CreateTeamWithLeader([FromBody] Team team)
-        {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-                return Unauthorized();
-
-            var createdTeam = await _teamService.CreateTeamWithLeaderAsync(team, userId);
-            return CreatedAtAction(nameof(GetTeam), new { id = createdTeam.Id }, createdTeam);
-        }
-
-        [Authorize]
-        [HttpPost("{teamId}/members")]
-        public async Task<ActionResult> AddTeamMember(string teamId, [FromBody] string userId)
-        {
-            var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(currentUserId))
-                return Unauthorized();
-
-            var team = await _teamService.GetByIdAsync(teamId);
-            if (team == null)
-                return NotFound();
-
-            if (team.LeaderId != currentUserId)
-                return Forbid();
-
-            var result = await _teamService.AddTeamMemberAsync(teamId, userId);
-            if (!result)
-                return BadRequest();
-
-            return Ok();
-        }
-
-        [Authorize]
-        [HttpDelete("{teamId}/members/{userId}")]
-        public async Task<ActionResult> RemoveTeamMember(string teamId, string userId)
-        {
-            var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(currentUserId))
-                return Unauthorized();
-
-            var team = await _teamService.GetByIdAsync(teamId);
-            if (team == null)
-                return NotFound();
-
-            if (team.LeaderId != currentUserId)
-                return Forbid();
-
-            var result = await _teamService.RemoveTeamMemberAsync(teamId, userId);
-            if (!result)
-                return BadRequest();
-
-            return Ok();
-        }
-
-        [Authorize]
-        [HttpPut("{id}")]
-        public async Task<ActionResult> UpdateTeamWithLeader(string id, [FromBody] Team team)
-        {
-            var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(currentUserId))
-                return Unauthorized();
-
-            var existingTeam = await _teamService.GetByIdAsync(id);
-            if (existingTeam == null)
-                return NotFound();
-
-            if (existingTeam.LeaderId != currentUserId)
-                return Forbid();
-
-            team.Id = id;
-            team.LeaderId = currentUserId;
-            var result = await _teamService.UpdateAsync(id, team);
-            if (!result)
-                return BadRequest();
-
-            return Ok();
-        }
-
-        [Authorize]
-        [HttpDelete("{id}")]
-        public async Task<ActionResult> DeleteTeamWithLeader(string id)
-        {
-            var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(currentUserId))
-                return Unauthorized();
-
-            var team = await _teamService.GetByIdAsync(id);
-            if (team == null)
-                return NotFound();
-
-            if (team.LeaderId != currentUserId)
-                return Forbid();
-
-            var result = await _teamService.DeleteAsync(id);
-            if (!result)
-                return BadRequest();
-
-            return Ok();
         }
     }
 }

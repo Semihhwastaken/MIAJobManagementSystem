@@ -73,7 +73,7 @@ namespace JobTrackingAPI.Controllers
             {
                 currentUser.ProfileImage = request.ProfileImage;
             }
-            currentUser.UpdatedAt = System.DateTime.UtcNow;
+            currentUser.UpdatedDate = System.DateTime.UtcNow;
 
             await _userService.UpdateAsync(id, currentUser);
             return Ok(currentUser);
@@ -169,7 +169,7 @@ namespace JobTrackingAPI.Controllers
                 user.Phone = request.Phone;
                 user.Position = request.Position;
                 user.ProfileImage = request.ProfileImage;
-                user.UpdatedAt = DateTime.UtcNow;
+                user.UpdatedDate = DateTime.UtcNow;
 
                 await _userService.UpdateAsync(userId, user);
 
@@ -208,7 +208,7 @@ namespace JobTrackingAPI.Controllers
 
                 // Yeni şifre güncelleme
                 user.Password = HashPassword(request.NewPassword);
-                user.UpdatedAt = DateTime.UtcNow;
+                user.UpdatedDate = DateTime.UtcNow;
 
                 await _userService.UpdateAsync(userId, user);
 
@@ -281,7 +281,7 @@ namespace JobTrackingAPI.Controllers
                     user.ProfileImage = $"data:image/{extension.Replace(".", "")};base64,{base64String}";
                 }
 
-                user.UpdatedAt = DateTime.UtcNow;
+                user.UpdatedDate = DateTime.UtcNow;
                 await _userService.UpdateAsync(userId, user);
 
                 return Ok(new { message = "Profil resmi başarıyla güncellendi", profileImage = user.ProfileImage });

@@ -139,8 +139,6 @@ const Auth: React.FC = () => {
     const theme = useTheme();
     const navigate = useNavigate();
     const { setIsAuthenticated } = useContext(AuthContext);
-    const { showSuccess, showError, showInfo, showWarning } = useNotification();
-    const dispatch = useDispatch();
 
     const [formData, setFormData] = useState({
         username: '',
@@ -250,7 +248,7 @@ const Auth: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (!validateForm()) return;
 
         try {
@@ -283,8 +281,8 @@ const Auth: React.FC = () => {
                         setVerificationStep('verify');
                         setErrors({});
                     } else {
-                        const errorMessage = data.errors ? Object.values(data.errors).flat().join(', ') : 
-                                          data.Message || data.message || 'An error occurred';
+                        const errorMessage = data.errors ? Object.values(data.errors).flat().join(', ') :
+                            data.Message || data.message || 'An error occurred';
                         setErrors({ general: errorMessage });
                     }
                 } else if (verificationStep === 'verify') {
@@ -315,18 +313,18 @@ const Auth: React.FC = () => {
                         // Store the token and user data
                         localStorage.setItem('token', data.token);
                         localStorage.setItem('user', JSON.stringify(data.user));
-                        
+
                         // Update Redux state
                         dispatch(setToken(data.token));
                         dispatch(setUser(data.user));
-                        
+
                         // Update authentication context
                         setIsAuthenticated(true);
-                        
+
                         // Initialize SignalR connections
                         const signalRService = SignalRService.getInstance();
                         await signalRService.startConnection(data.user.id);
-                        
+
                         // Navigate to home page
                         navigate('/');
                     } else {
@@ -359,18 +357,18 @@ const Auth: React.FC = () => {
                         // Store auth data
                         localStorage.setItem('token', data.token);
                         localStorage.setItem('user', JSON.stringify(data.user));
-                        
+
                         // Update Redux state
                         dispatch(setToken(data.token));
                         dispatch(setUser(data.user));
-                        
+
                         // Update authentication context
                         setIsAuthenticated(true);
-                        
+
                         // Initialize SignalR connections
                         const signalRService = SignalRService.getInstance();
                         await signalRService.startConnection(data.user.id);
-                        
+
                         // Only navigate if everything is successful
                         navigate('/');
                     } catch (error) {
@@ -420,18 +418,18 @@ const Auth: React.FC = () => {
                 // Store the token and user data
                 localStorage.setItem('token', response.token);
                 localStorage.setItem('user', JSON.stringify(response.user));
-                
+
                 // Update Redux state
                 dispatch(setToken(response.token));
                 dispatch(setUser(response.user));
-                
+
                 // Update authentication context
                 setIsAuthenticated(true);
                 setVerificationDialogOpen(false);
-                
+
                 // Initialize SignalR connections
                 await signalRService.startConnection(response.user.id);
-                
+
                 // Navigate to home page
                 navigate('/');
             }
@@ -486,18 +484,18 @@ const Auth: React.FC = () => {
 
     return (
         <Container
-        component="main"
-        maxWidth={false}
-        sx={{
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-            padding: '2rem 1rem'
-        }}
-    >
+            component="main"
+            maxWidth={false}
+            sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                padding: '2rem 1rem'
+            }}
+        >
 
             <Box
                 sx={{
@@ -837,8 +835,8 @@ const Auth: React.FC = () => {
             </Box>
 
             {/* Verification Dialog */}
-            <Dialog 
-                open={verificationDialogOpen} 
+            <Dialog
+                open={verificationDialogOpen}
                 onClose={() => {
                     console.log('Modal closing');
                     setVerificationDialogOpen(false);
@@ -874,9 +872,9 @@ const Auth: React.FC = () => {
                     <Button onClick={() => setVerificationDialogOpen(false)} color="primary">
                         İptal
                     </Button>
-                    <Button 
-                        onClick={handleVerificationSubmit} 
-                        color="primary" 
+                    <Button
+                        onClick={handleVerificationSubmit}
+                        color="primary"
                         variant="contained"
                         style={{
                             borderRadius: '8px',

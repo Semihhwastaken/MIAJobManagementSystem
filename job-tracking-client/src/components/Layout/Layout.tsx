@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { NotificationContainer } from '../Notification/Notification';
+import { NotificationCenter } from '../Notifications/NotificationCenter';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -32,7 +32,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className={`min-h-screen flex flex-col ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
-      <NotificationContainer />
       {/* Header */}
       {!isAuthPage && isAuthenticated && (
         <nav className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} shadow-md transition-colors duration-200`}>
@@ -82,14 +81,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               {/* Right side buttons */}
               <div className="flex items-center space-x-4">
 
+                {/* Notification Center */}
+                <NotificationCenter />
+
                 {/* Theme Toggle Button */}
                 <button
                   onClick={toggleTheme}
-                  className={`p-2 rounded-lg transition-colors ${
-                    isDarkMode
+                  className={`p-2 rounded-lg transition-colors ${isDarkMode
                       ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
+                    }`}
 
                   aria-label="Toggle Theme"
                 >
@@ -110,8 +111,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <button
 
                   className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-150 ease-in-out ${isDarkMode
-                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
                   onClick={() => navigate('/profile')}
 
@@ -135,11 +136,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <button
                   onClick={handleLogout}
 
-                  className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-150 ease-in-out ${
-                    isDarkMode
+                  className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-150 ease-in-out ${isDarkMode
                       ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
+                    }`}
 
                 >
                   <svg

@@ -11,80 +11,68 @@ namespace JobTrackingAPI.Models
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-
-        public string Id { get; set; } = string.Empty;
+        [Required]
+        public string Id { get; set; } = null!;
 
         [BsonElement("username")]
         [Required]
-        public string Username { get; set; } = string.Empty;
+        public string Username { get; set; } = null!;
 
         [BsonElement("email")]
         [Required]
-        [EmailAddress]
-        public string Email { get; set; } = string.Empty;
+        public string Email { get; set; } = null!;
 
         [BsonElement("fullName")]
-        [Required]
-        public string FullName { get; set; } = string.Empty;
+        public string? FullName { get; set; }
 
         [BsonElement("department")]
-        [Required]
-        public string Department { get; set; } = string.Empty;
+        public string? Department { get; set; }
 
         [BsonElement("password")]
-        [Required]
-        public string Password { get; set; } = string.Empty;
-
-        [BsonElement("createdAt")]
-        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-        [BsonElement("updatedAt")]
-        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
-        public DateTime? UpdatedAt { get; set; }
-
-        [BsonElement("profileImage")]
-        public string? ProfileImage { get; set; }
+        public string Password { get; set; } = null!;
 
         [BsonElement("title")]
-        public string Title { get; set; } = string.Empty;
+        public string? Title { get; set; }
 
         [BsonElement("phone")]
-        public string Phone { get; set; } = string.Empty;
+        public string? Phone { get; set; }
 
         [BsonElement("position")]
-        public string Position { get; set; } = string.Empty;
+        public string? Position { get; set; }
 
         [BsonElement("assignedJobs")]
         public List<string> AssignedJobs { get; set; } = new List<string>();
 
-        [BsonElement("leadingTeams")]
-        public List<string> LeadingTeams { get; set; } = new List<string>();
+        [BsonElement("profileImage")]
+        public string? ProfileImage { get; set; }
 
-        [BsonElement("memberOfTeams")]
-        public List<string> MemberOfTeams { get; set; } = new List<string>();
+        [BsonElement("createdDate")]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
-        [BsonElement("role")]
-        public string Role { get; set; } = "user";
+        [BsonElement("updatedDate")]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime? UpdatedDate { get; set; }
 
         public User()
         {
         }
 
+
         public User(string username, string email, string fullName, string department, string password, string profileImage, string title, string phone, string position)
+
         {
             Username = username;
             Email = email;
             FullName = fullName;
             Department = department;
             Password = password;
-            CreatedAt = DateTime.UtcNow;
+            CreatedDate = DateTime.UtcNow;
             ProfileImage = profileImage;
             Title = title;
             Phone = phone;
             Position = position;
-            LeadingTeams = new List<string>();
-            MemberOfTeams = new List<string>();
+
         }
     }
 }

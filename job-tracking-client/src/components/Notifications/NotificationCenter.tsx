@@ -16,10 +16,10 @@ export const NotificationCenter: React.FC = () => {
   useEffect(() => {
     // Check if we have all required auth data
     if (!user?.id || !isAuthenticated || !token) {
-      console.warn('Waiting for authentication data...', { 
-        userId: user?.id, 
-        isAuthenticated, 
-        hasToken: !!token 
+      console.warn('Waiting for authentication data...', {
+        userId: user?.id,
+        isAuthenticated,
+        hasToken: !!token
       });
       return;
     }
@@ -63,7 +63,7 @@ export const NotificationCenter: React.FC = () => {
         </div>
       </div>
     `;
-    
+
     document.body.appendChild(toast);
     setTimeout(() => {
       toast.style.opacity = '0';
@@ -83,9 +83,9 @@ export const NotificationCenter: React.FC = () => {
         userId: user.id,
         token: token?.substring(0, 10) + '...' // Only log first 10 chars of token for security
       });
-      
+
       const response = await axiosInstance.get(url);
-      
+
       if (Array.isArray(response.data)) {
         console.log('Notifications fetched successfully:', response.data.length);
         setNotifications(response.data);
@@ -106,7 +106,7 @@ export const NotificationCenter: React.FC = () => {
   const handleMarkAsRead = async (id: string) => {
     try {
       await axiosInstance.put(`/Notifications/${id}/read`);
-      setNotifications(notifications.map(n => 
+      setNotifications(notifications.map(n =>
         n.id === id ? { ...n, isRead: true } : n
       ));
       setUnreadCount(prev => Math.max(0, prev - 1));
@@ -117,7 +117,7 @@ export const NotificationCenter: React.FC = () => {
 
   const handleMarkAllAsRead = async () => {
     if (!user?.id) return;
-    
+
     try {
       await axiosInstance.put(`/Notifications/user/${user.id}/read-all`);
       setNotifications(notifications.map(n => ({ ...n, isRead: true })));
@@ -227,9 +227,8 @@ export const NotificationCenter: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ duration: 0.2 }}
-                    className={`px-4 py-3 hover:bg-gray-50 cursor-pointer ${
-                      !notification.isRead ? 'bg-blue-50' : ''
-                    }`}
+                    className={`px-4 py-3 hover:bg-gray-50 cursor-pointer ${!notification.isRead ? 'bg-blue-50' : ''
+                      }`}
                     onClick={() => notification.id && handleMarkAsRead(notification.id)}
                   >
                     <div className="flex items-center">

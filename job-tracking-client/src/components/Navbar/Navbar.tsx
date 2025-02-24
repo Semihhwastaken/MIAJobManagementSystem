@@ -56,33 +56,29 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-8">
             <Link
               to="/"
-              className={`${
-                isActive('/') ? 'text-blue-500' : 'text-gray-600'
-              } hover:text-blue-500 transition-colors duration-200`}
+              className={`${isActive('/') ? 'text-blue-500' : 'text-gray-600'
+                } hover:text-blue-500 transition-colors duration-200`}
             >
               Ana Sayfa
             </Link>
             <Link
               to="/tasks"
-              className={`${
-                isActive('/tasks') ? 'text-blue-500' : 'text-gray-600'
-              } hover:text-blue-500 transition-colors duration-200`}
+              className={`${isActive('/tasks') ? 'text-blue-500' : 'text-gray-600'
+                } hover:text-blue-500 transition-colors duration-200`}
             >
               Görevler
             </Link>
             <Link
               to="/team"
-              className={`${
-                isActive('/team') ? 'text-blue-500' : 'text-gray-600'
-              } hover:text-blue-500 transition-colors duration-200`}
+              className={`${isActive('/team') ? 'text-blue-500' : 'text-gray-600'
+                } hover:text-blue-500 transition-colors duration-200`}
             >
               Ekip
             </Link>
             <Link
               to="/analytics"
-              className={`${
-                isActive('/analytics') ? 'text-blue-500' : 'text-gray-600'
-              } hover:text-blue-500 transition-colors duration-200`}
+              className={`${isActive('/analytics') ? 'text-blue-500' : 'text-gray-600'
+                } hover:text-blue-500 transition-colors duration-200`}
             >
               Raporlar
             </Link>

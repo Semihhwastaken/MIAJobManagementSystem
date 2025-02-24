@@ -1,11 +1,4 @@
 export interface TeamMember {
-    userId: string;
-    role: string;
-    joinDate: string;
-    status: 'active' | 'inactive' | 'pending';
-}
-
-export interface Team {
     id: string;
     username: string;
     email: string;
@@ -29,26 +22,33 @@ export interface Team {
 }
 
 export interface TeamState {
-    leadingTeams: Team[];
-    memberTeams: Team[];
-    allTeams: Team[];
+    members: TeamMember[];
     departments: string[];
+    departmentProjects: {
+        [key: string]: {
+            totalProjects: number;
+            completedProjects: number;
+            ongoingProjects: number;
+        };
+    };
     loading: boolean;
     error: string | null;
     searchQuery: string;
     filters: {
         status: string[];
+        expertise: string[];
         department: string[];
     };
-    sortBy: 'name' | 'members' | 'created';
+    sortBy: 'name' | 'performance' | 'tasks' | 'seniority';
     sortOrder: 'asc' | 'desc';
 }
 
 export interface DepartmentStats {
-    departmentName: string;
+    name: string;
     memberCount: number;
-    completedTaskCount: number;
-    averagePerformance: number;
+    completedTasks: number;
+    ongoingTasks: number;
+    performance: number;
 }
 
 export interface Team {

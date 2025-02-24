@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using JobTrackingAPI.Models;
 using JobTrackingAPI.Services;
-using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
@@ -95,6 +94,7 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
     }
 
     public class RegisterRequest
@@ -115,26 +115,6 @@ namespace JobTrackingAPI.Controllers
 
         [Required]
         public required string Department { get; set; }
-
-
-        [Authorize]
-        [HttpGet("me")]
-        public async Task<IActionResult> GetCurrentUser()
-        {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userId == null)
-            {
-                return Unauthorized();
-            }
-
-            var user = await _authService.GetUserByIdAsync(userId);
-            if (user == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(user);
-        }
     }
 
     public class LoginRequest

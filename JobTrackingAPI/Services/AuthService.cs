@@ -131,10 +131,8 @@ namespace JobTrackingAPI.Services
                 Phone = phone,
                 Position = position,
                 ProfileImage = profileImage ?? string.Empty,
-                CreatedAt = now,
-                UpdatedAt = now,
-                LeadingTeams = new List<string>(),
-                MemberOfTeams = new List<string>()
+                CreatedDate = now,
+                UpdatedDate = now
             };
 
             try
@@ -175,11 +173,6 @@ namespace JobTrackingAPI.Services
 
             var token = GenerateJwtToken(user);
             return (true, "Giriş başarılı.", token, user);
-        }
-
-        public async Task<User?> GetUserByIdAsync(string userId)
-        {
-            return await _users.Find(u => u.Id == userId).FirstOrDefaultAsync();
         }
 
         public async Task<User?> GetUserByIdAsync(string userId)

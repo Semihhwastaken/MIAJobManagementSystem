@@ -50,7 +50,7 @@ export const initiateRegister = async (data: InitiateRegistrationRequest): Promi
         console.log('Sending registration request:', data);
         const response = await axiosInstance.post('/auth/register/initiate', data);
         console.log('Registration response:', response.data);
-        
+
         // Başarılı yanıt kontrolü
         if (response.data && !response.data.error) {
             return response.data;
@@ -84,28 +84,6 @@ export const verifyAndRegister = async (data: VerificationRequest): Promise<Auth
     }
 };
 
-export const getCurrentUser = async (): Promise<any> => {
-    try {
-        const response = await axiosInstance.get('/auth/me');
-        return response.data;
-    } catch (error) {
-        if (axios.isAxiosError(error) && error.response) {
-            throw {
-                message: error.response.data.message || 'Failed to get user data',
-                error: error.response.data.error || error.response.data.message
-            };
-        }
-        throw {
-            message: 'An error occurred',
-            error: 'Could not connect to server'
-        };
-    }
-};
-
-export const logout = () => {
-    localStorage.removeItem('token');
-    delete axiosInstance.defaults.headers.common['Authorization'];
-};
 
 export const getCurrentUser = async (): Promise<AuthResponse> => {
     try {
@@ -123,6 +101,11 @@ export const getCurrentUser = async (): Promise<AuthResponse> => {
             error: 'Sunucu ile bağlantı kurulamadı'
         };
     }
+};
+
+export const logout = () => {
+    localStorage.removeItem('token');
+    delete axiosInstance.defaults.headers.common['Authorization'];
 };
 
 // Add token to requests if it exists

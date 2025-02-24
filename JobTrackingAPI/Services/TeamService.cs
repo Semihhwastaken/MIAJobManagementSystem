@@ -15,13 +15,11 @@ namespace JobTrackingAPI.Services;
 public class TeamService
 {
     private readonly IMongoCollection<Team> _teams;
-
     private readonly IMongoCollection<JobTask> _tasks;
     private readonly UserService _userService;
     private readonly IOptions<MongoDbSettings> _settings;
 
     public TeamService(IOptions<MongoDbSettings> settings, UserService userService)
-
     {
         var client = new MongoClient(settings.Value.ConnectionString);
         var database = client.GetDatabase(settings.Value.DatabaseName);
@@ -29,7 +27,6 @@ public class TeamService
         _tasks = database.GetCollection<JobTask>("Tasks");
         _userService = userService;
         _settings = settings;
-
     }
 
     /// <summary>
@@ -79,7 +76,6 @@ public class TeamService
     }
 
     /// <summary>
-
     /// Takım oluşturur
     /// </summary>
     public async Task<Team> CreateAsync(Team team)
@@ -112,9 +108,6 @@ public class TeamService
 
     /// Takımı günceller
     /// </summary>
-    /// <param name="id">Takım ID'si</param>
-    /// <param name="team">Güncellenmiş takım verileri</param>
-    /// <returns>Güncelleme başarılı ise true, aksi halde false</returns>
     public async Task<bool> UpdateAsync(string id, Team team)
     {
         var result = await _teams.ReplaceOneAsync(t => t.Id == id, team);
@@ -137,7 +130,6 @@ public class TeamService
     {
         var teams = await _teams.Find(_ => true).ToListAsync();
         return teams.SelectMany(t => t.Members).ToList();
-
     }
 
     /// <summary>
@@ -147,7 +139,6 @@ public class TeamService
     {
         var teams = await _teams.Find(_ => true).ToListAsync();
         return teams.SelectMany(t => t.Members).Select(m => m.Department).Distinct().ToList();
-
     }
 
     /// <summary>
@@ -157,15 +148,13 @@ public class TeamService
     {
         var teams = await _teams.Find(_ => true).ToListAsync();
         return teams.SelectMany(t => t.Members).Where(m => m.Department == department).ToList();
-
     }
 
     /// <summary>
     /// Takım üyesinin durumunu günceller
     /// </summary>
-    public async Task<TeamMember?> UpdateMemberStatusAsync(string teamId, string userId, string status)
+    public async Task<TeamMember> UpdateMemberStatusAsync(string id, string status)
     {
-
         var teams = await _teams.Find(t => t.Members.Any(m => m.Id == id)).ToListAsync();
         foreach (var team in teams)
         {
@@ -178,13 +167,12 @@ public class TeamService
             }
         }
         return null;
-
     }
 
     /// <summary>
     /// Takım üyesini günceller
     /// </summary>
-    public async Task<TeamMember?> UpdateMemberAsync(string teamId, string userId, TeamMember updatedMember)
+    public async Task<TeamMember> UpdateMemberAsync(string id, TeamMemberUpdateDto updateDto)
     {
         var teams = await _teams.Find(t => t.Members.Any(m => m.Id == id)).ToListAsync();
         foreach (var team in teams)
@@ -518,6 +506,5 @@ public class TeamService
             }
             await _teams.ReplaceOneAsync(t => t.Id == team.Id, team);
         }
-
     }
 }

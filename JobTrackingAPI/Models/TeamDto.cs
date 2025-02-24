@@ -1,12 +1,10 @@
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 
 namespace JobTrackingAPI.Models
 {
     public class StatusUpdateDto
     {
-        [Required]
-        public string Status { get; set; } = string.Empty;
+        public string Status { get; set; }
     }
 
     public class TeamMemberUpdateDto
