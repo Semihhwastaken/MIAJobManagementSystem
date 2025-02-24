@@ -1,6 +1,5 @@
 using JobTrackingAPI.Models;
 using JobTrackingAPI.Settings;
-using JobTrackingAPI.Services;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using System.Collections.Generic;
@@ -15,7 +14,6 @@ namespace JobTrackingAPI.Services;
 public class TeamService
 {
     private readonly IMongoCollection<Team> _teams;
-    private readonly IMongoCollection<JobTask> _tasks;
     private readonly UserService _userService;
     private readonly IOptions<MongoDbSettings> _settings;
 
@@ -24,7 +22,6 @@ public class TeamService
         var client = new MongoClient(settings.Value.ConnectionString);
         var database = client.GetDatabase(settings.Value.DatabaseName);
         _teams = database.GetCollection<Team>("Teams");
-        _tasks = database.GetCollection<JobTask>("Tasks");
         _userService = userService;
         _settings = settings;
     }
@@ -402,8 +399,8 @@ public class TeamService
             }
 
             // İşlemi yapan kullanıcının owner olup olmadığını kontrol et
-            var isOwner = team.Members.Any(m => m.Id == requestUserId && m.Role == "Owner");
-            if (!isOwner)
+            var requestingUser = team.Members.FirstOrDefault(m => m.Id == requestUserId);
+            if (requestingUser == null || requestingUser.Role != "Owner")
             {
                 return (false, "Bu işlemi yapmak için takım sahibi olmanız gerekiyor");
             }
@@ -417,22 +414,19 @@ public class TeamService
 
             if (memberToRemove.Role == "Owner")
             {
-                return (false, "Takım sahibi takımdan çıkarılamaz");
+                return (false, "Takım sahibi çıkarılamaz");
             }
 
-            // Üyeyi listeden çıkar
-            var updateResult = await _teams.UpdateOneAsync(
-                t => t.Id == teamId,
-                Builders<Team>.Update.Pull(t => t.Members, memberToRemove)
-            );
+            var update = Builders<Team>.Update.Pull(t => t.Members, memberToRemove);
+            var result = await _teams.UpdateOneAsync(t => t.Id == teamId, update);
 
-            if (updateResult.ModifiedCount > 0)
+            if (result.ModifiedCount > 0)
             {
-                return (true, "Üye başarıyla takımdan çıkarıldı");
+                return (true, "Üye başarıyla çıkarıldı");
             }
             else
             {
-                return (false, "Üye çıkarma işlemi başarısız oldu");
+                return (false, "Üye çıkarılırken bir hata oluştu");
             }
         }
         catch (Exception ex)
@@ -481,30 +475,17 @@ public class TeamService
             .Select(s => s[random.Next(s.Length)]).ToArray());
     }
 
-    private async Task UpdateMemberPerformanceScores()
+    private async Task UpdateMemberPerformanceScores(TeamMember member)
     {
-        var teams = await _teams.Find(_ => true).ToListAsync();
-        foreach (var team in teams)
+        try
         {
-            foreach (var member in team.Members)
-            {
-                var completedTasks = await _tasks.CountDocumentsAsync(
-                    Builders<JobTask>.Filter.And(
-                        Builders<JobTask>.Filter.Eq(t => t.AssignedToUserId, member.Id),
-                        Builders<JobTask>.Filter.Eq(t => t.Status, "completed")
-                    )
-                );
-
-                var totalTasks = await _tasks.CountDocumentsAsync(
-                    Builders<JobTask>.Filter.Eq(t => t.AssignedToUserId, member.Id)
-                );
-
-                var performanceScore = totalTasks > 0 ? (int)((completedTasks / (double)totalTasks) * 100) : 0;
-
-                member.CompletedTasksCount = (int)completedTasks;
-                member.PerformanceScore = performanceScore;
-            }
-            await _teams.ReplaceOneAsync(t => t.Id == team.Id, team);
+            // Performans puanını varsayılan olarak 0 yap
+            member.PerformanceScore = 0;
+            member.CompletedTasksCount = 0;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Üye performans puanı güncellenirken bir hata oluştu: {ex.Message}");
         }
     }
 }

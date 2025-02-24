@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { AppDispatch, RootState } from '../../redux/store';
+import UserTaskCommentModal from '../../components/Comments/UserTaskCommentModal';
 import {
     fetchTeamMembers,
     fetchDepartments,
@@ -52,6 +53,8 @@ const Team: React.FC = () => {
     const [showRemoveMemberModal, setShowRemoveMemberModal] = useState(false);
     const [memberToRemove, setMemberToRemove] = useState<{ teamId: string, memberId: string } | null>(null);
     const currentUser = useSelector((state: RootState) => state.auth.user);
+    const [showCommentModal, setShowCommentModal] = useState(false);
+    const [selectedUserId, setSelectedUserId] = useState<string>('');
 
     useEffect(() => {
         // Kullanıcı girişi kontrolü
@@ -197,6 +200,10 @@ const Team: React.FC = () => {
         }
     };
 
+    const handleCommentClick = (userId: string) => {
+        setSelectedUserId(userId);
+        setShowCommentModal(true);
+    };
 
     const renderTeamMembers = (teamMembers: TeamMember[], teamName: string, teamId: string) => {
         const filteredAndSortedMembers = teamMembers
@@ -224,9 +231,11 @@ const Team: React.FC = () => {
                 }
                 return sortOrder === 'asc' ? comparison : -comparison;
             });
-        const owner = members.filter(member => member.role === 'Owner')
-        const isOwner = owner.length > 0 && currentUser ? owner[0].id === currentUser.id : false;
 
+        // İşlemi yapan kullanıcının bu takımın owner'ı olup olmadığını kontrol et
+        const isTeamOwner = teamMembers.some(member => 
+            member.id === currentUser?.id && member.role === 'Owner'
+        );
 
         return (
             <div className="mb-8">
@@ -349,26 +358,30 @@ const Team: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <button
-                                                onClick={() => navigate(`/messages/${member.id}`)}
-                                                className={`text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-4`}
-                                            >
-                                                <ChatBubbleLeftIcon className="h-5 w-5" />
-                                            </button>
-                                            <button
-                                                onClick={() => navigate(`/tasks/${member.id}`)}
-                                                className={`text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300`}
-                                            >
-                                                <ClipboardDocumentListIcon className="h-5 w-5" />
-                                            </button>
-                                            {isOwner && member.id !== currentUser?.id && (
-                                                <button
-                                                    onClick={() => handleRemoveMemberClick(teamId, member.id)}
-                                                    className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900"
-                                                    title="Üyeyi Çıkart"
-                                                >
-                                                    <UserMinusIcon className="h-5 w-5" />
-                                                </button>
+                                            {teamMembers.some(member => member.role === 'Owner' && member.id === currentUser?.id) && (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleCommentClick(member.id)}
+                                                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-4"
+                                                    >
+                                                        <ChatBubbleLeftIcon className="h-5 w-5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => navigate(`/tasks/${member.id}`)}
+                                                        className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-4"
+                                                    >
+                                                        <ClipboardDocumentListIcon className="h-5 w-5" />
+                                                    </button>
+                                                    {isTeamOwner && member.id !== currentUser?.id && member.role !== 'Owner' && (
+                                                        <button
+                                                            onClick={() => handleRemoveMemberClick(teamId, member.id)}
+                                                            className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900"
+                                                            title="Üyeyi Çıkart"
+                                                        >
+                                                            <UserMinusIcon className="h-5 w-5" />
+                                                        </button>
+                                                    )}
+                                                </>
                                             )}
                                         </td>
                                     </tr>
@@ -601,6 +614,17 @@ const Team: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {showCommentModal && (
+                <UserTaskCommentModal
+                    isOpen={showCommentModal}
+                    onClose={() => {
+                        setShowCommentModal(false);
+                        setSelectedUserId('');
+                    }}
+                    userId={selectedUserId}
+                />
             )}
         </div>
     );
