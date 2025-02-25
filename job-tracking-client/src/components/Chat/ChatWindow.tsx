@@ -17,7 +17,7 @@ import {
 import { 
     Send as SendIcon,
     AttachFile as AttachFileIcon,
-    
+    Delete as DeleteIcon
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 
@@ -40,8 +40,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
     const [isTyping, setIsTyping] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(true);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isReceiverOnline, setIsReceiverOnline] = useState(false);
     
@@ -51,7 +49,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
     const currentUser = useSelector((state: RootState) => state.auth.user);
     const signalRService = SignalRService.getInstance();
 
-    const loadMessages = async () => {
+    const loadMessages = useCallback(async () => {
         if (!currentUser?.id) return;
 
         try {
@@ -68,33 +66,27 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
         } finally {
             setLoading(false);
         }
-    };
+    }, [currentUser?.id, currentUserId, selectedUser.id]);
 
-    const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-        const element = e.currentTarget;
-        if (element.scrollTop === 0 && hasMore && !loading) {
-            loadMessages();
-        }
-    }, [hasMore, loadMessages, loading]);
 
     useEffect(() => {
         loadMessages();
-    }, [selectedUser.id]);
+    }, [selectedUser.id, loadMessages]);
 
-    const checkOnlineStatus = async () => {
+    const checkOnlineStatus = useCallback(async () => {
         try {
             const response = await axiosInstance.get(`/users/${selectedUser.id}/online`);
             setIsReceiverOnline(response.data.isOnline);
         } catch (err) {
             console.error('Error checking online status:', err);
         }
-    };
+    }, [selectedUser.id]);
 
     useEffect(() => {
         checkOnlineStatus();
         const statusInterval = setInterval(checkOnlineStatus, 30000);
         return () => clearInterval(statusInterval);
-    }, [selectedUser.id]);
+    }, [selectedUser.id, checkOnlineStatus]);
 
     useEffect(() => {
         const handleNewMessage = (message: Message) => {
@@ -112,7 +104,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
         return () => {
             signalRService.removeMessageCallback(handleNewMessage);
         };
-    }, [currentUserId, selectedUser.id, messages]);
+    }, [currentUserId, selectedUser.id, messages, signalRService]);
 
     useEffect(() => {
         const initializeSignalR = async () => {
@@ -154,7 +146,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                 clearTimeout(typingTimeoutRef.current);
             }
         };
-    }, [currentUser?.id, selectedUser.id]);
+    }, [currentUser?.id, selectedUser.id, signalRService]);
 
     const handleTyping = () => {
         if (typingTimeoutRef.current) {
@@ -198,7 +190,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
             const messageDto = {
                 receiverId: selectedUser.id,
                 content: newMessage,
-                subject: 'Chat Message' // Required by the backend
+                subject: 'Chat Message', // Required by the backend
+                attachments: attachments
             };
 
             const response = await axiosInstance.post(`/Messages/send/${currentUserId}`, messageDto);
@@ -220,13 +213,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
 
     const handleDeleteMessage = async (messageId: string) => {
         try {
-            await axiosInstance.delete(`/message/${messageId}`, {
-                params: { userId: currentUser?.id }
-            });
-            setMessages(prev => prev.filter(msg => msg.id !== messageId));
-        } catch (err) {
+            await axiosInstance.delete(`/Messages/${messageId}`);
+            setMessages(prev => prev.filter(message => message.id !== messageId));
+        } catch (error) {
+            console.error('Error deleting message:', error);
             setError('Failed to delete message. Please try again.');
-            console.error('Error deleting message:', err);
         }
     };
 
@@ -240,6 +231,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
             setSelectedFile(file);
         }
     };
+
+    const groupMessagesByDate = (messages: Message[]) => {
+        return messages.reduce((groups, message) => {
+            const date = new Date(message.sentAt).toLocaleDateString();
+            if (!groups[date]) {
+                groups[date] = [];
+            }
+            groups[date].push(message);
+            return groups;
+        }, {} as Record<string, Message[]>);
+    };
+
+    const groupedMessages = groupMessagesByDate(messages);
 
     return (
         <Paper className="flex flex-col h-full" elevation={0}>
@@ -280,39 +284,59 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                     <Alert severity="error">{error}</Alert>
                 ) : (
                     <div className="flex flex-col space-y-4">
-                        {messages.map((message) => (
-                            <motion.div
-                                key={message.id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                className={`flex ${message.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}
-                            >
-                                <Box
-                                    className={`max-w-[70%] p-3 rounded-lg ${
-                                        message.senderId === currentUserId
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-100 dark:bg-gray-700'
-                                    }`}
-                                >
-                                    <Typography>{message.content}</Typography>
-                                    {message.attachments?.map((attachment, index) => (
-                                        <Box key={index} className="mt-2">
-                                            <a
-                                                href={attachment.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-sm underline"
-                                            >
-                                                {attachment.fileName || 'Attached File'}
-                                            </a>
-                                        </Box>
-                                    ))}
-                                    <Typography variant="caption" className="block mt-1 opacity-70">
-                                        {new Date(message.sentAt).toLocaleTimeString()}
+                        {Object.entries(groupedMessages).map(([date, messages]) => (
+                            <div key={date}>
+                                <Box className="flex items-center my-2">
+                                    <Box className="flex-grow border-t border-gray-300 dark:border-gray-600"></Box>
+                                    <Typography variant="subtitle2" className="mx-2 text-center">
+                                        {date}
                                     </Typography>
+                                    <Box className="flex-grow border-t border-gray-300 dark:border-gray-600"></Box>
                                 </Box>
-                            </motion.div>
+                                {messages.map((message) => (
+                                    <motion.div
+                                        key={message.id}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -20 }}
+                                        className={`flex ${message.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}
+                                    >
+                                        <Box
+                                            className={`max-w-[70%] p-3 rounded-lg ${
+                                                message.senderId === currentUserId
+                                                    ? 'bg-blue-600 text-white'
+                                                    : 'bg-gray-100 dark:bg-gray-700'
+                                            }`}
+                                        >
+                                            <Typography>{message.content}</Typography>
+                                            {message.attachments?.map((attachment, index) => (
+                                                <Box key={index} className="mt-2">
+                                                    <a
+                                                        href={attachment.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-sm underline"
+                                                    >
+                                                        {attachment.fileName || 'Attached File'}
+                                                    </a>
+                                                </Box>
+                                            ))}
+                                            <Typography variant="caption" className="block mt-1 opacity-70">
+                                                {new Date(message.sentAt).toLocaleTimeString()}
+                                            </Typography>
+                                            {message.senderId === currentUserId && (
+                                                <IconButton
+                                                    onClick={() => message.id && handleDeleteMessage(message.id)}
+                                                    size="small"
+                                                    color="secondary"
+                                                >
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            )}
+                                        </Box>
+                                    </motion.div>
+                                ))}
+                            </div>
                         ))}
                         <div ref={messagesEndRef} style={{ height: 1 }} />
                     </div>

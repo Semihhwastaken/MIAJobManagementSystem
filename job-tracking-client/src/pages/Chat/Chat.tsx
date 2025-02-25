@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { ChatWindow } from '../../components/Chat/ChatWindow';
 import { RootState } from '../../redux/store';
@@ -20,13 +20,25 @@ interface Conversation {
 
 const Chat: React.FC = () => {
     const [selectedUser, setSelectedUser] = useState<{ id: string; name: string } | null>(null);
-    const [_, setConversations] = useState<Conversation[]>([]);
-    const [availableUsers, setAvailableUsers] = useState<any[]>([]);
+    const [, setConversations] = useState<Conversation[]>([]);
+
+    interface User {
+        id?: string;
+        username: string;
+        email: string;
+        fullName?: string;
+        department?: string;
+        title?: string;
+        position?: string;
+        profileImage?: string;
+    }
+
+    const [availableUsers, setAvailableUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const currentUser = useSelector((state: RootState) => state.auth.user);
 
-    const fetchUnreadCounts = async () => {
+    const fetchUnreadCounts = useCallback(async () => {
         if (!currentUser?.id) return;
 
         try {
@@ -41,7 +53,7 @@ const Chat: React.FC = () => {
         } catch (err) {
             console.error('Error fetching unread counts:', err);
         }
-    };
+    }, [currentUser?.id]);
 
     useEffect(() => {
         const fetchConversations = async () => {
@@ -53,7 +65,7 @@ const Chat: React.FC = () => {
                 
                 const response = await axiosInstance.get(`/messages/conversations/${currentUser.id}`);
                 if (response.data) {
-                    setConversations(response.data.map((conv: any) => ({
+                    setConversations(response.data.map((conv: Conversation) => ({
                         userId: conv.userId,
                         userName: conv.userName,
                         lastMessage: conv.lastMessage,
@@ -80,7 +92,7 @@ const Chat: React.FC = () => {
         }, 30000); // Poll every 30 seconds
 
         return () => clearInterval(pollInterval);
-    }, [currentUser?.id]);
+    }, [currentUser?.id, fetchUnreadCounts]);
 
     // Fetch available users
     useEffect(() => {
@@ -89,7 +101,7 @@ const Chat: React.FC = () => {
 
             try {
                 const response = await axiosInstance.get('/Users');
-                const users = response.data.filter((user: any) => user.id !== currentUser.id);
+                const users = response.data.filter((user: User) => user.id !== currentUser.id);
                 setAvailableUsers(users);
             } catch (err) {
                 console.error('Error fetching available users:', err);
@@ -151,7 +163,7 @@ const Chat: React.FC = () => {
                         {availableUsers.map((user) => (
                             <div
                                 key={user.id}
-                                onClick={() => setSelectedUser({ id: user.id, name: user.fullName || user.username })}
+                                onClick={() => setSelectedUser({ id: user.id || '', name: user.fullName || user.username })}
                                 className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-150 ease-in-out ${
                                     selectedUser?.id === user.id ? 'bg-blue-50 dark:bg-blue-900/30' : ''
                                 }`}

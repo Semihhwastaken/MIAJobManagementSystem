@@ -202,6 +202,7 @@ namespace JobTrackingAPI.Controllers
             }
         }
 
+
         [HttpGet("user/{userId}")]
         [Authorize]
         public async Task<ActionResult<IEnumerable<TaskItem>>> GetTasksByUserId(string userId)
@@ -222,15 +223,9 @@ namespace JobTrackingAPI.Controllers
         [Authorize]
         public async Task<IActionResult> CompleteTask(string id)
         {
-            try
+          try
             {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized();
-                }
-
-                // Görevi bul
+             // Görevi bul
                 var task = await _tasksCollection.Find(t => t.Id == id).FirstOrDefaultAsync();
                 if (task == null)
                 {
@@ -268,11 +263,70 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 return Ok(new { message = "Görev başarıyla tamamlandı ve istatistikler güncellendi" });
+               }
+                catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
             }
+
+        [HttpGet("dashboard")]
+        [Authorize]
+        public async Task<ActionResult<DashboardStats>> GetDashboardStats()
+
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized();
+                }
+                var tasks = await _tasksCollection.Find(t => t.AssignedUsers.Any(u => u.Id == userId)).ToListAsync();
+
+                var totalTasks = tasks.Count;
+                var completedTasks = tasks.Count(t => t.Status == "Completed");
+                var inProgressTasks = tasks.Count(t => t.Status == "In Progress");
+                var overdueTasks = tasks.Count(t => t.DueDate < DateTime.UtcNow && t.Status != "Completed");
+
+                var previousWeek = DateTime.UtcNow.AddDays(-7);
+                var previousTasks = await _tasksCollection.Find(t => t.AssignedUsers.Any(u => u.Id == userId) && t.CreatedAt < previousWeek).ToListAsync();
+
+                var previousTotalTasks = previousTasks.Count;
+                var previousCompletedTasks = previousTasks.Count(t => t.Status == "Completed");
+                var previousInProgressTasks = previousTasks.Count(t => t.Status == "In Progress");
+                var previousOverdueTasks = previousTasks.Count(t => t.DueDate < previousWeek && t.Status != "Completed");
+
+                var lineChartData = tasks
+                    .GroupBy(t => t.CreatedAt.Date)
+                    .Select(g => new LineChartDataItem
+                    {
+                        Date = g.Key,
+                        Completed = g.Count(t => t.Status == "Completed"),
+                        NewTasks = g.Count()
+                    })
+                    .OrderBy(d => d.Date)
+                    .ToList();
+
+                var stats = new DashboardStats
+                {
+                    TotalTasks = totalTasks,
+                    CompletedTasks = completedTasks,
+                    InProgressTasks = inProgressTasks,
+                    OverdueTasks = overdueTasks,
+                    PreviousTotalTasks = previousTotalTasks,
+                    PreviousCompletedTasks = previousCompletedTasks,
+                    PreviousInProgressTasks = previousInProgressTasks,
+                    PreviousOverdueTasks = previousOverdueTasks,
+                    LineChartData = lineChartData
+                };
+
+                return Ok(stats);
+                }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
+  
         }
     }
 }

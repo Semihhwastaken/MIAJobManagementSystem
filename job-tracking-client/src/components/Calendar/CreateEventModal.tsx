@@ -39,7 +39,7 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
   // Reset form data when initialData changes
   useEffect(() => {
     if (initialData) {
-      const { id, ...rest } = initialData;
+      const {  ...rest } = initialData;
       setFormData(rest);
     } else {
       setFormData({

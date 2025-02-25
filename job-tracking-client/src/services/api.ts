@@ -45,7 +45,7 @@ export const login = async (data: LoginRequest): Promise<AuthResponse> => {
     }
 };
 
-export const initiateRegister = async (data: InitiateRegistrationRequest): Promise<any> => {
+export const initiateRegister = async (data: InitiateRegistrationRequest): Promise<{ message: string; error?: string }> => {
     try {
         console.log('Sending registration request:', data);
         const response = await axiosInstance.post('/auth/register/initiate', data);

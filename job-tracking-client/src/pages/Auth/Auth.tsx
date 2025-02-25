@@ -138,6 +138,7 @@ const Auth: React.FC = () => {
     const [verificationStep, setVerificationStep] = useState<'initiate' | 'verify' | null>(null);
     const theme = useTheme();
     const navigate = useNavigate();
+    const {showSuccess, showError } = useNotification();
     const { setIsAuthenticated } = useContext(AuthContext);
 
     const [formData, setFormData] = useState({
@@ -170,7 +171,7 @@ const Auth: React.FC = () => {
     const signalRService = SignalRService.getInstance();
 
     const validateForm = () => {
-        let tempErrors = {
+        const tempErrors = {
             username: '',
             email: '',
             password: '',
@@ -279,11 +280,13 @@ const Auth: React.FC = () => {
 
                     if (response.ok) {
                         setVerificationStep('verify');
+                        showSuccess('Doğrulama kodu e-postanına gönderildi.');
                         setErrors({});
                     } else {
                         const errorMessage = data.errors ? Object.values(data.errors).flat().join(', ') :
                             data.Message || data.message || 'An error occurred';
                         setErrors({ general: errorMessage });
+                        showError('Başarısız.');
                     }
                 } else if (verificationStep === 'verify') {
                     // Step 2: Complete registration with verification
@@ -325,11 +328,13 @@ const Auth: React.FC = () => {
                         const signalRService = SignalRService.getInstance();
                         await signalRService.startConnection(data.user.id);
 
+                        showSuccess('Başarıyla kayıt olundu.');
                         // Navigate to home page
                         navigate('/');
                     } else {
                         const errorMessage = data.Message || data.message || 'An error occurred';
                         setErrors({ general: errorMessage });
+                        showError('Doğrulama başarısız.');
                     }
                 }
             } else {
@@ -370,6 +375,7 @@ const Auth: React.FC = () => {
                         await signalRService.startConnection(data.user.id);
 
                         // Only navigate if everything is successful
+                        showSuccess('Başarıyla giriş yaptınız.');
                         navigate('/');
                     } catch (error) {
                         console.error('Error during post-login setup:', error);
@@ -383,6 +389,7 @@ const Auth: React.FC = () => {
                     const data = await response.json();
                     const errorMessage = data.message || 'An error occurred';
                     setErrors({ general: errorMessage });
+                    showError('Giriş başarısız, lütfen tekrar deneyin.');
                 }
             }
         } catch (error) {
@@ -446,7 +453,7 @@ const Auth: React.FC = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleGoogleSuccess = async (tokenResponse: any) => {
+    const handleGoogleSuccess = async (tokenResponse: { access_token: string }) => {
         try {
             const response = await axios.post('http://localhost:5193/api/auth/google', {
                 token: tokenResponse.access_token
@@ -458,10 +465,10 @@ const Auth: React.FC = () => {
                 setIsAuthenticated(true);
                 navigate('/');
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             setErrors(prev => ({
                 ...prev,
-                general: error.response?.data?.message || 'Google ile giriş yapılırken bir hata oluştu'
+                general: axios.isAxiosError(error) && error.response?.data?.message || 'Google ile giriş yapılırken bir hata oluştu'
 
             }));
         }
