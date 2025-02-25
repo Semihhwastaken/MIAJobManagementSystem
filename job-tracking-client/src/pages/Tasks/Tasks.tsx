@@ -6,6 +6,7 @@ import { Task } from '../../types/task';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchTasks, createTask, updateTask, deleteTask } from '../../redux/features/tasksSlice';
 import { RootState, AppDispatch } from '../../redux/store';
+import Footer from '../../components/Footer/Footer';
 
 const Tasks: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -386,6 +387,7 @@ const Tasks: React.FC = () => {
           </div>
         </div>
       )}
+      <Footer />
     </div>
   );
 };
