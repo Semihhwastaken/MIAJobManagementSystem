@@ -111,9 +111,13 @@ builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("Mo
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 
-builder.Services.AddScoped<UserService>();
-builder.Services.AddScoped<AuthService>();
+// UserService'i singleton olarak kaydet
+builder.Services.AddSingleton<UserService>();
+
+// TeamService'i scoped olarak değiştir
 builder.Services.AddScoped<TeamService>();
+
+builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IConnectionService,ConnectionService>();
 builder.Services.AddScoped<CalendarEventService>();

@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { AppDispatch, RootState } from '../../redux/store';
 import UserTaskCommentModal from '../../components/Comments/UserTaskCommentModal';
+import { IoIosAddCircleOutline } from "react-icons/io";
 import {
     fetchTeamMembers,
     fetchDepartments,
@@ -11,7 +12,10 @@ import {
     generateTeamInviteLink,
     fetchTeams,
     deleteTeam,
-    removeTeamMember
+    removeTeamMember,
+    getTeamInviteLink,
+    setTeamInviteLink,
+    addExperties
 } from '../../redux/features/teamSlice';
 import { useTheme } from '../../context/ThemeContext';
 import { TeamMember } from '../../types/team';
@@ -25,6 +29,7 @@ import {
 } from '@heroicons/react/24/outline';
 import axiosInstance from '../../services/axiosInstance';
 import { useSnackbar } from 'notistack';
+import { DEPARTMENTS } from '../../constants/departments';
 
 const Team: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
@@ -55,6 +60,10 @@ const Team: React.FC = () => {
     const currentUser = useSelector((state: RootState) => state.auth.user);
     const [showCommentModal, setShowCommentModal] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState<string>('');
+    const [showExpertiesModal, setShowExpertiesModal] = useState(false);
+    const [selectedMemberId, setSelectedMemberId] = useState<string>('');
+    const [newExpertise, setNewExpertise] = useState('');
+    const [newTeamDepartment, setNewTeamDepartment] = useState('');
 
     useEffect(() => {
         // Kullanıcı girişi kontrolü
@@ -64,9 +73,9 @@ const Team: React.FC = () => {
             return;
         }
 
-        dispatch(fetchTeamMembers() as any);
-        dispatch(fetchDepartments() as any);
-        dispatch(fetchTeams() as any);
+        dispatch(fetchTeamMembers());
+        dispatch(fetchDepartments());
+        dispatch(fetchTeams());
     }, [dispatch, navigate]);
 
     const handleCreateTeam = async () => {
@@ -76,16 +85,18 @@ const Team: React.FC = () => {
             return;
         }
 
-        if (newTeamName.trim()) {
+        if (newTeamName.trim() && newTeamDepartment) {
             try {
                 console.log('Takım oluşturma isteği gönderiliyor:', {
                     name: newTeamName,
-                    description: newTeamDescription.trim() || undefined
+                    description: newTeamDescription.trim() || undefined,
+                    department: newTeamDepartment
                 });
 
                 const result = await dispatch(createTeam({
                     name: newTeamName,
-                    description: newTeamDescription.trim() || undefined
+                    description: newTeamDescription.trim() || undefined,
+                    department: newTeamDepartment
                 }) as any);
 
                 console.log('API Yanıtı:', result); // Debug için
@@ -115,7 +126,8 @@ const Team: React.FC = () => {
                             setShowCreateTeamModal(false);
                             setNewTeamName('');
                             setNewTeamDescription('');
-                            dispatch(fetchTeams() as any);
+                            setNewTeamDepartment('');
+                            dispatch(fetchTeams());
                         }
                     } catch (error: any) {
                         enqueueSnackbar(error.message, { variant: 'error' });
@@ -125,22 +137,47 @@ const Team: React.FC = () => {
                 enqueueSnackbar(error.message, { variant: 'error' });
                 setShowCreateTeamModal(true);
             }
+        } else {
+            enqueueSnackbar('Takım adı ve departman seçimi zorunludur', { variant: 'error' });
         }
     };
 
     const handleGenerateInviteLink = async (teamId: string) => {
         try {
-            const response = await axiosInstance.post(`Team/invite-link/${teamId}`);
-            const inviteCode = response.data.inviteLink.split('code=')[1];
-            const inviteLink = `${window.location.origin}/team/join-with-code/${inviteCode}`;
-            setInviteLink(inviteLink);
+            // Önce mevcut davet linkini kontrol et
+            const existingLinkResult = await dispatch(getTeamInviteLink(teamId)).unwrap();
+            let inviteLinkFull = '';
+    
+            if (existingLinkResult && existingLinkResult.inviteLink) {
+                // Mevcut davet linki varsa onu kullan
+                inviteLinkFull = existingLinkResult.inviteLink;
+                console.log('Yeni oluşturulan davet linki:', inviteLinkFull);
+            } else {
+                // Mevcut davet linki yoksa yeni oluştur
+                const newLinkResponse = await axiosInstance.post(`Team/invite-link/${teamId}`);
+                const inviteCode = newLinkResponse.data.inviteLink.split('code=')[1];
+                inviteLinkFull = `http://localhost:5173/team/join-with-code/${inviteCode}`;
+                console.log('Yeni oluşturulan davet linki:', inviteLinkFull);
+                
+                // Yeni oluşturulan linki veritabanına kaydet
+                await dispatch(setTeamInviteLink({ 
+                    teamId, 
+                    inviteLink: inviteLinkFull 
+                })).unwrap();
+            }
+    
+            // UI işlemleri
+            setInviteLink(inviteLinkFull);
             setSelectedTeamId(teamId);
             setShowInviteLinkModal(true);
-            await navigator.clipboard.writeText(inviteLink);
+            
+            // Panoya kopyala
+            await navigator.clipboard.writeText(inviteLinkFull);
             enqueueSnackbar('Davet linki panoya kopyalandı!', { variant: 'success' });
+            
         } catch (error: any) {
-            console.error('Davet linki oluşturulurken hata:', error);
-            enqueueSnackbar('Davet linki oluşturulamadı', { variant: 'error' });
+            console.error('Davet linki işlemi sırasında hata:', error);
+            enqueueSnackbar('Davet linki işlemi başarısız oldu', { variant: 'error' });
         }
     };
 
@@ -203,6 +240,32 @@ const Team: React.FC = () => {
     const handleCommentClick = (userId: string) => {
         setSelectedUserId(userId);
         setShowCommentModal(true);
+    };
+
+    const handleAddExpertise = async () => {
+        if (!newExpertise.trim()) {
+            enqueueSnackbar('Uzmanlık alanı boş olamaz', { variant: 'error' });
+            return;
+        }
+    
+        try {
+            await dispatch(addExperties({
+                memberId: selectedMemberId,
+                experties: newExpertise
+            })).unwrap();
+    
+            enqueueSnackbar('Uzmanlık başarıyla eklendi', { variant: 'success' });
+            setShowExpertiesModal(false);
+            setNewExpertise('');
+            dispatch(fetchTeams());
+        } catch (error: any) {
+            enqueueSnackbar(error.message || 'Uzmanlık eklenirken bir hata oluştu', { variant: 'error' });
+        }
+    };
+
+    const handleAddExpertiseClick = (id: string) => {
+        setSelectedMemberId(id);
+        setShowExpertiesModal(true);
     };
 
     const renderTeamMembers = (teamMembers: TeamMember[], teamName: string, teamId: string) => {
@@ -297,6 +360,7 @@ const Team: React.FC = () => {
                             <tbody className={`${isDarkMode ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'}`}>
                                 {filteredAndSortedMembers.map((member) => (
                                     <tr key={member.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
+                                        {/* TABLE ÜYE */}
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
                                                 <div className="flex-shrink-0 h-10 w-10 relative">
@@ -321,9 +385,11 @@ const Team: React.FC = () => {
                                                 </div>
                                             </div>
                                         </td>
+                                        {/* TABLE DEPARTMAN */}
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{member.department}</div>
                                         </td>
+                                        {/* TABLE PERFORMANCE */}
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
                                                 <div className="flex-1 h-2 bg-gray-200 rounded-full">
@@ -337,24 +403,36 @@ const Team: React.FC = () => {
                                                 </span>
                                             </div>
                                         </td>
+                                        {/* TABLE DURUM */}
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(member.status)}`}>
                                                 {member.status}
                                             </span>
                                         </td>
+                                        {/* TABLE UZMANLIK */}
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex flex-wrap gap-1">
-                                                {member.expertise.map((skill, index) => (
-                                                    <span
-                                                        key={index}
-                                                        className={`px-2 py-1 text-xs rounded-full ${isDarkMode
-                                                            ? 'bg-blue-900 text-blue-200'
-                                                            : 'bg-blue-100 text-blue-800'
-                                                            }`}
-                                                    >
-                                                        {skill}
-                                                    </span>
-                                                ))}
+                                                {member.expertise === null || member.expertise.length === 0 ? (
+                                                    <span 
+                                                    className={`group px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition-all duration-200 ease-in-out cursor-pointer 
+                                                        ${isDarkMode 
+                                                          ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                                                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                                                          onClick={() => handleAddExpertiseClick(member.id)}>
+                                                            Uzmanlık Yok 
+                                                            <IoIosAddCircleOutline
+                                                                className="w-5 h-5 ml-1 transition-transform duration-200 ease-in-out group-hover:scale-110"
+                                                                
+                                                            />
+                                                        </span>
+                                                ) : (
+                                                    member.expertise.map((expertise, index) => (
+                                                        <span key={index} className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
+                                                            {expertise}
+                                                        </span>
+                                                    ))
+                                                )}
+                                                    
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -440,7 +518,7 @@ const Team: React.FC = () => {
                         onChange={(e) => setSelectedDepartment(e.target.value)}
                     >
                         <option value="all">Tüm Departmanlar</option>
-                        {departments.map((dept) => (
+                        {DEPARTMENTS.map((dept) => (
                             <option key={dept} value={dept}>
                                 {dept}
                             </option>
@@ -494,6 +572,24 @@ const Team: React.FC = () => {
                                 rows={3}
                             />
                         </div>
+                        <div className="mb-4">
+                            <label htmlFor="teamDepartment" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Departman
+                            </label>
+                            <select
+                                id="teamDepartment"
+                                value={newTeamDepartment}
+                                onChange={(e) => setNewTeamDepartment(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            >
+                                <option value="">Departman Seçin</option>
+                                {DEPARTMENTS.map((dept) => (
+                                    <option key={dept} value={dept}>
+                                        {dept}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                         <div className="flex justify-end space-x-3">
                             <button
                                 className="px-4 py-2 text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white"
@@ -501,6 +597,7 @@ const Team: React.FC = () => {
                                     setShowCreateTeamModal(false);
                                     setNewTeamName('');
                                     setNewTeamDescription('');
+                                    setNewTeamDepartment('');
                                 }}
                             >
                                 İptal
@@ -510,6 +607,59 @@ const Team: React.FC = () => {
                                 onClick={handleCreateTeam}
                             >
                                 Oluştur
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Uzmanlık Ekleme Modalı */}
+            {showExpertiesModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} max-w-md w-full mx-4`}>
+                        <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            Uzmanlık Ekle
+                        </h3>
+                        <div className="mb-4">
+                            <label 
+                                htmlFor="expertise" 
+                                className={`block text-sm font-medium mb-2 ${
+                                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                }`}
+                            >
+                                Uzmanlık Alanı
+                            </label>
+                            <input
+                                type="text"
+                                id="expertise"
+                                value={newExpertise}
+                                onChange={(e) => setNewExpertise(e.target.value)}
+                                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                    isDarkMode 
+                                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                                }`}
+                                placeholder="Örn: React, Node.js, MongoDB"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-4">
+                            <button
+                                onClick={() => {
+                                    setShowExpertiesModal(false);
+                                    setNewExpertise('');
+                                }}
+                                className={`px-4 py-2 rounded-lg ${
+                                    isDarkMode 
+                                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
+                                        : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                                }`}
+                            >
+                                İptal
+                            </button>
+                            <button
+                                onClick={handleAddExpertise}
+                                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                                Ekle
                             </button>
                         </div>
                     </div>

@@ -23,21 +23,27 @@ namespace JobTrackingAPI.Models
         public string Email { get; set; } = null!;
 
         [BsonElement("fullName")]
+        [Required]
         public string? FullName { get; set; }
 
         [BsonElement("department")]
+        [Required]
         public string? Department { get; set; }
 
         [BsonElement("password")]
+        [Required]
         public string Password { get; set; } = null!;
 
         [BsonElement("title")]
+        [Required]
         public string? Title { get; set; }
 
         [BsonElement("phone")]
+        [Required]
         public string? Phone { get; set; }
 
         [BsonElement("position")]
+        [Required]
         public string? Position { get; set; }
 
         [BsonElement("assignedJobs")]

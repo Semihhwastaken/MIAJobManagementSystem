@@ -5,6 +5,10 @@ using MongoDB.Driver;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Text;
+using JobTrackingAPI.Controllers;
+using JobTrackingAPI.Constants;
+using JobTrackingAPI.Hubs;
+using Microsoft.AspNetCore.SignalR;
 
 namespace JobTrackingAPI.Services;
 
@@ -16,24 +20,27 @@ public class TeamService
     private readonly IMongoCollection<Team> _teams;
     private readonly UserService _userService;
     private readonly IOptions<MongoDbSettings> _settings;
+    private readonly IMongoCollection<TaskItem> _tasks; // Yeni eklenen
+    private readonly IHubContext<NotificationHub> _notificationHubContext;
 
-    public TeamService(IOptions<MongoDbSettings> settings, UserService userService)
+    public TeamService(
+        IOptions<MongoDbSettings> settings, 
+        UserService userService,
+        IMongoDatabase database,
+        IHubContext<NotificationHub> notificationHubContext) // Constructor güncellendi
     {
         var client = new MongoClient(settings.Value.ConnectionString);
-        var database = client.GetDatabase(settings.Value.DatabaseName);
-        _teams = database.GetCollection<Team>("Teams");
+        var db = client.GetDatabase(settings.Value.DatabaseName);
+        _teams = db.GetCollection<Team>("Teams");
+        _tasks = db.GetCollection<TaskItem>("Tasks"); // Tasks collection'ı eklendi
         _userService = userService;
         _settings = settings;
+        _notificationHubContext = notificationHubContext;
     }
 
     /// <summary>
     /// Tüm takımları getirir
     /// </summary>
-    public async Task<List<Team>> GetAllAsync()
-    {
-        return await _teams.Find(_ => true).ToListAsync();
-    }
-
     /// <summary>
     /// ID'ye göre takım getirir
     /// </summary>
@@ -86,15 +93,39 @@ public class TeamService
                 throw new Exception("Bu isimde bir takım zaten mevcut.");
             }
 
-            // Oluşturma tarihini ayarla
-            team.CreatedAt = DateTime.UtcNow;
+            // Her üye için eksik bilgileri doldur
+            foreach (var member in team.Members)
+            {
+                var user = await _userService.GetByIdAsync(member.Id);
+                if (user != null)
+                {
+                    member.Title = user.Title;
+                    member.Position = user.Position;
+                    member.Phone = user.Phone;
+                }
 
-            // Davet kodunu oluştur
+                // Assigned Jobs bilgisini Tasks koleksiyonundan al
+                var assignedTasks = await _tasks
+                    .Find(t => t.AssignedUsers.Any(u => u.Id == member.Id))
+                    .ToListAsync();
+                member.AssignedJobs = assignedTasks.Select(t => t.Id).ToList();
+
+                // AvailabilitySchedule varsayılan değerlerini ayarla
+                member.AvailabilitySchedule = new AvailabilitySchedule
+                {
+                    WorkingHours = new WorkingHours
+                    {
+                        Start = "09:00",
+                        End = "18:00"
+                    },
+                    WorkingDays = new List<string> { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday" }
+                };
+            }
+
+            team.CreatedAt = DateTime.UtcNow;
             team.InviteCode = GenerateInviteCode();
 
-            // Takımı oluştur
             await _teams.InsertOneAsync(team);
-
             return team;
         }
         catch (Exception ex)
@@ -134,8 +165,8 @@ public class TeamService
     /// </summary>
     public async Task<List<string>> GetDepartmentsAsync()
     {
-        var teams = await _teams.Find(_ => true).ToListAsync();
-        return teams.SelectMany(t => t.Members).Select(m => m.Department).Distinct().ToList();
+        // Statik departman listesini döndür
+        return DepartmentConstants.Departments;
     }
 
     /// <summary>
@@ -266,7 +297,48 @@ public class TeamService
         team.InviteCode = inviteCode;
         await _teams.ReplaceOneAsync(t => t.Id == teamId, team);
         
-        return $"{_settings.Value.BaseUrl}/team-invite?code={inviteCode}";
+        return $"{_settings.Value.BaseUrl}/team-invite?code={inviteCode}"; // Düzeltilmiş BaseUrl kullanımı
+    }
+
+    public async Task<bool> IsInviteLinkValid(string teamId)
+    {
+        var team = await _teams.Find(t => t.Id == teamId).FirstOrDefaultAsync();
+        if (team == null || string.IsNullOrEmpty(team.InviteLink) || !team.InviteLinkExpiresAt.HasValue)
+            return false;
+
+        return team.InviteLinkExpiresAt.Value > DateTime.UtcNow;
+    }
+
+    public async Task<string> GetInviteLinkAsync(string teamId)
+    {
+        var team = await _teams.Find(t => t.Id == teamId).FirstOrDefaultAsync();
+        if (team == null) throw new Exception("Takım bulunamadı");
+        
+        // Davet linkinin geçerliliğini kontrol et
+        if (!await IsInviteLinkValid(teamId))
+        {
+            // Geçerli değilse yeni link oluştur
+            var inviteCode = Guid.NewGuid().ToString("N")[..8].ToUpper();
+            team.InviteCode = inviteCode;
+            team.InviteLinkExpiresAt = DateTime.UtcNow.AddHours(24);
+            team.InviteLink = $"{_settings.Value.BaseUrl}/team-invite?code={inviteCode}"; // Düzeltilmiş BaseUrl kullanımı
+            await _teams.ReplaceOneAsync(t => t.Id == teamId, team);
+            return team.InviteLink;
+        }
+        
+        return team.InviteLink;
+    }
+
+    public async Task<string> SetInviteLinkAsync(string teamId, string inviteLink)
+    {
+        var team = await _teams.Find(t => t.Id == teamId).FirstOrDefaultAsync();
+        if (team == null) throw new Exception("Takım bulunamadı");
+        
+        team.InviteLink = inviteLink;
+        team.InviteLinkExpiresAt = DateTime.UtcNow.AddHours(24);
+        await _teams.ReplaceOneAsync(t => t.Id == teamId, team);
+        
+        return inviteLink;
     }
 
     public async Task<bool> JoinTeamWithInviteCode(string inviteCode, string userId)
@@ -275,14 +347,16 @@ public class TeamService
         {
             var team = await GetTeamByInviteCodeAsync(inviteCode);
             if (team == null)
-                throw new Exception("Takım bulunamadı");
-
-            if (team.Members.Any(m => m.Id == userId))
-                throw new Exception("Kullanıcı zaten takımın üyesi");
+                return false;
 
             var user = await _userService.GetByIdAsync(userId);
             if (user == null)
-                throw new Exception("Kullanıcı bulunamadı");
+                return false;
+
+            // Assigned Jobs bilgisini Tasks koleksiyonundan al
+            var assignedTasks = await _tasks
+                .Find(t => t.AssignedUsers.Any(u => u.Id == userId))
+                .ToListAsync();
 
             var newMember = new TeamMember
             {
@@ -292,13 +366,28 @@ public class TeamService
                 FullName = user.FullName,
                 Department = user.Department,
                 ProfileImage = user.ProfileImage,
-                Role = "Member"
+                Title = user.Title,
+                Position = user.Position,
+                Phone = user.Phone,
+                Role = "Member",
+                AssignedJobs = assignedTasks.Select(t => t.Id).ToList(),
+                Status = "available",
+                OnlineStatus = "online",
+                AvailabilitySchedule = new AvailabilitySchedule
+                {
+                    WorkingHours = new WorkingHours
+                    {
+                        Start = "09:00",
+                        End = "18:00"
+                    },
+                    WorkingDays = new List<string> { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday" }
+                }
             };
 
             team.Members.Add(newMember);
             var result = await _teams.ReplaceOneAsync(t => t.Id == team.Id, team);
 
-            return result.IsAcknowledged && result.ModifiedCount > 0;
+            return result.ModifiedCount > 0;
         }
         catch
         {
@@ -486,6 +575,80 @@ public class TeamService
         catch (Exception ex)
         {
             throw new Exception($"Üye performans puanı güncellenirken bir hata oluştu: {ex.Message}");
+        }
+    }
+
+    public async Task<Team> AddExpertiesAsync(string memberId, string expertise)
+    {
+        try
+        {
+            // Üyenin bulunduğu takımı bul
+            var team = await _teams.Find(t => t.Members.Any(m => m.Id == memberId)).FirstOrDefaultAsync();
+            if (team == null)
+                throw new Exception("Üye bir takımda bulunamadı");
+
+            // Üyeyi bul
+            var member = team.Members.FirstOrDefault(m => m.Id == memberId);
+            if (member == null)
+                throw new Exception("Üye bulunamadı");
+
+            // Üyenin expertise listesini initialize et eğer null ise
+            member.Expertise ??= new List<string>();
+
+            // Yeni uzmanlığı ekle
+            if (!member.Expertise.Contains(expertise))
+            {
+                member.Expertise.Add(expertise);
+
+                // Takımı güncelle
+                var updateResult = await _teams.ReplaceOneAsync(t => t.Id == team.Id, team);
+                if (updateResult.ModifiedCount == 0)
+                    throw new Exception("Uzmanlık güncellenirken bir hata oluştu");
+            }
+
+            return team;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Uzmanlık eklenirken bir hata oluştu: {ex.Message}");
+        }
+    }
+
+    public async Task<Team> UpdateTeamDepartmentsAsync(string teamId, List<DepartmentStats> departments)
+    {
+        try
+        {
+            var team = await _teams.Find(t => t.Id == teamId).FirstOrDefaultAsync();
+            if (team == null)
+                throw new Exception("Takım bulunamadı");
+
+            // Departman istatistiklerini güncelle
+            team.Departments = departments;
+
+            // Her departman için üye sayısını ve performans verilerini güncelle
+            foreach (var dept in team.Departments)
+            {
+                var membersInDept = team.Members.Where(m => m.Department == dept.Name).ToList();
+                dept.MemberCount = membersInDept.Count;
+                
+                // Tamamlanan görev sayısını hesapla
+                dept.CompletedTasks = membersInDept.Sum(m => m.CompletedTasksCount);
+                
+                // Ortalama performans puanını hesapla
+                dept.Performance = membersInDept.Any() 
+                    ? membersInDept.Average(m => m.PerformanceScore) 
+                    : 0;
+            }
+
+            var updateResult = await _teams.ReplaceOneAsync(t => t.Id == teamId, team);
+            if (updateResult.ModifiedCount == 0)
+                throw new Exception("Departmanlar güncellenirken bir hata oluştu");
+
+            return team;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Departmanlar güncellenirken bir hata oluştu: {ex.Message}");
         }
     }
 }

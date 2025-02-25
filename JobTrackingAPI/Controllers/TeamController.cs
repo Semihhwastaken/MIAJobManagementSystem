@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using JobTrackingAPI.Models;
+using JobTrackingAPI.Models.Requests;  // Tek bir using ifadesi bırakıyoruz
 using JobTrackingAPI.Services;
 using MongoDB.Driver;
 using System.Collections.Generic;
@@ -172,7 +173,7 @@ namespace JobTrackingAPI.Controllers
 
         [HttpPost("create")]
         [Authorize]
-        public async Task<IActionResult> CreateTeam([FromBody] CreateTeamRequest request)
+        public async Task<IActionResult> CreateTeam([FromBody] JobTrackingAPI.Models.Requests.CreateTeamRequest request)
         {
             try
             {
@@ -192,7 +193,19 @@ namespace JobTrackingAPI.Controllers
                 var team = new Team
                 {
                     Name = request.Name,
+                    Description = request.Description, // Description eklendi
                     CreatedById = userId,
+                    Departments = new List<DepartmentStats> 
+                    { 
+                        new DepartmentStats 
+                        { 
+                            Name = request.Department,
+                            MemberCount = 1,
+                            CompletedTasks = 0,
+                            OngoingTasks = 0,
+                            Performance = 0
+                        } 
+                    },
                     Members = new List<TeamMember>
                     {
                         new TeamMember
@@ -201,7 +214,7 @@ namespace JobTrackingAPI.Controllers
                             Username = user.Username,
                             Email = user.Email,
                             FullName = user.FullName,
-                            Department = user.Department,
+                            Department = request.Department, // Burada department'ı ayarlıyoruz
                             ProfileImage = user.ProfileImage,
                             Title = user.Title,
                             Position = user.Position,
@@ -367,6 +380,122 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 return Ok(new { message = result.message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        [HttpGet("invite-link/{teamId}/get")]
+        public async Task<IActionResult> GetInviteLink(string teamId)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { message = "Kullanıcı girişi yapılmamış" });
+                }
+
+                var inviteLink = await _teamService.GetInviteLinkAsync(teamId);
+                return Ok(new { inviteLink = inviteLink });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        [HttpPost("invite-link/{teamId}/set")]
+        [Authorize]
+        public async Task<IActionResult> SetInviteLink(string teamId, [FromBody] SetInviteLinkRequest request)
+        {
+            try
+            {
+                if (teamId != request.teamId)
+                {
+                    return BadRequest(new { message = "URL'deki takım ID'si ile request body'deki takım ID'si eşleşmiyor" });
+                }
+
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { message = "Kullanıcı girişi yapılmamış" });
+                }
+
+                // Takımın var olduğunu kontrol et
+                var team = await _teamService.GetTeamById(teamId);
+                if (team == null)
+                {
+                    return NotFound(new { message = "Takım bulunamadı" });
+                }
+
+                // Kullanıcının yetkisini kontrol et
+                var member = team.Members.FirstOrDefault(m => m.Id == userId);
+                if (member == null || member.Role != "Owner")
+                {
+                    return Forbid("Bu işlemi sadece takım sahibi yapabilir");
+                }
+
+                // Davet linkini güncelle
+                var result = await _teamService.SetInviteLinkAsync(teamId, request.InviteLink);
+                
+                if (result != null)
+                {
+                    return Ok(new { message = "Davet linki başarıyla güncellendi", inviteLink = result });
+                }
+                
+                return BadRequest(new { message = "Davet linki güncellenirken bir hata oluştu" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        [HttpPost("members/{memberId}/experties")]
+        public async Task<IActionResult> AddExperties(string memberId, [FromBody] AddExpertiesRequest request)
+        {
+            try
+            {
+                var result = await _teamService.AddExpertiesAsync(memberId, request.Experties);
+                if (result != null)
+                {
+                    return Ok(result);
+                }
+                return BadRequest("Yetenek eklenirken bir hata oluştu");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPut("{teamId}/departments")]
+        [Authorize]
+        public async Task<IActionResult> UpdateTeamDepartments(string teamId, [FromBody] UpdateTeamDepartmentsRequest request)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized("Kullanıcı kimliği doğrulanamadı.");
+                }
+
+                var team = await _teamService.GetByIdAsync(teamId);
+                if (team == null)
+                {
+                    return NotFound("Takım bulunamadı.");
+                }
+
+                // Sadece Owner rolündeki kullanıcılar departmanları güncelleyebilir
+                var isOwner = team.Members.Any(m => m.Id == userId && m.Role == "Owner");
+                if (!isOwner)
+                {
+                    return Forbid("Bu işlemi sadece takım sahibi yapabilir");
+                }
+
+                var updatedTeam = await _teamService.UpdateTeamDepartmentsAsync(teamId, request.Departments);
+                return Ok(updatedTeam);
             }
             catch (Exception ex)
             {
