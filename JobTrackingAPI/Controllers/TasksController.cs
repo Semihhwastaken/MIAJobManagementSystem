@@ -223,9 +223,9 @@ namespace JobTrackingAPI.Controllers
         [Authorize]
         public async Task<IActionResult> CompleteTask(string id)
         {
-          try
+            try
             {
-             // Görevi bul
+                // Görevi bul
                 var task = await _tasksCollection.Find(t => t.Id == id).FirstOrDefaultAsync();
                 if (task == null)
                 {
@@ -263,16 +263,19 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 return Ok(new { message = "Görev başarıyla tamamlandı ve istatistikler güncellendi" });
-               }
-                catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 80a2d6f305c7dd4fa02dc5127a55e9d653b3d9f8
         [HttpGet("dashboard")]
         [Authorize]
         public async Task<ActionResult<DashboardStats>> GetDashboardStats()
-
         {
             try
             {
@@ -321,13 +324,16 @@ namespace JobTrackingAPI.Controllers
                 };
 
                 return Ok(stats);
-                }
+            }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
+<<<<<<< HEAD
         }
   
+=======
+>>>>>>> 80a2d6f305c7dd4fa02dc5127a55e9d653b3d9f8
         }
     }
 }
