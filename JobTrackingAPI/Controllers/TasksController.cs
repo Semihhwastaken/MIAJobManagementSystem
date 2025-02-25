@@ -268,7 +268,7 @@ namespace JobTrackingAPI.Controllers
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
-
+        }
         [HttpGet("dashboard")]
         [Authorize]
         public async Task<ActionResult<DashboardStats>> GetDashboardStats()
@@ -326,6 +326,7 @@ namespace JobTrackingAPI.Controllers
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
+        }
   
         }
     }
