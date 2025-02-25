@@ -31,6 +31,7 @@ export interface Task {
     priority: 'low' | 'medium' | 'high';
     category: string;
     dueDate: string;
+    isLocked?: boolean;
     assignedUsers: User[];
     subTasks: SubTask[];
     dependencies: string[]; // Bağımlı olduğu task ID'leri
