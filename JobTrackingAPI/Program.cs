@@ -107,16 +107,22 @@ builder.Services.AddScoped<EmailService>(sp =>
 });
 
 // Add services to the container
-builder.Services.AddScoped<JobService>();
-builder.Services.AddScoped<UserService>();
+builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("MongoDbSettings"));
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+
+// UserService'i singleton olarak kaydet
+builder.Services.AddSingleton<UserService>();
+
+// TeamService'i scoped olarak değiştir
 builder.Services.AddScoped<TeamService>();
-builder.Services.AddScoped<IMessageService, MessageService>();
+
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
+builder.Services.AddScoped<IConnectionService,ConnectionService>();
 builder.Services.AddScoped<CalendarEventService>();
-builder.Services.AddScoped<IConnectionService, ConnectionService>();
 
 builder.Services.AddControllers();
-
 
 // Configure Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();

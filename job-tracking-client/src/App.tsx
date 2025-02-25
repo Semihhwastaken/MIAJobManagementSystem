@@ -22,7 +22,7 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Profile from './pages/Profile/Profile';
 import TeamInvite from './pages/TeamInvite/TeamInvite';
 import Main from './pages/Main/Main';
-
+import { createBrowserRouter } from 'react-router-dom';
 
 const AppContent: React.FC = () => {
   const { isDarkMode } = useTheme();
@@ -257,6 +257,16 @@ const AppContent: React.FC = () => {
                 <Route
                   path="/analytics"
                   element={<div>Raporlar Sayfası (Yapım aşamasında)</div>}
+                />
+                <Route
+                  path="/team-invite"
+                  element={
+                    isAuthenticated ? (
+                      <TeamInvite />
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
                 />
               </Routes>
             </Layout>

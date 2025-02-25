@@ -11,9 +11,9 @@ namespace JobTrackingAPI.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; } = string.Empty;
 
-        [BsonElement("jobId")]
+        [BsonElement("taskId")]
         [Required]
-        public string JobId { get; set; } = string.Empty;
+        public string TaskId { get; set; } = string.Empty;
 
         [BsonElement("userId")]
         [Required]
@@ -32,10 +32,10 @@ namespace JobTrackingAPI.Models
         [BsonElement("attachments")]
         public List<Attachment> Attachments { get; set; } = new List<Attachment>();
 
-        public Comment(string jobId, string userId, string content)
+        public Comment(string taskId, string userId, string content)
         {
             Id = ObjectId.GenerateNewId().ToString();
-            JobId = jobId;
+            TaskId = taskId;
             UserId = userId;
             Content = content;
             CreatedDate = DateTime.UtcNow;

@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { TeamState, TeamMember, Team } from '../../types/team';
 import axiosInstance from '../../services/axiosInstance';
 
@@ -73,16 +73,19 @@ export const updateMemberProfile = createAsyncThunk(
 
 export const createTeam = createAsyncThunk(
     'Team/createTeam',
-    async ({ name, description }: { name: string; description?: string }, { rejectWithValue }) => {
+    async ({ name, description, department }: { 
+        name: string; 
+        description?: string;
+        department: string;
+    }, { rejectWithValue }) => {
         try {
-            console.log('Gönderilen veri:', { name, description: description || '' }); // Debug için
             const response = await axiosInstance.post('/Team/create', {
                 name,
-                description: description || ''
+                description,
+                department
             });
             return response.data;
         } catch (error: any) {
-            console.error('API Hatası:', error.response?.data); // Debug için
             return rejectWithValue(error.response?.data || error.message);
         }
     }
@@ -97,6 +100,48 @@ export const generateTeamInviteLink = createAsyncThunk(
         } catch (error: any) {
             console.error('Davet linki oluşturma hatası:', error.response?.data);
             return rejectWithValue(error.response?.data || error.message);
+        }
+    }
+);
+export const getTeamInviteLink = createAsyncThunk(
+    'Team/getInviteLink',
+    async (teamId: string) => {
+        try{
+            const response = await axiosInstance.get(`/Team/invite-link/${teamId}/get`);
+            return response.data;
+        }catch (error: any){
+            console.error('Davet linki alma hatası:', error.response?.data);
+            return error.response?.data || error.message;
+        }   
+    }
+);
+        
+export const setTeamInviteLink = createAsyncThunk(
+    'Team/setInviteLink',
+    async ({ teamId, inviteLink }: { teamId: string; inviteLink: string }) => {
+        try {
+            const response = await axiosInstance.post(
+                `/Team/invite-link/${teamId}/set`,
+                { teamId, InviteLink: inviteLink }
+            );
+            return response.data;
+        }
+        catch (error: any) {
+            console.error('Davet linki atama hatası:', error.response?.data);
+            throw error.response?.data || error.message;
+        }
+    }
+);  
+
+export const addExperties = createAsyncThunk(
+    'Team/addExperties',
+    async ({ memberId, experties }: { memberId: string; experties: string }) => {
+        try {
+            const response = await axiosInstance.post(`/Team/members/${memberId}/experties`, { experties });
+            return response.data;
+        } catch (error: any) {
+            console.error('Hata:', error.response?.data);
+            return error.response?.data || error.message;
         }
     }
 );
@@ -218,6 +263,12 @@ const teamSlice = createSlice({
                 // Takıma katılma başarılı olduğunda teams listesini güncelle
                 fetchTeams();
             })
+            .addCase(getTeamInviteLink.fulfilled, (state, action) => {
+                // İsteğe bağlı olarak state'i güncelleyebilirsiniz
+            })
+            .addCase(setTeamInviteLink.fulfilled, (state, action) => {
+                // İsteğe bağlı olarak state'i güncelleyebilirsiniz
+            })
             .addCase(fetchTeams.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -242,6 +293,13 @@ const teamSlice = createSlice({
             .addCase(deleteTeam.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
+            })
+            .addCase(addExperties.fulfilled, (state, action) => {
+                const updatedMember = action.payload;
+                const index = state.members.findIndex(m => m.id === updatedMember.id);
+                if (index !== -1) {
+                    state.members[index] = updatedMember;
+                }   
             })
             // Remove team member reducers
             .addCase(removeTeamMember.pending, (state) => {

@@ -33,17 +33,18 @@ public class Team
     /// Takımı oluşturan kullanıcının ID'si
     /// </summary>
     [BsonRepresentation(BsonType.ObjectId)]
-    public string CreatedById { get; set; }
+    [Required(ErrorMessage = "Takım oluşturan kullanıcı zorunludur")]
+    public string CreatedById { get; set; } = string.Empty;
 
     /// <summary>
     /// Takıma katılmak için kullanılacak davet linki
     /// </summary>
-    public string? InviteLink { get; set; }
+    public string? InviteLink { get; set; } = string.Empty;
 
     /// <summary>
     /// Takıma katılmak için kullanılacak davet kodu
     /// </summary>
-    public string? InviteCode { get; set; }
+    public string? InviteCode { get; set; } = string.Empty;
 
     /// <summary>
     /// Davet linkinin geçerlilik süresi
@@ -103,8 +104,14 @@ public class TeamMember
 
 public class AvailabilitySchedule
 {
-    public string StartTime { get; set; }
-    public string EndTime { get; set; }
+    public WorkingHours WorkingHours { get; set; }
+    public List<string> WorkingDays { get; set; }
+}
+
+public class WorkingHours
+{
+    public string Start { get; set; }
+    public string End { get; set; }
 }
 
 public class DepartmentStats

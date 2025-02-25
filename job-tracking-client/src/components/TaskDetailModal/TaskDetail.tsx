@@ -3,6 +3,7 @@ import { Task } from '../../types/task';
 import { useDispatch, useSelector } from 'react-redux';
 import { updateTask } from '../../redux/features/tasksSlice';
 import { RootState, AppDispatch } from '../../redux/store';
+import axiosInstance from '../../services/axiosInstance';
 
 interface TaskDetailModalProps {
     task: Task;
@@ -14,6 +15,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
     const dispatch: AppDispatch = useDispatch();
     const allTasks = useSelector((state: RootState) => state.tasks.items);
     const [localTask, setLocalTask] = useState(task);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         setLocalTask(task);
@@ -35,9 +37,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
     };
 
     const handleSubTaskToggle = (subTaskId: string) => {
-        // Eğer task overdue ise, subtask'ları değiştirmeye izin verme
-        if (localTask.status === 'overdue') {
-            alert('Bu görev süresi dolduğu için alt görevler tamamlanamaz!');
+        // Eğer task completed, overdue veya kilitli ise, subtask'ları değiştirmeye izin verme
+        if (localTask.status === 'overdue' || localTask.status === 'completed' || localTask.isLocked) {
+            alert('Bu görev tamamlandığı, kilitlendiği veya süresi dolduğu için alt görevler değiştirilemez!');
             return;
         }
 
@@ -49,6 +51,35 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
         };
         setLocalTask(updatedTask);
         dispatch(updateTask(updatedTask));
+    };
+
+    const handleSubmitTask = async () => {
+        // Tüm alt görevlerin tamamlanıp tamamlanmadığını kontrol et
+        const allSubTasksCompleted = localTask.subTasks.every(st => st.completed);
+        if (!allSubTasksCompleted) {
+            alert('Görevi tamamlamak için tüm alt görevleri tamamlamanız gerekmektedir.');
+            return;
+        }
+
+        try {
+            setIsSubmitting(true);
+            // Backend'e tamamlama isteği gönder
+            await axiosInstance.post(`/Tasks/${localTask.id}/complete`);
+            
+            // Redux store'u güncelle
+            const updatedTask = {
+                ...localTask,
+                status: 'completed' as const
+            };
+            await dispatch(updateTask(updatedTask));
+            
+            alert('Görev başarıyla tamamlandı!');
+            onClose();
+        } catch (error: any) {
+            alert(error.response?.data?.message || 'Görev tamamlanırken bir hata oluştu');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const progressPercentage = localTask.subTasks.length > 0
@@ -113,11 +144,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                                             type="checkbox"
                                             checked={subTask.completed}
                                             onChange={() => handleSubTaskToggle(subTask.id!)}
-                                            disabled={localTask.status === 'overdue'}
+                                            disabled={localTask.status === 'overdue' || localTask.status === 'completed'}
                                             className={`h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 
-                                                ${localTask.status === 'overdue' ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                ${(localTask.status === 'overdue' || localTask.status === 'completed') ? 'cursor-not-allowed opacity-50' : ''}`}
                                         />
-                                        <label className={`ml-2 text-sm ${localTask.status === 'overdue' ? 'text-gray-400' : 'text-gray-700'}`}>
+                                        <label className={`ml-2 text-sm ${(localTask.status === 'overdue' || localTask.status === 'completed') ? 'text-gray-400' : 'text-gray-700'}`}>
                                             {subTask.title}
                                         </label>
                                     </div>
@@ -198,6 +229,41 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                             </div>
                         </div>
                     </div>
+
+                    {/* Submit Button - Only show if not completed and all subtasks are done */}
+                    {localTask.status !== 'completed' && progressPercentage === 100 && (
+                        <div className="mt-6">
+                            <button
+                                onClick={handleSubmitTask}
+                                disabled={isSubmitting}
+                                className={`w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white 
+                                    ${isSubmitting 
+                                        ? 'bg-indigo-400 cursor-not-allowed' 
+                                        : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
+                                    }`}
+                            >
+                                {isSubmitting ? 'Tamamlanıyor...' : 'Görevi Tamamla'}
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Completed Task Message */}
+                    {localTask.status === 'completed' && (
+                        <div className="mt-6 p-4 bg-green-50 rounded-md">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-sm font-medium text-green-800">
+                                        Bu görev tamamlanmıştır ve artık değiştirilemez.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

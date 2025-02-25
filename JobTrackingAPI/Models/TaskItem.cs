@@ -116,6 +116,10 @@ namespace JobTrackingAPI.Models
         [JsonPropertyName("category")]
         public string Category { get; set; } = "Personal";
 
+        [BsonElement("isLocked")]
+        [JsonPropertyName("isLocked")]
+        public bool IsLocked { get; set; } = false;
+
         [BsonElement("subTasks")]
         [JsonPropertyName("subTasks")]
         public List<SubTask> SubTasks { get; set; } = new List<SubTask>();

@@ -15,12 +15,14 @@ namespace JobTrackingAPI.Controllers
     {
         private readonly IMongoCollection<TaskItem> _tasksCollection;
         private readonly IMongoCollection<User> _usersCollection;
+        private readonly IMongoCollection<Team> _teamsCollection;
 
         public TasksController(IMongoClient mongoClient, IOptions<MongoDbSettings> settings)
         {
             var database = mongoClient.GetDatabase(settings.Value.DatabaseName);
             _tasksCollection = database.GetCollection<TaskItem>("Tasks");
             _usersCollection = database.GetCollection<User>("Users");
+            _teamsCollection = database.GetCollection<Team>("Teams");
         }
 
         [HttpGet]
@@ -200,9 +202,77 @@ namespace JobTrackingAPI.Controllers
             }
         }
 
+
+        [HttpGet("user/{userId}")]
+        [Authorize]
+        public async Task<ActionResult<IEnumerable<TaskItem>>> GetTasksByUserId(string userId)
+        {
+            try
+            {
+                var filter = Builders<TaskItem>.Filter.ElemMatch(t => t.AssignedUsers, u => u.Id == userId);
+                var tasks = await _tasksCollection.Find(filter).ToListAsync();
+                return Ok(tasks);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpPost("{id}/complete")]
+        [Authorize]
+        public async Task<IActionResult> CompleteTask(string id)
+        {
+          try
+            {
+             // Görevi bul
+                var task = await _tasksCollection.Find(t => t.Id == id).FirstOrDefaultAsync();
+                if (task == null)
+                {
+                    return NotFound("Görev bulunamadı");
+                }
+
+                // Tüm alt görevlerin tamamlanıp tamamlanmadığını kontrol et
+                if (!task.SubTasks.All(st => st.Completed))
+                {
+                    return BadRequest("Tüm alt görevler tamamlanmadan görev tamamlanamaz");
+                }
+
+                // Görevi tamamlandı olarak işaretle
+                var updateTask = Builders<TaskItem>.Update
+                    .Set(t => t.Status, "completed")
+                    .Set(t => t.UpdatedAt, DateTime.UtcNow)
+                    .Set(t => t.IsLocked, true); // Görevi kilitli olarak işaretle
+                await _tasksCollection.UpdateOneAsync(t => t.Id == id, updateTask);
+
+                // Görevin atandığı tüm kullanıcılar için CompletedTasksCount'u artır
+                foreach (var assignedUser in task.AssignedUsers)
+                {
+                    var teams = await _teamsCollection.Find(t => t.Members.Any(m => m.Id == assignedUser.Id)).ToListAsync();
+                    
+                    foreach (var team in teams)
+                    {
+                        var memberIndex = team.Members.FindIndex(m => m.Id == assignedUser.Id);
+                        if (memberIndex != -1)
+                        {
+                            var updateTeam = Builders<Team>.Update
+                                .Inc($"Members.{memberIndex}.CompletedTasksCount", 1);
+                            await _teamsCollection.UpdateOneAsync(t => t.Id == team.Id, updateTeam);
+                        }
+                    }
+                }
+
+                return Ok(new { message = "Görev başarıyla tamamlandı ve istatistikler güncellendi" });
+               }
+                catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+
         [HttpGet("dashboard")]
         [Authorize]
         public async Task<ActionResult<DashboardStats>> GetDashboardStats()
+
         {
             try
             {
@@ -211,7 +281,6 @@ namespace JobTrackingAPI.Controllers
                 {
                     return Unauthorized();
                 }
-
                 var tasks = await _tasksCollection.Find(t => t.AssignedUsers.Any(u => u.Id == userId)).ToListAsync();
 
                 var totalTasks = tasks.Count;
@@ -252,11 +321,12 @@ namespace JobTrackingAPI.Controllers
                 };
 
                 return Ok(stats);
-            }
+                }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
+  
         }
     }
 }
