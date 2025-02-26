@@ -22,7 +22,7 @@ export const NotificationCenter: React.FC = () => {
         hasToken: !!token
       });
       return;
-    }
+    } 
 
     console.log('Authentication data loaded:', {
       userId: user.id,
@@ -30,78 +30,82 @@ export const NotificationCenter: React.FC = () => {
       isAuthenticated
     });
 
-    fetchNotifications();
-    initializeSignalR();
-  }, [user?.id, isAuthenticated, token]);
-
-  const initializeSignalR = async () => {
-    try {
-      if (user?.id) {
-        await signalRService.startConnection(user.id);
-        signalRService.onReceiveNotification((notification: Notification) => {
-          setNotifications(prev => [notification, ...prev]);
-          setUnreadCount(prev => prev + 1);
-          showNotificationToast(notification);
-        });
+    const initializeSignalR = async () => {
+      try {
+        if (user?.id) {
+          await signalRService.startConnection(user.id);
+          signalRService.onReceiveNotification((notification: Notification) => {
+            setNotifications(prev => [notification, ...prev]);
+            setUnreadCount(prev => prev + 1);
+            console.log('Notification receivedssss:', notification);
+            showNotificationToast(notification);
+          });
+        }
+      } catch (error) {
+        console.error('SignalR connection error:', error);
       }
-    } catch (error) {
-      console.error('SignalR connection error:', error);
-    }
-  };
+    };
 
-  const showNotificationToast = (notification: Notification) => {
-    const toast = document.createElement('div');
-    toast.className = 'fixed bottom-4 right-4 bg-white shadow-lg rounded-lg p-4 mb-4 transition-all duration-500 transform translate-y-0 z-50';
-    toast.innerHTML = `
-      <div class="flex items-center">
-        <div class="flex-shrink-0">
-          ${getNotificationIcon(notification.type)}
-        </div>
-        <div class="ml-3">
-          <p class="text-sm font-medium text-gray-900">${notification.title}</p>
-          <p class="text-sm text-gray-500">${notification.message}</p>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(toast);
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      setTimeout(() => toast.remove(), 500);
-    }, 5000);
-  };
-
-  const fetchNotifications = async () => {
-    if (!user?.id) {
-      console.warn('Cannot fetch notifications: User ID not found');
-      return;
-    }
-
-    try {
-      const url = `/Notifications/user/${user.id}`;
-      console.log('Fetching notifications from:', url, {
-        userId: user.id,
-        token: token?.substring(0, 10) + '...' // Only log first 10 chars of token for security
-      });
-
-      const response = await axiosInstance.get(url);
-
-      if (Array.isArray(response.data)) {
-        console.log('Notifications fetched successfully:', response.data.length);
-        setNotifications(response.data);
-        const unreadNotifications = response.data.filter((n: Notification) => !n.isRead);
-        setUnreadCount(unreadNotifications.length);
-      } else {
-        console.error('Invalid API response format:', response.data);
+    const fetchNotifications = async () => {
+      if (!user?.id) {
+        console.warn('Cannot fetch notifications: User ID not found');
+        return;
+      }
+  
+      try {
+        const url = `/Notifications/user/${user.id}`;
+        console.log('Fetching notifications from:', url, {
+          userId: user.id,
+          token: token?.substring(0, 10) + '...' // Only log first 10 chars of token for security
+        });
+  
+        const response = await axiosInstance.get(url);
+  
+        if (Array.isArray(response.data)) {
+          console.log('Notifications fetched successfully:', response.data.length);
+          setNotifications(response.data);
+          const unreadNotifications = response.data.filter((n: Notification) => !n.isRead);
+          setUnreadCount(unreadNotifications.length);
+        } else {
+          console.error('Invalid API response format:', response.data);
+          setNotifications([]);
+          setUnreadCount(0);
+        }
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
         setNotifications([]);
         setUnreadCount(0);
       }
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      setNotifications([]);
-      setUnreadCount(0);
-    }
-  };
+    };
+
+
+    const showNotificationToast = (notification: Notification) => {
+      const toast = document.createElement('div');
+      
+      
+      toast.className = 'fixed bottom-4 right-4 bg-white shadow-lg rounded-lg p-4 mb-4 transition-all duration-500 transform translate-y-0 z-50';
+      toast.innerHTML = `
+        <div class="flex items-center">
+          <div class="flex-shrink-0">
+            ${getNotificationIcon(notification.type)}
+          </div>
+          <div class="ml-3">
+            <p class="text-sm font-medium text-gray-900">${notification.title}</p>
+            <p class="text-sm text-gray-500">${notification.message}</p>
+          </div>
+        </div>
+      `;
+  
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 500);
+      }, 5000);
+    };
+
+    fetchNotifications();
+    initializeSignalR();
+  }, [user?.id, isAuthenticated, token, user?.username, signalRService]);
 
   const handleMarkAsRead = async (id: string) => {
     try {
@@ -126,28 +130,61 @@ export const NotificationCenter: React.FC = () => {
       console.error('Error marking all notifications as read:', error);
     }
   };
-
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'Comment':
+  const getNotificationIcon = (type: string | number | undefined) => {
+    if (!type) {
+      return '📢'; // Default icon for invalid types
+    }
+    
+    // Convert numeric type to string if needed
+    const typeString = typeof type === 'number' ? type.toString() : type.toLowerCase();
+    
+    switch (typeString) {
+      case 'comment':
+      case '0':
         return '💬';
-      case 'Mention':
+      case 'mention':
+      case '1':
         return '@';
-      case 'TaskAssigned':
+      case 'taskassigned':
+      case 'task_assigned':
+      case '2':
         return '📋';
-      case 'TaskUpdated':
+      case 'taskupdated':
+      case 'task_updated':
+      case '3':
         return '🔄';
-      case 'TaskCompleted':
+      case 'taskcompleted':
+      case 'task_completed':
+      case '4':
         return '✅';
-      case 'Reminder':
+      case 'taskdeleted':
+      case 'task_deleted':
+      case '5':
+        return '🗑️';
+      case 'taskoverdue':
+      case 'task_overdue':
+      case '6':
+        return '⚠️';
+      case 'reminder':
+      case '7':
         return '⏰';
-      case 'Message':
+      case 'message':
+      case '8':
         return '✉️';
+      case 'calendar_event_created':
+      case '9':
+        return '📅';
+      case 'calendar_event_updated':
+      case '10':
+        return '🗓️';
+      case 'calendar_event_deleted':
+      case '11':
+        return '🗑️';
+        
       default:
         return '📢';
     }
   };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString('tr-TR', {

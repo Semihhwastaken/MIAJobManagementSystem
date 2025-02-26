@@ -1,14 +1,14 @@
 import { Dialog, Transition } from '@headlessui/react'
 import { Fragment, useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Task, User, SubTask } from '../../types/task'
+import { Task, SubTask } from '../../types/task'
 import { Team, TeamMember } from '../../types/team'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { updateTask, createTask } from '../../redux/features/tasksSlice'
 import teamService from '../../services/teamService'
 import toast from 'react-hot-toast'
 import { PlusIcon, XMarkIcon, PaperClipIcon, ChevronUpDownIcon, CheckIcon } from '@heroicons/react/24/outline'
-import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react'
+import { Listbox } from '@headlessui/react'
 
 interface TaskModalProps {
   isOpen: boolean;

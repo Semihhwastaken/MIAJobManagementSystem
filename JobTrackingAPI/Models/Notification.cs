@@ -7,6 +7,11 @@ namespace JobTrackingAPI.Models
 {
     public class Notification
     {
+        public Notification()
+        {
+            CreatedDate = DateTime.UtcNow;
+            IsRead = false;
+        }
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
@@ -74,13 +79,6 @@ namespace JobTrackingAPI.Models
             CreatedDate = DateTime.UtcNow;
         }
 
-        /// <summary>
-        /// MongoDB serileştirmesi için gerekli olan parametre almayan constructor
-        /// </summary>
-        private Notification()
-        {
-            CreatedDate = DateTime.UtcNow;
-            IsRead = false;
-        }
+
     }
 }

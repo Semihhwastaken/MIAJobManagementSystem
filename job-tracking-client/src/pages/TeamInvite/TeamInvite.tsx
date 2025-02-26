@@ -32,6 +32,7 @@ const TeamInvite: React.FC = () => {
             return;
         }
         joinTeam();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [inviteCode]);
 
     useEffect(() => {
@@ -41,9 +42,10 @@ const TeamInvite: React.FC = () => {
         } else if (countdown === 0) {
             navigate('/team');
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [countdown]);
 
-    const navigateWithCountdown = (path: string, message: string, variant: 'success' | 'error' = 'error') => {
+    const navigateWithCountdown = (_path: string, message: string, variant: 'success' | 'error' = 'error') => {
         setStatus(message);
         enqueueSnackbar(message, { variant });
         setCountdown(5);
@@ -58,15 +60,15 @@ const TeamInvite: React.FC = () => {
         try {
             const result = await dispatch(joinTeamWithInviteLink(inviteCode)).unwrap();
             navigateWithCountdown('/team', result.message, 'success');
-        } catch (error: any) {
+        } catch (error: unknown) {
             // HTTP 400 hatasını kontrol et
-            if (error.response?.status === 400 || error.message?.includes('Zaten bu takımın üyesisiniz')) {
+            if ((error as { response?: { status?: number }, message?: string }).response?.status === 400 || (error as { message?: string }).message?.includes('Zaten bu takımın üyesisiniz')) {
                 const message = 'Bu ekibe zaten üyesiniz';
                 setStatus(message);
                 setError(true);
                 navigateWithCountdown('/team', message, 'error');
             } else {
-                navigateWithCountdown('/team', error.message || 'Ekibe katılırken bir hata oluştu', 'error');
+                navigateWithCountdown('/team', (error as { message: string }).message || 'Ekibe katılırken bir hata oluştu', 'error');
             }
         } finally {
             setIsJoining(false);

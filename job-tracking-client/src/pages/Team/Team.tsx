@@ -30,6 +30,7 @@ import {
 import axiosInstance from '../../services/axiosInstance';
 import { useSnackbar } from 'notistack';
 import { DEPARTMENTS } from '../../constants/departments';
+import Footer from '../../components/Footer/Footer';
 
 const Team: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
@@ -765,7 +766,7 @@ const Team: React.FC = () => {
                     </div>
                 </div>
             )}
-
+        <Footer />
             {showCommentModal && (
                 <UserTaskCommentModal
                     isOpen={showCommentModal}
@@ -776,7 +777,9 @@ const Team: React.FC = () => {
                     userId={selectedUserId}
                 />
             )}
+            
         </div>
+        
     );
 };
 

@@ -4,6 +4,7 @@ import { useDispatch } from 'react-redux';
 import { sendMessage } from '../redux/features/messageSlice';
 import { useTheme } from '../context/ThemeContext';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { AppDispatch } from '../redux/store';
 
 interface MessageModalProps {
     isOpen: boolean;
@@ -13,8 +14,15 @@ interface MessageModalProps {
     receiverName: string;
 }
 
+interface MessagePayload {
+    senderId: string;
+    receiverId: string;
+    content: string;
+    subject: string;
+}
+
 const MessageModal = ({ isOpen, onClose, senderId, receiverId, receiverName }: MessageModalProps) => {
-    const dispatch = useDispatch();
+    const dispatch = useDispatch<AppDispatch>();
     const { isDarkMode } = useTheme();
     const [subject, setSubject] = useState('');
     const [content, setContent] = useState('');
@@ -23,7 +31,13 @@ const MessageModal = ({ isOpen, onClose, senderId, receiverId, receiverName }: M
         if (!content.trim()) return;
 
         try {
-            await dispatch(sendMessage({ senderId, receiverId, content, subject }) as any);
+            const messageData: MessagePayload = {
+                senderId,
+                receiverId,
+                content,
+                subject
+            };
+            await dispatch(sendMessage(messageData));
             setContent('');
             setSubject('');
             onClose();

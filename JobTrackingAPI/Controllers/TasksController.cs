@@ -6,6 +6,9 @@ using JobTrackingAPI.Models;
 using JobTrackingAPI.Settings;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using Microsoft.AspNetCore.SignalR;
+using JobTrackingAPI.Hubs;
+using JobTrackingAPI.Enums;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -71,7 +74,7 @@ namespace JobTrackingAPI.Controllers
                 task.AssignedUsers ??= new List<AssignedUser>();
                 task.Dependencies ??= new List<string>();
                 task.Attachments ??= new List<TaskAttachment>();
-
+                
                 // Atanan kullanıcıları doğrula ve bilgilerini güncelle
                 if (task.AssignedUsers != null && task.AssignedUsers.Any())
                 {
@@ -82,13 +85,11 @@ namespace JobTrackingAPI.Controllers
                         {
                             return BadRequest($"Atanan kullanıcı ID'si boş olamaz.");
                         }
-
                         var user = await _usersCollection.Find(u => u.Id == assignedUser.Id).FirstOrDefaultAsync();
                         if (user == null)
                         {
                             return BadRequest($"ID'si {assignedUser.Id} olan kullanıcı bulunamadı.");
                         }
-
                         updatedAssignedUsers.Add(new AssignedUser
                         {
                             Id = user.Id,
@@ -100,6 +101,20 @@ namespace JobTrackingAPI.Controllers
                             Position = user.Position,
                             ProfileImage = user.ProfileImage
                         });
+                        // Send notification to assigned user
+                        var notificationHub = HttpContext.RequestServices.GetService<IHubContext<NotificationHub>>();
+                        
+                        if (notificationHub != null)
+                        {
+                            var notification = new Notification(
+                                userId: user.Id,
+                                title: "Yeni Görev Atandı",
+                                message: $"{task.Title} görevi size atandı.",
+                                type: NotificationType.TaskAssigned,
+                                relatedJobId: task.Id
+                            );
+                            await notificationHub.Clients.User(user.Id).SendAsync("ReceiveNotification", notification);
+                        }
                     }
                     task.AssignedUsers = updatedAssignedUsers;
                 }
@@ -159,6 +174,23 @@ namespace JobTrackingAPI.Controllers
                     return StatusCode(500, "Görev güncellenemedi");
                 }
 
+                // Send notifications to all assigned users about the task update
+                var notificationHub = HttpContext.RequestServices.GetService<IHubContext<NotificationHub>>();
+                if (notificationHub != null && taskUpdate.AssignedUsers != null)
+                {
+                    foreach (var user in taskUpdate.AssignedUsers)
+                    {
+                        var notification = new Notification(
+                            userId: user.Id,
+                            title: "Görev Güncellendi",
+                            message: $"{taskUpdate.Title} görevi güncellendi.",
+                            type: NotificationType.TaskUpdated,
+                            relatedJobId: taskUpdate.Id
+                        );
+                        await notificationHub.Clients.User(user.Id).SendAsync("ReceiveNotification", notification);
+                    }
+                }
+                
                 // Güncellenmiş görevi geri döndür
                 var updatedTask = await _tasksCollection.Find(t => t.Id == id).FirstOrDefaultAsync();
                 return Ok(updatedTask);
@@ -245,7 +277,24 @@ namespace JobTrackingAPI.Controllers
                     .Set(t => t.IsLocked, true); // Görevi kilitli olarak işaretle
                 await _tasksCollection.UpdateOneAsync(t => t.Id == id, updateTask);
 
-                // Görevin atandığı tüm kullanıcılar için CompletedTasksCount'u artır
+                // Send notifications to all assigned users about task completion
+                var notificationHub = HttpContext.RequestServices.GetService<IHubContext<NotificationHub>>();
+                if (notificationHub != null && task.AssignedUsers != null)
+                {
+                    foreach (var user in task.AssignedUsers)
+                    {
+                        var notification = new Notification(
+                            userId: user.Id,
+                            title: "Görev Tamamlandı",
+                            message: $"{task.Title} görevi tamamlandı.",
+                            type: NotificationType.TaskCompleted,
+                            relatedJobId: task.Id
+                        );
+                        await notificationHub.Clients.User(user.Id).SendAsync("ReceiveNotification", notification);
+                    }
+                }
+                
+                // Update team statistics
                 foreach (var assignedUser in task.AssignedUsers)
                 {
                     var teams = await _teamsCollection.Find(t => t.Members.Any(m => m.Id == assignedUser.Id)).ToListAsync();
@@ -269,10 +318,6 @@ namespace JobTrackingAPI.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
-<<<<<<< HEAD
-=======
-
->>>>>>> 80a2d6f305c7dd4fa02dc5127a55e9d653b3d9f8
         [HttpGet("dashboard")]
         [Authorize]
         public async Task<ActionResult<DashboardStats>> GetDashboardStats()
@@ -329,11 +374,6 @@ namespace JobTrackingAPI.Controllers
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
-<<<<<<< HEAD
-        }
-  
-=======
->>>>>>> 80a2d6f305c7dd4fa02dc5127a55e9d653b3d9f8
         }
     }
 }

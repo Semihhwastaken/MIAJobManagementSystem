@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { updateTask } from '../../redux/features/tasksSlice';
 import { RootState, AppDispatch } from '../../redux/store';
 import axiosInstance from '../../services/axiosInstance';
+import axios from 'axios';
 
 interface TaskDetailModalProps {
     task: Task;
@@ -75,8 +76,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
             
             alert('Görev başarıyla tamamlandı!');
             onClose();
-        } catch (error: any) {
-            alert(error.response?.data?.message || 'Görev tamamlanırken bir hata oluştu');
+        } catch (error: unknown) {
+            if (axios.isAxiosError(error)) {
+                alert(error.response?.data?.message || 'Görev tamamlanırken bir hata oluştu');
+            } else {
+                alert('Görev tamamlanırken bir hata oluştu');
+            }
         } finally {
             setIsSubmitting(false);
         }

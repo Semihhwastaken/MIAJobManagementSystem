@@ -17,15 +17,6 @@ const App: React.FC = () => {
         navigate("/login");
     };
 
-    // Otomatik slider için useEffect
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
-        }, 5000); // Her 5 saniyede bir değişecek
-
-        return () => clearInterval(timer);
-    }, []);
-
     const testimonials = [
         {
             name: "Alexandra Thompson",
@@ -77,6 +68,15 @@ const App: React.FC = () => {
         },
     ];
 
+    // Otomatik slider için useEffect
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
+        }, 5000); // Her 5 saniyede bir değişecek
+
+        return () => clearInterval(timer);
+    }, [testimonials.length]);
+    
     const nextTestimonial = () => {
         setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
     };

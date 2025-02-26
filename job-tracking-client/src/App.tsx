@@ -22,7 +22,7 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Profile from './pages/Profile/Profile';
 import TeamInvite from './pages/TeamInvite/TeamInvite';
 import Main from './pages/Main/Main';
-import { createBrowserRouter } from 'react-router-dom';
+
 
 const AppContent: React.FC = () => {
   const { isDarkMode } = useTheme();

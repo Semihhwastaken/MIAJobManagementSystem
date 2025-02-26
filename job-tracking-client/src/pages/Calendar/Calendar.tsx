@@ -87,7 +87,7 @@ const Calendar = () => {
         const endDate = endOfWeek.toISOString().split('T')[0];
         const response = await calendarService.getEvents(startDate, endDate);
         dispatch(setEvents(response));
-      } catch (error) {
+      } catch {
         dispatch(setError('Failed to fetch events'));
       } finally {
         dispatch(setLoading(false));
@@ -95,6 +95,7 @@ const Calendar = () => {
     };
 
     fetchEvents();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, selectedDate]);
 
   const handleCreateEvent = async (eventData: EventFormData) => {
@@ -103,7 +104,7 @@ const Calendar = () => {
       const newEvent = await calendarService.createEvent(eventData);
       dispatch(addEvent(newEvent));
       setIsCreateModalOpen(false);
-    } catch (error) {
+    } catch {
       dispatch(setError('Failed to create event'));
     } finally {
       dispatch(setLoading(false));
@@ -122,7 +123,7 @@ const Calendar = () => {
       dispatch(updateEvent(updatedEvent));
       setIsEditModalOpen(false);
       setSelectedEvent(null);
-    } catch (error) {
+    } catch {
       dispatch(setError('Failed to update event'));
     } finally {
       dispatch(setLoading(false));
@@ -134,7 +135,7 @@ const Calendar = () => {
       dispatch(setLoading(true));
       await calendarService.deleteEvent(eventId);
       dispatch(deleteEvent(eventId));
-    } catch (error) {
+    } catch {
       dispatch(setError('Failed to delete event'));
     } finally {
       dispatch(setLoading(false));
@@ -306,7 +307,7 @@ const Calendar = () => {
                       return acc;
                     }, {} as Record<string, CalendarEvent[]>);
 
-                  return Object.entries(eventsByStartTime).map(([_, overlappingEvents]) => {
+                  return Object.entries(eventsByStartTime).map(([, overlappingEvents]) => {
                     const eventWidth = `${90 / overlappingEvents.length}%`;
                     
                     return overlappingEvents.map((event, eventIndex) => {

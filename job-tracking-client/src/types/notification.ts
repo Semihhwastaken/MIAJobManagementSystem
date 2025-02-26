@@ -3,7 +3,7 @@ export interface Notification {
     userId: string;
     title: string;
     message: string;
-    type: 'info' | 'success' | 'warning' | 'error' | string;
+    type: string;
     relatedJobId?: string | null;
     isRead: boolean;
     createdDate: string;
