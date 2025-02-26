@@ -30,6 +30,9 @@ import {
 import axiosInstance from '../../services/axiosInstance';
 import { useSnackbar } from 'notistack';
 import { DEPARTMENTS } from '../../constants/departments';
+import TaskForm from '../../components/TaskForm/TaskForm';
+import { createTask } from '../../redux/features/tasksSlice';
+import { TaskType } from '../../store/slices/taskSlice';
 
 const Team: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
@@ -64,6 +67,8 @@ const Team: React.FC = () => {
     const [selectedMemberId, setSelectedMemberId] = useState<string>('');
     const [newExpertise, setNewExpertise] = useState('');
     const [newTeamDepartment, setNewTeamDepartment] = useState('');
+    const [showTaskForm, setShowTaskForm] = useState(false);
+    const [selectedMemberForTask, setSelectedMemberForTask] = useState<TeamMember | null>(null);
 
     useEffect(() => {
         // Kullanıcı girişi kontrolü
@@ -268,6 +273,21 @@ const Team: React.FC = () => {
         setShowExpertiesModal(true);
     };
 
+    const handleOpenTaskForm = (member: TeamMember) => {
+        setSelectedMemberForTask(member);
+        setShowTaskForm(true);
+    };
+
+    const handleCreateTask = async (taskData: Omit<TaskType, 'id'>) => {
+        try {
+            await dispatch(createTask(taskData)).unwrap();
+            enqueueSnackbar('Görev başarıyla oluşturuldu', { variant: 'success' });
+            setShowTaskForm(false);
+        } catch (error: any) {
+            enqueueSnackbar(error.message || 'Görev oluşturulurken bir hata oluştu', { variant: 'error' });
+        }
+    };
+
     const renderTeamMembers = (teamMembers: TeamMember[], teamName: string, teamId: string) => {
         const filteredAndSortedMembers = teamMembers
             .filter(member => {
@@ -445,7 +465,7 @@ const Team: React.FC = () => {
                                                         <ChatBubbleLeftIcon className="h-5 w-5" />
                                                     </button>
                                                     <button
-                                                        onClick={() => navigate(`/tasks/${member.id}`)}
+                                                        onClick={() => handleOpenTaskForm(member)}
                                                         className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-4"
                                                     >
                                                         <ClipboardDocumentListIcon className="h-5 w-5" />
@@ -774,6 +794,16 @@ const Team: React.FC = () => {
                         setSelectedUserId('');
                     }}
                     userId={selectedUserId}
+                />
+            )}
+
+            {showTaskForm && selectedMemberForTask && (
+                <TaskForm
+                    isOpen={showTaskForm}
+                    onClose={() => setShowTaskForm(false)}
+                    onSave={handleCreateTask}
+                    selectedUser={selectedMemberForTask}
+                    isDarkMode={isDarkMode}
                 />
             )}
         </div>

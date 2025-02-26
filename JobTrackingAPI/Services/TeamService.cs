@@ -9,23 +9,25 @@ using JobTrackingAPI.Controllers;
 using JobTrackingAPI.Constants;
 using JobTrackingAPI.Hubs;
 using Microsoft.AspNetCore.SignalR;
+using JobTrackingAPI.Models.Requests;
+using CreateTeamRequest = JobTrackingAPI.Models.Requests.CreateTeamRequest;
 
 namespace JobTrackingAPI.Services;
 
 /// <summary>
 /// Takım işlemlerini yöneten servis sınıfı
 /// </summary>
-public class TeamService
+public class TeamService : ITeamService
 {
     private readonly IMongoCollection<Team> _teams;
-    private readonly UserService _userService;
+    private readonly IUserService _userService;
     private readonly IOptions<MongoDbSettings> _settings;
-    private readonly IMongoCollection<TaskItem> _tasks; // Yeni eklenen
+    private readonly IMongoCollection<TaskItem> _tasks;
     private readonly IHubContext<NotificationHub> _notificationHubContext;
 
     public TeamService(
         IOptions<MongoDbSettings> settings, 
-        UserService userService,
+        IUserService userService,
         IMongoDatabase database,
         IHubContext<NotificationHub> notificationHubContext) // Constructor güncellendi
     {
@@ -39,12 +41,9 @@ public class TeamService
     }
 
     /// <summary>
-    /// Tüm takımları getirir
-    /// </summary>
-    /// <summary>
     /// ID'ye göre takım getirir
     /// </summary>
-    public async Task<Team> GetByIdAsync(string id)
+    public async Task<Team> GetTeamById(string id)
     {
         return await _teams.Find(t => t.Id == id).FirstOrDefaultAsync();
     }
@@ -52,31 +51,92 @@ public class TeamService
     /// <summary>
     /// Yeni takım oluşturur
     /// </summary>
-    public async Task<Team> CreateTeamAsync(Team team, string userId)
+    public async Task<Team> CreateTeam(CreateTeamRequest request, string userId)
     {
-        var user = await _userService.GetByIdAsync(userId);
-        if (user == null)
-            throw new Exception("Kullanıcı bulunamadı");
-
-        // İlk üye olarak ekleyen kişiyi Owner rolüyle ekliyoruz
-        var owner = new TeamMember
+        var team = new Team
         {
-            Id = userId,
-            Username = user.Username,
-            Email = user.Email,
-            FullName = user.FullName,
-            Department = user.Department,
-            ProfileImage = user.ProfileImage,
-            Title = user.Title,
-            Position = user.Position,
-            Role = "Owner"  // Owner rolü veriliyor
+            Name = request.Name,
+            Description = request.Description,
+            CreatedById = userId,
+            Members = new List<TeamMember> { new TeamMember { Id = userId, Role = "admin" } },
+            Departments = new List<DepartmentStats> { new DepartmentStats { Name = request.Department } }
         };
-
-        team.Members = new List<TeamMember> { owner };
-        team.InviteCode = GenerateInviteCode();
-        
         await _teams.InsertOneAsync(team);
         return team;
+    }
+
+    public async Task<IEnumerable<Team>> GetAllTeams()
+    {
+        return await _teams.Find(_ => true).ToListAsync();
+    }
+
+    public async Task<Team> UpdateTeam(string teamId, Team updatedTeam)
+    {
+        await _teams.ReplaceOneAsync(t => t.Id == teamId, updatedTeam);
+        return updatedTeam;
+    }
+
+    public async Task DeleteTeam(string teamId)
+    {
+        await _teams.DeleteOneAsync(t => t.Id == teamId);
+    }
+
+    public async Task<bool> AddMemberToTeam(string teamId, string userId, string role = "member")
+    {
+        var update = Builders<Team>.Update.AddToSet(t => t.Members, new TeamMember { Id = userId, Role = role });
+        var result = await _teams.UpdateOneAsync(t => t.Id == teamId, update);
+        return result.ModifiedCount > 0;
+    }
+
+    public async Task<bool> RemoveMemberFromTeam(string teamId, string userId)
+    {
+        var update = Builders<Team>.Update.PullFilter(t => t.Members, m => m.Id == userId);
+        var result = await _teams.UpdateOneAsync(t => t.Id == teamId, update);
+        return result.ModifiedCount > 0;
+    }
+
+    public async Task<bool> UpdateMemberRole(string teamId, string userId, string newRole)
+    {
+        var filter = Builders<Team>.Filter.And(
+            Builders<Team>.Filter.Eq(t => t.Id, teamId),
+            Builders<Team>.Filter.ElemMatch(t => t.Members, m => m.Id == userId));
+
+        var update = Builders<Team>.Update.Set("Members.$.Role", newRole);
+        var result = await _teams.UpdateOneAsync(filter, update);
+        return result.ModifiedCount > 0;
+    }
+
+    public async Task<Team> SetTeamInviteLink(string teamId, string inviteLink)
+    {
+        var update = Builders<Team>.Update.Set(t => t.InviteLink, inviteLink);
+        await _teams.UpdateOneAsync(t => t.Id == teamId, update);
+        return await GetTeamById(teamId);
+    }
+
+    public async Task<bool> JoinTeamViaInviteLink(string inviteLink, string userId)
+    {
+        var team = await _teams.Find(t => t.InviteLink == inviteLink).FirstOrDefaultAsync();
+        if (team == null) return false;
+
+        return await AddMemberToTeam(team.Id, userId);
+    }
+
+    public async Task<Team> UpdateTeamDepartments(string teamId, UpdateTeamDepartmentsRequest request)
+    {
+        var update = Builders<Team>.Update.Set(t => t.Departments, request.Departments);
+        await _teams.UpdateOneAsync(t => t.Id == teamId, update);
+        return await GetTeamById(teamId);
+    }
+
+    public async Task<bool> UpdateMemberMetrics(string teamId, string userId, MemberMetricsUpdateDto metrics)
+    {
+        var filter = Builders<Team>.Filter.And(
+            Builders<Team>.Filter.Eq(t => t.Id, teamId),
+            Builders<Team>.Filter.ElemMatch(t => t.Members, m => m.Id == userId));
+
+        var update = Builders<Team>.Update.Set("Members.$.Metrics", metrics);
+        var result = await _teams.UpdateOneAsync(filter, update);
+        return result.ModifiedCount > 0;
     }
 
     /// <summary>
@@ -96,7 +156,7 @@ public class TeamService
             // Her üye için eksik bilgileri doldur
             foreach (var member in team.Members)
             {
-                var user = await _userService.GetByIdAsync(member.Id);
+                var user = await _userService.GetUserById(member.Id);
                 if (user != null)
                 {
                     member.Title = user.Title;
@@ -134,6 +194,7 @@ public class TeamService
         }
     }
 
+    /// <summary>
     /// Takımı günceller
     /// </summary>
     public async Task<bool> UpdateAsync(string id, Team team)
@@ -189,8 +250,15 @@ public class TeamService
             var member = team.Members.FirstOrDefault(m => m.Id == id);
             if (member != null)
             {
+                // Frontend'den gelen durum değişikliğini doğrudan uygula
                 member.Status = status;
+                
+                // Takımı güncelle
                 await _teams.ReplaceOneAsync(t => t.Id == team.Id, team);
+                
+                // Notify clients about the status change
+                await _notificationHubContext.Clients.All.SendAsync("MemberStatusUpdated", new { memberId = id, status = member.Status });
+                
                 return member;
             }
         }
@@ -251,7 +319,7 @@ public class TeamService
     /// </summary>
     public async Task<bool> UpdateMemberRoleAsync(string teamId, string memberId, string newRole)
     {
-        var team = await GetByIdAsync(teamId);
+        var team = await GetTeamById(teamId);
         if (team == null)
             return false;
 
@@ -349,7 +417,7 @@ public class TeamService
             if (team == null)
                 return false;
 
-            var user = await _userService.GetByIdAsync(userId);
+            var user = await _userService.GetUserById(userId);
             if (user == null)
                 return false;
 
@@ -530,14 +598,6 @@ public class TeamService
     public async Task<List<Team>> GetTeamsByOwnerId(string userId)
     {
         return await _teams.Find(t => t.CreatedById == userId).ToListAsync();
-    }
-
-    /// <summary>
-    /// ID'ye göre takım getirir
-    /// </summary>
-    public async Task<Team> GetTeamById(string id)
-    {
-        return await _teams.Find(t => t.Id == id).FirstOrDefaultAsync();
     }
 
     /// <summary>

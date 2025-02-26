@@ -6,325 +6,168 @@ using JobTrackingAPI.Models;
 using JobTrackingAPI.Settings;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using Microsoft.Extensions.Logging;
+using JobTrackingAPI.Services;
+using JobTrackingAPI.Hubs;
+using Microsoft.AspNetCore.SignalR;
 
 namespace JobTrackingAPI.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class TasksController : ControllerBase
     {
-        private readonly IMongoCollection<TaskItem> _tasksCollection;
-        private readonly IMongoCollection<User> _usersCollection;
-        private readonly IMongoCollection<Team> _teamsCollection;
+        private readonly ITasksService _tasksService;
+        private readonly IPerformanceService _performanceService;
+        private readonly IHubContext<NotificationHub> _notificationHub;
 
-        public TasksController(IMongoClient mongoClient, IOptions<MongoDbSettings> settings)
+        public TasksController(
+            ITasksService tasksService,
+            IPerformanceService performanceService,
+            IHubContext<NotificationHub> notificationHub)
         {
-            var database = mongoClient.GetDatabase(settings.Value.DatabaseName);
-            _tasksCollection = database.GetCollection<TaskItem>("Tasks");
-            _usersCollection = database.GetCollection<User>("Users");
-            _teamsCollection = database.GetCollection<Team>("Teams");
+            _tasksService = tasksService;
+            _performanceService = performanceService;
+            _notificationHub = notificationHub;
         }
 
-        [HttpGet]
-        [Authorize]
-        public async Task<ActionResult<IEnumerable<TaskItem>>> GetTasks()
+        [HttpPost]
+        public async Task<ActionResult<TaskItem>> CreateTask([FromBody] TaskItem task)
         {
             try
             {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
+                var createdTask = await _tasksService.CreateTask(task);
+                
+                // Notify assigned user
+                if (!string.IsNullOrEmpty(task.AssignedTo))
                 {
-                    return Unauthorized();
+                    await _notificationHub.Clients.User(task.AssignedTo).SendAsync(
+                        "ReceiveNotification",
+                        new { type = "NewTask", message = $"Yeni görev atandı: {task.Title}" }
+                    );
                 }
 
-                var filter = Builders<TaskItem>.Filter.ElemMatch(t => t.AssignedUsers, u => u.Id == userId);
-                var tasks = await _tasksCollection.Find(filter).ToListAsync();
-                return Ok(tasks);
+                return CreatedAtAction(nameof(GetTask), new { id = createdTask.Id }, createdTask);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return BadRequest(new { message = ex.Message });
             }
+        }
+
+        [HttpPut("{id}/complete")]
+        public async Task<ActionResult> CompleteTask(string id)
+        {
+            try
+            {
+                var task = await _tasksService.GetTask(id);
+                if (task == null)
+                    return NotFound();
+
+                task.Status = "Completed";
+                task.CompletedDate = DateTime.UtcNow;
+                await _tasksService.UpdateTask(id, task);
+
+                // Update performance score for task completion
+                if (!string.IsNullOrEmpty(task.AssignedTo))
+                {
+                    await _performanceService.UpdatePerformanceScore(task.AssignedTo, task, true);
+                }
+
+                return Ok(new { message = "Task completed successfully" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPut("{id}")]
+        public async Task<ActionResult> UpdateTask(string id, [FromBody] TaskItem updatedTask)
+        {
+            try
+            {
+                var existingTask = await _tasksService.GetTask(id);
+                if (existingTask == null)
+                    return NotFound();
+
+                // Check if task became overdue
+                if (existingTask.Status != "Completed" && 
+                    DateTime.UtcNow > existingTask.DueDate && 
+                    existingTask.Status != "Overdue")
+                {
+                    updatedTask.Status = "Overdue";
+                    
+                    // Update performance score for overdue task
+                    if (!string.IsNullOrEmpty(existingTask.AssignedTo))
+                    {
+                        await _performanceService.UpdatePerformanceScore(
+                            existingTask.AssignedTo, 
+                            existingTask, 
+                            false
+                        );
+                    }
+                }
+
+                await _tasksService.UpdateTask(id, updatedTask);
+                return Ok(updatedTask);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<TaskItem>>> GetTasks()
+        {
+            var tasks = await _tasksService.GetTasks();
+            return Ok(tasks);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<TaskItem>> GetTask(string id)
         {
-            var task = await _tasksCollection.Find(t => t.Id == id).FirstOrDefaultAsync();
+            var task = await _tasksService.GetTask(id);
             if (task == null)
-            {
                 return NotFound();
-            }
-            return task;
+
+            return Ok(task);
         }
 
-        [HttpPost]
-        public async Task<ActionResult<TaskItem>> CreateTask(TaskItem task)
+        [HttpGet("user/{userId}")]
+        public async Task<ActionResult<IEnumerable<TaskItem>>> GetUserTasks(string userId)
         {
-            try
-            {
-                // MongoDB ObjectId oluştur
-                task.Id = ObjectId.GenerateNewId().ToString();
-                
-                // Boş listeleri initialize et
-                task.SubTasks ??= new List<SubTask>();
-                task.AssignedUsers ??= new List<AssignedUser>();
-                task.Dependencies ??= new List<string>();
-                task.Attachments ??= new List<TaskAttachment>();
-
-                // Atanan kullanıcıları doğrula ve bilgilerini güncelle
-                if (task.AssignedUsers != null && task.AssignedUsers.Any())
-                {
-                    var updatedAssignedUsers = new List<AssignedUser>();
-                    foreach (var assignedUser in task.AssignedUsers)
-                    {
-                        if (string.IsNullOrEmpty(assignedUser.Id))
-                        {
-                            return BadRequest($"Atanan kullanıcı ID'si boş olamaz.");
-                        }
-
-                        var user = await _usersCollection.Find(u => u.Id == assignedUser.Id).FirstOrDefaultAsync();
-                        if (user == null)
-                        {
-                            return BadRequest($"ID'si {assignedUser.Id} olan kullanıcı bulunamadı.");
-                        }
-
-                        updatedAssignedUsers.Add(new AssignedUser
-                        {
-                            Id = user.Id,
-                            Username = user.Username,
-                            Email = user.Email,
-                            FullName = user.FullName,
-                            Department = user.Department,
-                            Title = user.Title,
-                            Position = user.Position,
-                            ProfileImage = user.ProfileImage
-                        });
-                    }
-                    task.AssignedUsers = updatedAssignedUsers;
-                }
-
-                // Tarihleri ayarla
-                task.CreatedAt = DateTime.UtcNow;
-                task.UpdatedAt = DateTime.UtcNow;
-
-                // Varsayılan değerleri ayarla
-                if (string.IsNullOrEmpty(task.Status))
-                    task.Status = "todo";
-                if (string.IsNullOrEmpty(task.Priority))
-                    task.Priority = "medium";
-                if (string.IsNullOrEmpty(task.Category))
-                    task.Category = "Personal";
-
-                await _tasksCollection.InsertOneAsync(task);
-                return CreatedAtAction(nameof(GetTask), new { id = task.Id }, task);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { 
-                    error = "Internal Server Error",
-                    message = ex.Message,
-                    stackTrace = ex.StackTrace 
-                });
-            }
-        }
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateTask(string id, TaskItem taskUpdate)
-        {
-            try 
-            {
-                if (string.IsNullOrEmpty(id))
-                {
-                    return BadRequest("ID boş olamaz");
-                }
-
-                if (!ObjectId.TryParse(id, out _))
-                {
-                    return BadRequest("Geçersiz ID formatı");
-                }
-
-                taskUpdate.Id = id;
-
-                var existingTask = await _tasksCollection.Find(t => t.Id == id).FirstOrDefaultAsync();
-                if (existingTask == null)
-                {
-                    return NotFound($"ID'si {id} olan görev bulunamadı");
-                }
-
-                var result = await _tasksCollection.ReplaceOneAsync(t => t.Id == id, taskUpdate);
-                
-                if (result.ModifiedCount == 0)
-                {
-                    return StatusCode(500, "Görev güncellenemedi");
-                }
-
-                // Güncellenmiş görevi geri döndür
-                var updatedTask = await _tasksCollection.Find(t => t.Id == id).FirstOrDefaultAsync();
-                return Ok(updatedTask);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
+            var tasks = await _tasksService.GetTasksByUserId(userId);
+            return Ok(tasks);
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteTask(string id)
-        {
-            var result = await _tasksCollection.DeleteOneAsync(t => t.Id == id);
-            if (result.DeletedCount == 0)
-            {
-                return NotFound();
-            }
-            return NoContent();
-        }
-
-        [HttpGet("my-tasks")]
-        [Authorize]
-        public async Task<ActionResult<IEnumerable<TaskItem>>> GetMyTasks()
+        public async Task<ActionResult> DeleteTask(string id)
         {
             try
             {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized();
-                }
-
-                var filter = Builders<TaskItem>.Filter.ElemMatch(t => t.AssignedUsers, u => u.Id == userId);
-                var tasks = await _tasksCollection.Find(filter).ToListAsync();
-                return Ok(tasks);
+                await _tasksService.DeleteTask(id);
+                return Ok(new { message = "Task deleted successfully" });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return BadRequest(new { message = ex.Message });
             }
         }
 
-
-        [HttpGet("user/{userId}")]
-        [Authorize]
-        public async Task<ActionResult<IEnumerable<TaskItem>>> GetTasksByUserId(string userId)
+        [HttpGet("user/{userId}/score")]
+        public async Task<ActionResult<PerformanceScore>> GetUserPerformanceScore(string userId)
         {
             try
             {
-                var filter = Builders<TaskItem>.Filter.ElemMatch(t => t.AssignedUsers, u => u.Id == userId);
-                var tasks = await _tasksCollection.Find(filter).ToListAsync();
-                return Ok(tasks);
+                var score = await _performanceService.GetUserPerformanceScore(userId);
+                return Ok(score);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
-        }
-
-        [HttpPost("{id}/complete")]
-        [Authorize]
-        public async Task<IActionResult> CompleteTask(string id)
-        {
-            try
-            {
-                // Görevi bul
-                var task = await _tasksCollection.Find(t => t.Id == id).FirstOrDefaultAsync();
-                if (task == null)
-                {
-                    return NotFound("Görev bulunamadı");
-                }
-
-                // Tüm alt görevlerin tamamlanıp tamamlanmadığını kontrol et
-                if (!task.SubTasks.All(st => st.Completed))
-                {
-                    return BadRequest("Tüm alt görevler tamamlanmadan görev tamamlanamaz");
-                }
-
-                // Görevi tamamlandı olarak işaretle
-                var updateTask = Builders<TaskItem>.Update
-                    .Set(t => t.Status, "completed")
-                    .Set(t => t.UpdatedAt, DateTime.UtcNow)
-                    .Set(t => t.IsLocked, true); // Görevi kilitli olarak işaretle
-                await _tasksCollection.UpdateOneAsync(t => t.Id == id, updateTask);
-
-                // Görevin atandığı tüm kullanıcılar için CompletedTasksCount'u artır
-                foreach (var assignedUser in task.AssignedUsers)
-                {
-                    var teams = await _teamsCollection.Find(t => t.Members.Any(m => m.Id == assignedUser.Id)).ToListAsync();
-                    
-                    foreach (var team in teams)
-                    {
-                        var memberIndex = team.Members.FindIndex(m => m.Id == assignedUser.Id);
-                        if (memberIndex != -1)
-                        {
-                            var updateTeam = Builders<Team>.Update
-                                .Inc($"Members.{memberIndex}.CompletedTasksCount", 1);
-                            await _teamsCollection.UpdateOneAsync(t => t.Id == team.Id, updateTeam);
-                        }
-                    }
-                }
-
-                return Ok(new { message = "Görev başarıyla tamamlandı ve istatistikler güncellendi" });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
-        }
-
-        [HttpGet("dashboard")]
-        [Authorize]
-        public async Task<ActionResult<DashboardStats>> GetDashboardStats()
-        {
-            try
-            {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized();
-                }
-                var tasks = await _tasksCollection.Find(t => t.AssignedUsers.Any(u => u.Id == userId)).ToListAsync();
-
-                var totalTasks = tasks.Count;
-                var completedTasks = tasks.Count(t => t.Status == "Completed");
-                var inProgressTasks = tasks.Count(t => t.Status == "In Progress");
-                var overdueTasks = tasks.Count(t => t.DueDate < DateTime.UtcNow && t.Status != "Completed");
-
-                var previousWeek = DateTime.UtcNow.AddDays(-7);
-                var previousTasks = await _tasksCollection.Find(t => t.AssignedUsers.Any(u => u.Id == userId) && t.CreatedAt < previousWeek).ToListAsync();
-
-                var previousTotalTasks = previousTasks.Count;
-                var previousCompletedTasks = previousTasks.Count(t => t.Status == "Completed");
-                var previousInProgressTasks = previousTasks.Count(t => t.Status == "In Progress");
-                var previousOverdueTasks = previousTasks.Count(t => t.DueDate < previousWeek && t.Status != "Completed");
-
-                var lineChartData = tasks
-                    .GroupBy(t => t.CreatedAt.Date)
-                    .Select(g => new LineChartDataItem
-                    {
-                        Date = g.Key,
-                        Completed = g.Count(t => t.Status == "Completed"),
-                        NewTasks = g.Count()
-                    })
-                    .OrderBy(d => d.Date)
-                    .ToList();
-
-                var stats = new DashboardStats
-                {
-                    TotalTasks = totalTasks,
-                    CompletedTasks = completedTasks,
-                    InProgressTasks = inProgressTasks,
-                    OverdueTasks = overdueTasks,
-                    PreviousTotalTasks = previousTotalTasks,
-                    PreviousCompletedTasks = previousCompletedTasks,
-                    PreviousInProgressTasks = previousInProgressTasks,
-                    PreviousOverdueTasks = previousOverdueTasks,
-                    LineChartData = lineChartData
-                };
-
-                return Ok(stats);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return BadRequest(new { message = ex.Message });
             }
         }
     }

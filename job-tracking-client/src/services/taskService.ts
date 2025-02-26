@@ -48,6 +48,26 @@ const taskService = {
 
     deleteTask: async (id: string): Promise<void> => {
         await axiosInstance.delete(`/tasks/${id}`);
+    },
+
+    async checkOverdueTasks() {
+        try {
+            const response = await axiosInstance.post('Tasks/check-overdue');
+            return response.data;
+        } catch (error) {
+            console.error('Overdue kontrolü sırasında hata:', error);
+            throw error;
+        }
+    },
+
+    async getOverdueCheckStatus() {
+        try {
+            const response = await axiosInstance.get('Tasks/overdue-check-status');
+            return response.data;
+        } catch (error) {
+            console.error('Overdue durum kontrolü sırasında hata:', error);
+            throw error;
+        }
     }
 };
 

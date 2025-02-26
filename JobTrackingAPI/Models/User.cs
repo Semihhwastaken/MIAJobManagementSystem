@@ -46,6 +46,9 @@ namespace JobTrackingAPI.Models
         [Required]
         public string? Position { get; set; }
 
+        [BsonElement("userStatus")]
+        public string UserStatus { get; set; } = "active";
+
         [BsonElement("assignedJobs")]
         public List<string> AssignedJobs { get; set; } = new List<string>();
 
@@ -53,32 +56,18 @@ namespace JobTrackingAPI.Models
         public string? ProfileImage { get; set; }
 
         [BsonElement("createdDate")]
-        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
         [BsonElement("updatedDate")]
-        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
-        public DateTime? UpdatedDate { get; set; }
+        public DateTime UpdatedDate { get; set; } = DateTime.UtcNow;
 
-        public User()
-        {
-        }
+        [BsonElement("lastLoginDate")]
+        public DateTime? LastLoginDate { get; set; }
 
+        [BsonElement("isOnline")]
+        public bool IsOnline { get; set; } = false;
 
-        public User(string username, string email, string fullName, string department, string password, string profileImage, string title, string phone, string position)
-
-        {
-            Username = username;
-            Email = email;
-            FullName = fullName;
-            Department = department;
-            Password = password;
-            CreatedDate = DateTime.UtcNow;
-            ProfileImage = profileImage;
-            Title = title;
-            Phone = phone;
-            Position = position;
-
-        }
+        [BsonElement("teams")]
+        public List<string> Teams { get; set; } = new List<string>();
     }
 }

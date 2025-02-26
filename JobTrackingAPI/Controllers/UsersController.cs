@@ -20,11 +20,11 @@ namespace JobTrackingAPI.Controllers
     [Route("api/[controller]")]
     public class UsersController : ControllerBase
     {
-        private readonly UserService _userService;
+        private readonly IUserService _userService;
         private readonly IHubContext<ChatHub> _hubContext;
         private static readonly Dictionary<string, DateTime> _lastSeen = new();
 
-        public UsersController(UserService userService, IHubContext<ChatHub> hubContext)
+        public UsersController(IUserService userService, IHubContext<ChatHub> hubContext)
         {
             _userService = userService;
             _hubContext = hubContext;
@@ -33,14 +33,14 @@ namespace JobTrackingAPI.Controllers
         [HttpGet]
         public async Task<ActionResult<List<User>>> GetAll()
         {
-            var users = await _userService.GetAllAsync();
+            var users = await _userService.GetAllUsers();
             return Ok(users);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<User>> Get(string id)
         {
-            var user = await _userService.GetByIdAsync(id);
+            var user = await _userService.GetUserById(id);
             if (user == null)
             {
                 return NotFound();
@@ -51,14 +51,14 @@ namespace JobTrackingAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<User>> Create(User user)
         {
-            await _userService.CreateAsync(user);
+            await _userService.UpdateUser(user.Id, user);
             return CreatedAtAction(nameof(Get), new { id = user.Id }, user);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(string id, [FromBody] UpdateUserRequest request)
         {
-            var currentUser = await _userService.GetByIdAsync(id);
+            var currentUser = await _userService.GetUserById(id);
             if (currentUser == null)
             {
                 return NotFound();
@@ -75,27 +75,27 @@ namespace JobTrackingAPI.Controllers
             }
             currentUser.UpdatedDate = System.DateTime.UtcNow;
 
-            await _userService.UpdateAsync(id, currentUser);
+            await _userService.UpdateUser(id, currentUser);
             return Ok(currentUser);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(string id)
         {
-            var user = await _userService.GetByIdAsync(id);
+            var user = await _userService.GetUserById(id);
             if (user == null)
             {
                 return NotFound();
             }
 
-            await _userService.DeleteAsync(id);
+            await _userService.DeleteUser(id);
             return NoContent();
         }
 
         [HttpGet("username/{username}")]
         public async Task<ActionResult<User>> GetByUsername(string username)
         {
-            var user = await _userService.GetByUsernameAsync(username);
+            var user = await _userService.GetUserByEmail(username);
             if (user == null)
             {
                 return NotFound();
@@ -116,7 +116,7 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized("Kullanıcı kimliği bulunamadı");
                 }
 
-                var user = await _userService.GetByIdAsync(userId);
+                var user = await _userService.GetUserById(userId);
                 if (user == null)
                 {
                     return NotFound("Kullanıcı bulunamadı");
@@ -156,13 +156,12 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized("Kullanıcı kimliği bulunamadı");
                 }
 
-                var user = await _userService.GetByIdAsync(userId);
+                var user = await _userService.GetUserById(userId);
                 if (user == null)
                 {
                     return NotFound("Kullanıcı bulunamadı");
                 }
 
-                // Güvenlik nedeniyle sadece belirli alanları güncelliyoruz
                 user.FullName = request.FullName;
                 user.Department = request.Department;
                 user.Title = request.Title;
@@ -171,7 +170,7 @@ namespace JobTrackingAPI.Controllers
                 user.ProfileImage = request.ProfileImage;
                 user.UpdatedDate = DateTime.UtcNow;
 
-                await _userService.UpdateAsync(userId, user);
+                await _userService.UpdateUser(userId, user);
 
                 return Ok(new { message = "Profil başarıyla güncellendi" });
             }
@@ -194,23 +193,21 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized("Kullanıcı kimliği bulunamadı");
                 }
 
-                var user = await _userService.GetByIdAsync(userId);
+                var user = await _userService.GetUserById(userId);
                 if (user == null)
                 {
                     return NotFound("Kullanıcı bulunamadı");
                 }
 
-                // Mevcut şifre kontrolü
                 if (!VerifyPassword(request.CurrentPassword, user.Password))
                 {
                     return BadRequest("Mevcut şifre yanlış");
                 }
 
-                // Yeni şifre güncelleme
                 user.Password = HashPassword(request.NewPassword);
                 user.UpdatedDate = DateTime.UtcNow;
 
-                await _userService.UpdateAsync(userId, user);
+                await _userService.UpdateUser(userId, user);
 
                 return Ok(new { message = "Şifre başarıyla güncellendi" });
             }
@@ -220,19 +217,9 @@ namespace JobTrackingAPI.Controllers
             }
         }
 
-        /// <summary>
-        /// Kullanıcı profil resmini yükler
-        /// </summary>
-        /// <param name="request">Profil resmi yükleme isteği</param>
-        /// <returns>Yüklenen resmin base64 formatında URL'i</returns>
-        /// <response code="200">Profil resmi başarıyla yüklendi</response>
-        /// <response code="400">Geçersiz dosya formatı veya boyutu</response>
-        /// <response code="401">Yetkilendirme başarısız</response>
-        /// <response code="404">Kullanıcı bulunamadı</response>
         [Authorize]
         [HttpPost("profile/image")]
         [Consumes("multipart/form-data")]
-
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -247,7 +234,7 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized("Kullanıcı kimliği bulunamadı");
                 }
 
-                var user = await _userService.GetByIdAsync(userId);
+                var user = await _userService.GetUserById(userId);
                 if (user == null)
                 {
                     return NotFound("Kullanıcı bulunamadı");
@@ -258,7 +245,6 @@ namespace JobTrackingAPI.Controllers
                     return BadRequest("Dosya seçilmedi");
                 }
 
-                // Dosya uzantısını kontrol et
                 var extension = Path.GetExtension(request.File.FileName).ToLowerInvariant();
                 string[] allowedExtensions = { ".jpg", ".jpeg", ".png", ".gif" };
                 if (!allowedExtensions.Contains(extension))
@@ -266,13 +252,11 @@ namespace JobTrackingAPI.Controllers
                     return BadRequest("Sadece .jpg, .jpeg, .png ve .gif uzantılı dosyalar yüklenebilir");
                 }
 
-                // Dosya boyutunu kontrol et (max 5MB)
                 if (request.File.Length > 5 * 1024 * 1024)
                 {
                     return BadRequest("Dosya boyutu 5MB'dan büyük olamaz");
                 }
 
-                // Dosyayı Base64'e çevir
                 using (var ms = new MemoryStream())
                 {
                     await request.File.CopyToAsync(ms);
@@ -282,7 +266,7 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 user.UpdatedDate = DateTime.UtcNow;
-                await _userService.UpdateAsync(userId, user);
+                await _userService.UpdateUser(userId, user);
 
                 return Ok(new { message = "Profil resmi başarıyla güncellendi", profileImage = user.ProfileImage });
             }

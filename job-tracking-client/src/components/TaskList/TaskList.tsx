@@ -3,10 +3,16 @@ import { Table, Space, Button, Tag, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import taskService, { TaskItem } from '../../services/taskService';
 import { format } from 'date-fns';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '../../redux/store';
+import { updateTaskStatus } from '../../redux/features/tasksSlice';
+import { useSnackbar } from 'notistack';
 
 const TaskList: React.FC = () => {
     const [tasks, setTasks] = useState<TaskItem[]>([]);
     const [loading, setLoading] = useState(false);
+    const dispatch = useDispatch<AppDispatch>();
+    const { enqueueSnackbar } = useSnackbar();
 
     useEffect(() => {
         fetchTasks();
@@ -15,7 +21,7 @@ const TaskList: React.FC = () => {
     const fetchTasks = async () => {
         try {
             setLoading(true);
-            const data = await taskService.getMyTasks(); // getAllTasks yerine getMyTasks kullanıyoruz
+            const data = await taskService.getMyTasks();
             setTasks(data);
         } catch (error) {
             message.error('Görevler yüklenirken bir hata oluştu');
@@ -41,13 +47,15 @@ const TaskList: React.FC = () => {
     const getStatusColor = (status: string) => {
         switch (status.toLowerCase()) {
             case 'completed':
-                return 'success';
-            case 'in progress':
-                return 'processing';
-            case 'pending':
-                return 'warning';
+                return '#52c41a';
+            case 'in-progress':
+                return '#1890ff';
+            case 'todo':
+                return '#faad14';
+            case 'overdue':
+                return '#ff4d4f';
             default:
-                return 'default';
+                return '#d9d9d9';
         }
     };
 
@@ -120,6 +128,16 @@ const TaskList: React.FC = () => {
         } catch (error) {
             message.error('Görev silinirken bir hata oluştu');
             console.error('Error deleting task:', error);
+        }
+    };
+
+    const handleStatusChange = async (taskId: string, newStatus: string) => {
+        try {
+            await dispatch(updateTaskStatus({ taskId, status: newStatus }));
+            enqueueSnackbar('Görev durumu güncellendi', { variant: 'success' });
+        } catch (error) {
+            console.error('Görev durumu güncellenirken hata oluştu:', error);
+            enqueueSnackbar('Görev durumu güncellenirken hata oluştu', { variant: 'error' });
         }
     };
 

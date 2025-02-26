@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Task, User, SubTask, Attachment } from '../../types/task';
 import { Team, TeamMember } from '../../types/team';
+import { Task as TaskType } from '../../store/slices/taskSlice';
 import teamService from '../../services/teamService';
 import { Listbox, Transition } from '@headlessui/react';
 import { CheckIcon, ChevronUpDownIcon, XCircleIcon } from '@heroicons/react/24/outline';
@@ -8,12 +9,14 @@ import { CheckIcon, ChevronUpDownIcon, XCircleIcon } from '@heroicons/react/24/o
 interface TaskFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (task: Omit<Task, 'id'>) => void;
-  existingTasks?: Task[];
-  task?: Task; // Düzenlenecek görev
+  onSave: (task: Omit<TaskType, 'id'>) => void;
+  existingTasks?: TaskType[];
+  task?: TaskType;
+  selectedUser?: TeamMember;
+  isDarkMode: boolean;
 }
 
-const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTasks = [], task }) => {
+const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTasks = [], task, selectedUser, isDarkMode }) => {
   const [formData, setFormData] = useState({
     title: task?.title || '',
     description: task?.description || '',
@@ -55,17 +58,28 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
       try {
         const myTeams = await teamService.getMyTeams();
         setTeams(myTeams);
-        if (myTeams.length > 0) {
+        
+        if (selectedUser) {
+          const userTeam = myTeams.find(team => 
+            team.members?.some(member => member.id === selectedUser.id)
+          );
+          if (userTeam) {
+            setSelectedTeam(userTeam);
+            setFormData(prev => ({
+              ...prev,
+              assignedUsers: [selectedUser]
+            }));
+          }
+        } else if (myTeams.length > 0) {
           setSelectedTeam(myTeams[0]);
         }
       } catch (error) {
         console.error('Error fetching teams:', error);
-        // toast.error('Ekipler yüklenirken bir hata oluştu');
       }
     };
 
     fetchTeams();
-  }, []);
+  }, [selectedUser]);
 
   useEffect(() => {
     const fetchTeamMembers = async () => {
@@ -88,7 +102,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     onSave({
       ...formData,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      status: formData.status === 'in-progress' ? 'in_progress' : formData.status
     });
     onClose();
   };
@@ -233,7 +248,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
               </label>
               <select
                 value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value as Task['priority'] })}
+                onChange={(e) => setFormData({ ...formData, priority: e.target.value as TaskType['priority'] })}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
               >
                 <option value="low">Düşük</option>
@@ -260,21 +275,12 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Ekip Seçin</label>
-            <select
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              value={selectedTeam?.id || ''}
-              onChange={(e) => {
-                const team = teams.find(t => t.id === e.target.value);
-                setSelectedTeam(team || null);
-              }}
-            >
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
-            </select>
+            <label className="block text-sm font-medium text-gray-700">Ekip</label>
+            <div className={`mt-1 block w-full py-3 px-4 rounded-md border-gray-300 shadow-sm text-base ${
+              isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
+            }`}>
+              {selectedTeam?.name || 'Ekip seçildi'}
+            </div>
           </div>
 
           {/* Alt Görevler */}

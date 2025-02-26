@@ -17,11 +17,13 @@ namespace JobTrackingAPI.Controllers
     {
         private readonly TeamService _teamService;
         private readonly UserService _userService;
+        private readonly IMongoDatabase _database;
 
-        public TeamController(TeamService teamService, UserService userService)
+        public TeamController(TeamService teamService, UserService userService, IMongoDatabase database)
         {
             _teamService = teamService;
             _userService = userService;
+            _database = database;
         }
 
         /// <summary>
@@ -184,7 +186,7 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 // Kullanıcı bilgilerini al
-                var user = await _userService.GetByIdAsync(userId);
+                var user = await _userService.GetUserById(userId);
                 if (user == null)
                 {
                     return NotFound("Kullanıcı bulunamadı.");
@@ -247,7 +249,7 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized("Kullanıcı kimliği doğrulanamadı.");
                 }
 
-                var existingTeam = await _teamService.GetByIdAsync(teamId);
+                var existingTeam = await _teamService.GetTeamById(teamId);
                 if (existingTeam == null)
                 {
                     return NotFound("Takım bulunamadı.");
@@ -481,7 +483,7 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized("Kullanıcı kimliği doğrulanamadı.");
                 }
 
-                var team = await _teamService.GetByIdAsync(teamId);
+                var team = await _teamService.GetTeamById(teamId);
                 if (team == null)
                 {
                     return NotFound("Takım bulunamadı.");
@@ -500,6 +502,57 @@ namespace JobTrackingAPI.Controllers
             catch (Exception ex)
             {
                 return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("update-member-statuses")]
+        public async Task<IActionResult> UpdateMemberStatuses()
+        {
+            try
+            {
+                var teamsCollection = _database.GetCollection<Team>("Teams");
+                var tasksCollection = _database.GetCollection<TaskItem>("Tasks");
+
+                var teams = await teamsCollection.Find(_ => true).ToListAsync();
+                int updatedMembersCount = 0;
+                
+                foreach (var team in teams)
+                {
+                    bool teamUpdated = false;
+                    
+                    foreach (var member in team.Members)
+                    {
+                        // Üye için aktif görevleri hesapla
+                        var activeTasks = await tasksCollection
+                            .Find(t => t.AssignedUsers.Any(u => u.Id == member.Id) && 
+                                  t.Status != "completed" && 
+                                  t.Status != "overdue")
+                            .ToListAsync();
+                        
+                        int totalActiveTasks = activeTasks.Count;
+                        string newStatus = totalActiveTasks > 3 ? "busy" : "available";
+                        
+                        // Sadece durum değiştiğinde güncelleme yap
+                        if (member.Status != newStatus)
+                        {
+                            member.Status = newStatus;
+                            updatedMembersCount++;
+                            teamUpdated = true;
+                        }
+                    }
+                    
+                    // Sadece değişiklik varsa takımı güncelle
+                    if (teamUpdated)
+                    {
+                        await teamsCollection.ReplaceOneAsync(t => t.Id == team.Id, team);
+                    }
+                }
+                
+                return Ok(new { message = $"{updatedMembersCount} üyenin durumu güncellendi", success = true });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
     }

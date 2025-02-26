@@ -77,41 +77,28 @@ namespace JobTrackingAPI.Models
         [JsonPropertyName("profileImage")]
         public string? ProfileImage { get; set; }
     }
-
     public class TaskItem
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
-
+        public string Id { get; set; } = string.Empty;
+    
         [BsonElement("title")]
         [JsonPropertyName("title")]
         public string Title { get; set; } = string.Empty;
-
+    
         [BsonElement("description")]
         [JsonPropertyName("description")]
         public string Description { get; set; } = string.Empty;
-
+    
         [BsonElement("status")]
         [JsonPropertyName("status")]
-        public string Status { get; set; } = "todo";
-
-        [BsonElement("dueDate")]
-        [JsonPropertyName("dueDate")]
-        public DateTime DueDate { get; set; }
-
+        public string Status { get; set; } = string.Empty;
+    
         [BsonElement("priority")]
         [JsonPropertyName("priority")]
-        public string Priority { get; set; } = "medium";
-
-        [BsonElement("createdAt")]
-        [JsonPropertyName("createdAt")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-        [BsonElement("updatedAt")]
-        [JsonPropertyName("updatedAt")]
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
+        public string Priority { get; set; } = string.Empty;
+    
         [BsonElement("category")]
         [JsonPropertyName("category")]
         public string Category { get; set; } = "Personal";
@@ -119,21 +106,57 @@ namespace JobTrackingAPI.Models
         [BsonElement("isLocked")]
         [JsonPropertyName("isLocked")]
         public bool IsLocked { get; set; } = false;
-
-        [BsonElement("subTasks")]
-        [JsonPropertyName("subTasks")]
-        public List<SubTask> SubTasks { get; set; } = new List<SubTask>();
+    
+        [BsonElement("assignedTo")]
+        [JsonPropertyName("assignedTo")]
+        public string AssignedTo { get; set; } = string.Empty;
 
         [BsonElement("assignedUsers")]
         [JsonPropertyName("assignedUsers")]
         public List<AssignedUser> AssignedUsers { get; set; } = new List<AssignedUser>();
+    
+        [BsonElement("dueDate")]
+        [JsonPropertyName("dueDate")]
+        public DateTime DueDate { get; set; }
+    
+        [BsonElement("createdAt")]
+        [JsonPropertyName("createdAt")]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    
+        [BsonElement("updatedAt")]
+        [JsonPropertyName("updatedAt")]
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    
+        [BsonElement("subTasks")]
+        [JsonPropertyName("subTasks")]
+        public List<SubTask> SubTasks { get; set; } = new List<SubTask>();
+    
+        [BsonElement("attachments")]
+        [JsonPropertyName("attachments")]
+        public List<TaskAttachment> Attachments { get; set; } = new List<TaskAttachment>();
+    
+        [BsonElement("comments")]
+        [JsonPropertyName("comments")]
+        public List<Comment> Comments { get; set; } = new List<Comment>();
+    
+        [BsonElement("teamId")]
+        [JsonPropertyName("teamId")]
+        public string TeamId { get; set; } = string.Empty;
 
         [BsonElement("dependencies")]
         [JsonPropertyName("dependencies")]
         public List<string> Dependencies { get; set; } = new List<string>();
 
-        [BsonElement("attachments")]
-        [JsonPropertyName("attachments")]
-        public List<TaskAttachment> Attachments { get; set; } = new List<TaskAttachment>();
+        [BsonElement("startDate")]
+        [JsonPropertyName("startDate")]
+        public DateTime StartDate { get; set; }
+
+        [BsonElement("completedDate")]
+        [JsonPropertyName("completedDate")]
+        public DateTime? CompletedDate { get; set; }
+
+        [BsonElement("difficulty")]
+        [JsonPropertyName("difficulty")]
+        public string Difficulty { get; set; } = "Low";
     }
 }

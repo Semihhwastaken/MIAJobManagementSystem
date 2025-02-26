@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import * as echarts from 'echarts';
 import TaskDetail from '../../components/TaskDetailModal/TaskDetail';
 import TaskForm from '../../components/TaskForm/TaskForm';
+import TaskHistory from '../../components/TaskHistory/TaskHistory';
 import { Task } from '../../types/task';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchTasks, createTask, updateTask, deleteTask } from '../../redux/features/tasksSlice';
 import { RootState, AppDispatch } from '../../redux/store';
 import Footer from '../../components/Footer/Footer';
+
 
 const Tasks: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -22,6 +24,7 @@ const Tasks: React.FC = () => {
   const [isDateFilterModalOpen, setIsDateFilterModalOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState<{ startDate: string, endDate: string }>({ startDate: '', endDate: '' });
   const [isFilterActive, setIsFilterActive] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
   const priorityOrder = {
     'high': 3,
@@ -30,8 +33,17 @@ const Tasks: React.FC = () => {
   };
 
   useEffect(() => {
-    if (status === 'idle') {
-      dispatch(fetchTasks());
+    dispatch(fetchTasks()).catch((error) => {
+      console.error('Error fetching tasks:', error);
+    });
+  }, [dispatch]);
+
+  // Refetch tasks after any task updates
+  useEffect(() => {
+    if (status === 'succeeded' || status === 'failed') {
+      dispatch(fetchTasks()).catch((error) => {
+        console.error('Error fetching tasks:', error);
+      });
     }
   }, [status, dispatch]);
 
@@ -103,10 +115,16 @@ const Tasks: React.FC = () => {
     }
   };
 
-  const handleDeleteTask = async (taskId: string) => {
+  const handleDeleteTask = async (taskId: string | undefined) => {
+    if (!taskId || taskId === 'undefined') {
+      console.error('Geçersiz görev ID', taskId);
+      return;
+    }
     try {
       await dispatch(deleteTask(taskId));
+      console.log('Görev başarıyla silindi');
     } catch (error) {
+      console.error('Görev silinirken bir hata oluştu');
       console.error('Görev silinirken hata oluştu:', error);
     }
   };
@@ -122,7 +140,20 @@ const Tasks: React.FC = () => {
 
   const categories = ['All Tasks', 'Personal', 'Work', 'Shopping', 'Health'];
 
-  const filteredTasks = tasks.filter(task => {
+  const filteredTasks = tasks.map(task => {
+    // Check if task is overdue
+    const dueDate = new Date(task.dueDate);
+    const now = new Date();
+    if (now > dueDate && task.status !== 'completed') {
+      return { ...task, status: 'overdue' as const };
+    }
+    return task;
+  }).filter(task => {
+    // Only show todo and in-progress tasks in the main list
+    if (task.status === 'completed' || task.status === 'overdue') {
+      return false;
+    }
+
     const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       task.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'All Tasks' || task.category === selectedCategory;
@@ -143,9 +174,17 @@ const Tasks: React.FC = () => {
   }
 
   if (status === 'failed') {
-    return <div className="text-red-600">Hata: {error}</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="p-4 rounded-lg bg-red-50 border border-red-200">
+          <div className="flex items-center">
+            <i className="fas fa-exclamation-circle text-red-600 mr-2"></i>
+            <p className="text-red-600">Hata: {error || 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.'}</p>
+          </div>
+        </div>
+      </div>
+    );
   }
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Main Content */}
@@ -156,13 +195,6 @@ const Tasks: React.FC = () => {
             <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
             <p className="text-gray-600">Track and manage your tasks efficiently</p>
           </div>
-          <button
-            onClick={() => setIsNewTaskModalOpen(true)}
-            className="!rounded-button bg-indigo-600 text-white px-4 py-2 flex items-center space-x-2 hover:bg-indigo-700 transition-colors"
-          >
-            <i className="fas fa-plus"></i>
-            <span>Add New Task</span>
-          </button>
         </div>
 
         {/* Task Management Tools */}
@@ -180,6 +212,12 @@ const Tasks: React.FC = () => {
             </div>
 
             <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setIsHistoryModalOpen(true)}
+                className="!rounded-button flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <i className="fas fa-history text-gray-600"></i>
+              </button>
               <button
                 onClick={() => setSortByPriority(!sortByPriority)}
                 className={`!rounded-button flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors ${sortByPriority ? 'bg-indigo-100 border-indigo-300' : ''}`}
@@ -250,6 +288,7 @@ const Tasks: React.FC = () => {
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         task.status === 'todo' ? 'bg-blue-100 text-blue-800' :
                         task.status === 'in-progress' ? 'bg-purple-100 text-purple-800' :
+                        task.status === 'overdue' ? 'bg-red-100 text-red-800' :
                         'bg-green-100 text-green-800'
                       }`}>
                         {task.status}
@@ -294,7 +333,7 @@ const Tasks: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDeleteTask(selectedTask?.id);
+                          handleDeleteTask(task.id);
                         }}
                         className="text-red-600 hover:text-red-900"
                       >
@@ -387,6 +426,14 @@ const Tasks: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Task History Modal */}
+      <TaskHistory
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        tasks={tasks}
+      />
+
       <Footer />
     </div>
   );

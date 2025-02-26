@@ -95,6 +95,10 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSet
 
 // Add EmailService configuration
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+
+// Register the background service for status updates
+builder.Services.AddHostedService<StatusUpdateBackgroundService>();
+
 builder.Services.AddScoped<EmailService>(sp =>
 {
     var emailSettings = sp.GetRequiredService<IOptions<EmailSettings>>().Value;
@@ -110,17 +114,21 @@ builder.Services.AddScoped<EmailService>(sp =>
 builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("MongoDbSettings"));
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
-
-// UserService'i singleton olarak kaydet
-builder.Services.AddSingleton<UserService>();
+builder.Services.AddScoped<ITasksService, TasksService>();
 
 // TeamService'i scoped olarak değiştir
 builder.Services.AddScoped<TeamService>();
-
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IConnectionService,ConnectionService>();
 builder.Services.AddScoped<CalendarEventService>();
+builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddHostedService<OverdueTasksService>();
+
+builder.Services.AddScoped<ITasksService, TasksService>();
+builder.Services.AddScoped<IPerformanceService, PerformanceService>();
+builder.Services.AddScoped<ITeamService, TeamService>();
 
 builder.Services.AddControllers();
 

@@ -23,6 +23,7 @@ export interface TeamMember {
 
 export interface TeamState {
     members: TeamMember[];
+    teams: Team[];
     departments: string[];
     departmentProjects: {
         [key: string]: {
@@ -41,6 +42,14 @@ export interface TeamState {
     };
     sortBy: 'name' | 'performance' | 'tasks' | 'seniority';
     sortOrder: 'asc' | 'desc';
+    activeTasksData: {
+        [key: string]: {
+            totalActiveTasks: number;
+            todoTasks: number;
+            inProgressTasks: number;
+            isBusy: boolean;
+        };
+    };
 }
 
 export interface DepartmentStats {

@@ -25,18 +25,20 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onClick, onEdit, onDelete }) 
     const dueDate = new Date(task.dueDate);
     let newStatus: 'todo' | 'in-progress' | 'completed' | 'overdue' = task.status;
 
-    if (progress === 0) {
+    // Check if the task is already completed - don't change status if it is
+    if (task.status === 'completed') {
+      return;
+    }
+
+    // First check for overdue condition
+    if (now > dueDate && task.status !== 'completed') {
+      newStatus = 'overdue';
+    } else if (progress === 0) {
       newStatus = 'todo';
-    } else if (progress === 100) {
-      newStatus = 'completed';
     } else if (progress > 0 && progress < 100) {
       newStatus = 'in-progress';
     }
-
-    // Eğer due date geçmiş ve task tamamlanmamışsa overdue yap
-    if (now > dueDate && progress !== 100) {
-      newStatus = 'overdue';
-    }
+    // Note: We don't set completed here as it requires explicit completion via button
 
     if (newStatus !== task.status && task.id) {
       await dispatch(updateTask({

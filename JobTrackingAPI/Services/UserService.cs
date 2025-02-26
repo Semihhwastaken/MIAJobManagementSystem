@@ -7,7 +7,7 @@ using JobTrackingAPI.Settings;
 
 namespace JobTrackingAPI.Services
 {
-    public class UserService
+    public class UserService : IUserService
     {
         private readonly IMongoCollection<User> _users;
 
@@ -18,24 +18,26 @@ namespace JobTrackingAPI.Services
             _users = database.GetCollection<User>(settings.Value.UsersCollectionName);
         }
 
-        public async Task<List<User>> GetAllUsers()
-        {
-            return await _users.Find(_ => true).ToListAsync();
-        }
-
-        public async Task<List<User>> GetAllAsync()
-        {
-            return await _users.Find(_ => true).ToListAsync();
-        }
-
         public async Task<User> GetUserById(string id)
         {
             return await _users.Find(u => u.Id == id).FirstOrDefaultAsync();
         }
 
-        public async Task<User> GetByIdAsync(string id)
+        public async Task<IEnumerable<User>> GetAllUsers()
         {
-            return await _users.Find(u => u.Id == id).FirstOrDefaultAsync();
+            return await _users.Find(_ => true).ToListAsync();
+        }
+
+        public async Task<User> UpdateUser(string id, User user)
+        {
+            await _users.ReplaceOneAsync(u => u.Id == id, user);
+            return user;
+        }
+
+        public async Task<bool> DeleteUser(string id)
+        {
+            var result = await _users.DeleteOneAsync(u => u.Id == id);
+            return result.DeletedCount > 0;
         }
 
         public async Task<User> GetUserByEmail(string email)
@@ -43,50 +45,18 @@ namespace JobTrackingAPI.Services
             return await _users.Find(u => u.Email == email).FirstOrDefaultAsync();
         }
 
-        public async Task<User> GetByUsernameAsync(string username)
+        public async Task<bool> UpdateUserStatus(string userId, string status)
         {
-            return await _users.Find(u => u.Username == username).FirstOrDefaultAsync();
-        }
-
-        public async Task<List<User>> GetUsersByDepartmentAsync(string department)
-        {
-            return await _users.Find(u => u.Department == department).ToListAsync();
-        }
-
-        public async Task<User> CreateUser(User user)
-        {
-            await _users.InsertOneAsync(user);
-            return user;
-        }
-
-        public async Task<User> CreateAsync(User user)
-        {
-            await _users.InsertOneAsync(user);
-            return user;
-        }
-
-        public async Task<bool> UpdateUser(string id, User user)
-        {
-            var result = await _users.ReplaceOneAsync(u => u.Id == id, user);
-            return result.IsAcknowledged && result.ModifiedCount > 0;
-        }
-
-        public async Task<bool> UpdateAsync(string id, User user)
-        {
-            var result = await _users.ReplaceOneAsync(u => u.Id == id, user);
+            var update = Builders<User>.Update.Set(u => u.UserStatus, status);
+            var result = await _users.UpdateOneAsync(u => u.Id == userId, update);
             return result.ModifiedCount > 0;
         }
 
-        public async Task<bool> DeleteUser(string id)
+        public async Task<bool> UpdateUserProfileImage(string userId, string imageUrl)
         {
-            var result = await _users.DeleteOneAsync(u => u.Id == id);
-            return result.IsAcknowledged && result.DeletedCount > 0;
-        }
-
-        public async Task<bool> DeleteAsync(string id)
-        {
-            var result = await _users.DeleteOneAsync(u => u.Id == id);
-            return result.DeletedCount > 0;
+            var update = Builders<User>.Update.Set(u => u.ProfileImage, imageUrl);
+            var result = await _users.UpdateOneAsync(u => u.Id == userId, update);
+            return result.ModifiedCount > 0;
         }
     }
 }
