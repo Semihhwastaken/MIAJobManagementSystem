@@ -333,7 +333,7 @@ const Tasks: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDeleteTask(selectedTask?.id);
+                          if (task.id) handleDeleteTask(task.id);
                         }}
                         className="text-red-600 hover:text-red-900"
                       >
