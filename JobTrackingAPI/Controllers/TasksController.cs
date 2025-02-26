@@ -156,9 +156,12 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+<<<<<<< HEAD
+=======
 
-        [HttpGet("user/{userId}/score")]
-        public async Task<ActionResult<PerformanceScore>> GetUserPerformanceScore(string userId)
+        [HttpGet("dashboard")]
+        [Authorize]
+        public async Task<ActionResult<DashboardStats>> GetDashboardStats()
         {
             try
             {
@@ -169,6 +172,11 @@ namespace JobTrackingAPI.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
+<<<<<<< HEAD
+        }
+  
+=======
+>>>>>>> 80a2d6f305c7dd4fa02dc5127a55e9d653b3d9f8
         }
     }
 }
