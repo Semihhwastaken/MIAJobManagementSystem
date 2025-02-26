@@ -19,7 +19,7 @@ interface Conversation {
 }
 
 const Chat: React.FC = () => {
-    const [selectedUser, setSelectedUser] = useState<{ id: string; name: string } | null>(null);
+    const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; profilImage?: string; } | null>(null);
     const [, setConversations] = useState<Conversation[]>([]);
 
     interface User {
@@ -163,7 +163,7 @@ const Chat: React.FC = () => {
                         {availableUsers.map((user) => (
                             <div
                                 key={user.id}
-                                onClick={() => setSelectedUser({ id: user.id || '', name: user.fullName || user.username })}
+                                onClick={() => setSelectedUser({ id: user.id || '', name: user.fullName || user.username, profilImage: user.profileImage }) }
                                 className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-150 ease-in-out ${
                                     selectedUser?.id === user.id ? 'bg-blue-50 dark:bg-blue-900/30' : ''
                                 }`}
