@@ -31,8 +31,7 @@ import axiosInstance from '../../services/axiosInstance';
 import { useSnackbar } from 'notistack';
 import { DEPARTMENTS } from '../../constants/departments';
 import TaskForm from '../../components/TaskForm/TaskForm';
-import { createTask } from '../../redux/features/tasksSlice';
-import { TaskType } from '../../store/slices/taskSlice';
+import { createTask, Task } from '../../redux/features/tasksSlice';
 
 const Team: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
@@ -278,7 +277,7 @@ const Team: React.FC = () => {
         setShowTaskForm(true);
     };
 
-    const handleCreateTask = async (taskData: Omit<TaskType, 'id'>) => {
+    const handleCreateTask = async (taskData: Omit<Task, 'id'>) => {
         try {
             await dispatch(createTask(taskData)).unwrap();
             enqueueSnackbar('Görev başarıyla oluşturuldu', { variant: 'success' });

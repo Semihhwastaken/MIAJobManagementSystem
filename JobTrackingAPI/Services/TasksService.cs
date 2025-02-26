@@ -51,5 +51,23 @@ namespace JobTrackingAPI.Services
         {
             await _tasks.DeleteOneAsync(t => t.Id == id);
         }
+        public async Task<List<TaskHistoryDto>> GetUserTaskHistory(string userId)
+        {
+            var tasks = await _tasks.Find(t => t.AssignedUsers.Any(u => u.Id == userId) &&
+                                      (t.Status == "completed" || DateTime.UtcNow > t.DueDate))
+                            .ToListAsync();
+
+            return tasks.Select(t => new TaskHistoryDto
+            {
+                Id = t.Id,
+                Title = t.Title,
+                Description = t.Description,
+                Status = DateTime.UtcNow > t.DueDate ? "overdue" : "completed",
+                Priority = t.Priority,
+                Category = t.Category,
+                DueDate = t.DueDate,
+                AssignedUsers = t.AssignedUsers.Select(u => new UserDto { Id = u.Id, FullName = u.FullName }).ToList()
+            }).ToList();
+        }
     }
 }

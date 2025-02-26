@@ -59,7 +59,7 @@ namespace JobTrackingAPI.Models
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
         [BsonElement("updatedDate")]
-        public DateTime UpdatedDate { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedDate { get; set; } = DateTime.UtcNow;
 
         [BsonElement("lastLoginDate")]
         public DateTime? LastLoginDate { get; set; }

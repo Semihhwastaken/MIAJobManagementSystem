@@ -122,7 +122,12 @@ namespace JobTrackingAPI.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<TaskItem>>> GetTasks()
         {
-            var tasks = await _tasksService.GetTasks();
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return BadRequest(new { message = "User not authenticated" });
+            }
+            var tasks = await _tasksService.GetTasksByUserId(userId);
             return Ok(tasks);
         }
 
@@ -156,8 +161,6 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-<<<<<<< HEAD
-=======
 
         [HttpGet("dashboard")]
         [Authorize]
@@ -165,6 +168,12 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return BadRequest(new { message = "User not authenticated" });
+                }
+
                 var score = await _performanceService.GetUserPerformanceScore(userId);
                 return Ok(score);
             }
@@ -172,11 +181,6 @@ namespace JobTrackingAPI.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
-<<<<<<< HEAD
-        }
-  
-=======
->>>>>>> 80a2d6f305c7dd4fa02dc5127a55e9d653b3d9f8
         }
     }
 }

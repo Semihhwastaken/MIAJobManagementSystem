@@ -1,15 +1,29 @@
 import React, { useState } from 'react';
 import { Task } from '../../types/task';
 import { Modal } from '@mui/material';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
 
 interface TaskHistoryProps {
     isOpen: boolean;
     onClose: () => void;
-    tasks: Task[];
+    tasks: TaskHistoryDto[];
+}
+
+interface TaskHistoryDto {
+    id: string;
+    title: string;
+    description: string;
+    status: string;
+    priority: string;
+    category: string;
+    dueDate: string;
+    assignedUsers: { id: string; fullName: string; }[];
 }
 
 const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose, tasks }) => {
     const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+    const currentUser = useSelector((state: RootState) => state.auth.user);
 
     const historicalTasks = tasks.filter(task => 
         task.status === 'completed' || task.status === 'overdue'
@@ -91,4 +105,4 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose, tasks }) => 
     );
 };
 
-export default TaskHistory; 
+export default TaskHistory;
