@@ -32,6 +32,7 @@ export interface Task {
     category: string;
     dueDate: string;
     isLocked?: boolean;
+    teamId?: string;
     assignedUsers: User[];
     subTasks: SubTask[];
     dependencies: string[]; // Bağımlı olduğu task ID'leri

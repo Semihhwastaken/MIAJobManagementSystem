@@ -68,6 +68,7 @@ const Team: React.FC = () => {
     const [newTeamDepartment, setNewTeamDepartment] = useState('');
     const [showTaskForm, setShowTaskForm] = useState(false);
     const [selectedMemberForTask, setSelectedMemberForTask] = useState<TeamMember | null>(null);
+    const [selectedTeamForTask, setSelectedTeamForTask] = useState<{ id: string; name: string } | null>(null);
 
     useEffect(() => {
         // Kullanıcı girişi kontrolü
@@ -272,8 +273,9 @@ const Team: React.FC = () => {
         setShowExpertiesModal(true);
     };
 
-    const handleOpenTaskForm = (member: TeamMember) => {
+    const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string) => {
         setSelectedMemberForTask(member);
+        setSelectedTeamForTask({ id: teamId, name: teamName });
         setShowTaskForm(true);
     };
 
@@ -464,7 +466,7 @@ const Team: React.FC = () => {
                                                         <ChatBubbleLeftIcon className="h-5 w-5" />
                                                     </button>
                                                     <button
-                                                        onClick={() => handleOpenTaskForm(member)}
+                                                        onClick={() => handleOpenTaskForm(member, teamId, teamName)}
                                                         className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-4"
                                                     >
                                                         <ClipboardDocumentListIcon className="h-5 w-5" />
@@ -802,6 +804,7 @@ const Team: React.FC = () => {
                     onClose={() => setShowTaskForm(false)}
                     onSave={handleCreateTask}
                     selectedUser={selectedMemberForTask}
+                    selectedTeam={selectedTeamForTask}
                     isDarkMode={isDarkMode}
                 />
             )}

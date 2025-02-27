@@ -25,11 +25,13 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     dueDate: task?.dueDate || '',
     priority: task?.priority || 'medium',
     status: task?.status || 'todo',
-    category: task?.category || 'Personal',
+    category: task?.category || 'Bug',
+    teamId: null,
     assignedUsers: task?.assignedUsers || [] as TeamMember[],
     subTasks: task?.subTasks || [] as SubTask[],
     dependencies: task?.dependencies || [] as string[],
-    attachments: task?.attachments || [] as Attachment[]
+    attachments: task?.attachments || [] as Attachment[],
+    completedDate: null,
   });
 
   const [newSubTask, setNewSubTask] = useState('');
@@ -49,8 +51,10 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         category: task.category,
         assignedUsers: task.assignedUsers,
         subTasks: task.subTasks,
+        teamId: selectedTeam?.id || null,
         dependencies: task.dependencies,
-        attachments: task.attachments
+        attachments: task.attachments,
+        completedDate: task?.status === 'completed' ? new Date() : null,
       });
     }
   }, [task]);
@@ -60,9 +64,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
       try {
         const myTeams = await teamService.getMyTeams();
         setTeams(myTeams);
-        
+
         if (selectedUser) {
-          const userTeam = myTeams.find(team => 
+          const userTeam = myTeams.find(team =>
             team.members?.some(member => member.id === selectedUser.id)
           );
           if (userTeam) {
@@ -104,7 +108,6 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     const now = new Date().toISOString();
 
     try {
-      // Upload file if selected
       let newAttachment = null;
       if (selectedFile && task?.id) {
         try {
@@ -117,13 +120,13 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         }
       }
 
-      // Update form data with new attachment if file was uploaded
       const updatedFormData = {
         ...formData,
+        teamId: selectedTeam?.id || null,
         createdAt: now,
         updatedAt: now,
         status: formData.status === 'in-progress' ? 'in-progress' : formData.status,
-        attachments: newAttachment 
+        attachments: newAttachment
           ? [...formData.attachments, newAttachment]
           : formData.attachments
       };
@@ -284,18 +287,18 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
             >
-              <option value="Personal">Kişisel</option>
-              <option value="Work">İş</option>
-              <option value="Shopping">Alışveriş</option>
-              <option value="Health">Sağlık</option>
+              <option value="Bug">Bug</option>
+              <option value="Development">Development</option>
+              <option value="Documentation">Documentation</option>
+              <option value="Testing">Testing</option>
+              <option value="Maintenance">Maintenance</option>
             </select>
           </div>
 
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">Ekip</label>
-            <div className={`mt-1 block w-full py-3 px-4 rounded-md border-gray-300 shadow-sm text-base ${
-              isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-            }`}>
+            <div className={`mt-1 block w-full py-3 px-4 rounded-md border-gray-300 shadow-sm text-base ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
+              }`}>
               {selectedTeam?.name || 'Ekip seçildi'}
             </div>
           </div>

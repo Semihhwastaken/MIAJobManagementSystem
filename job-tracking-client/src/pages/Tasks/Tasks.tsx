@@ -16,7 +16,7 @@ const Tasks: React.FC = () => {
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All Tasks');
+  const [selectedCategory, setSelectedCategory] = useState('All Cases');
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -138,7 +138,7 @@ const Tasks: React.FC = () => {
     }
   };
 
-  const categories = ['All Tasks', 'Personal', 'Work', 'Shopping', 'Health'];
+  const categories = ['All Cases', 'Bug', 'Development', 'Documentation', 'Testing', 'Maintenance'];
 
   const filteredTasks = tasks.map(task => {
     // Check if task is overdue
@@ -156,7 +156,7 @@ const Tasks: React.FC = () => {
 
     const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       task.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'All Tasks' || task.category === selectedCategory;
+    const matchesCategory = selectedCategory === 'All Cases' || task.category === selectedCategory;
     const matchesDateFilter = !isFilterActive || (
       task.dueDate >= dateFilter.startDate &&
       task.dueDate <= dateFilter.endDate

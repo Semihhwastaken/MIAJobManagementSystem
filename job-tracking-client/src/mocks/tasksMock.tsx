@@ -101,7 +101,7 @@ const App: React.FC = () => {
     setSelectedTask(task);
   };
 
-  const categories = ['All Tasks', 'Personal', 'Work', 'Shopping', 'Health'];
+  const categories = ['All Cases', 'Bug', 'Development', 'Documentation', 'Testing', 'Maintenance'];
 
   return (
     <div className="min-h-screen bg-gray-50">
