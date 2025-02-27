@@ -252,7 +252,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
               <input
                 type="date"
                 required
-                value={formData.dueDate}
+                value={formData.dueDate || new Date().toISOString().split('T')[0]}
+                min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
               />
