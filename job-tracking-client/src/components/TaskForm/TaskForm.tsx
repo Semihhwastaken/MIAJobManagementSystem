@@ -106,6 +106,10 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const now = new Date().toISOString();
+    
+    // Set the due date time to 23:59
+    const dueDate = new Date(formData.dueDate);
+    dueDate.setHours(23, 59, 59, 59);
 
     try {
       let newAttachment = null;
@@ -125,6 +129,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         teamId: selectedTeam?.id || null,
         createdAt: now,
         updatedAt: now,
+        dueDate: dueDate.toISOString(),
         status: formData.status === 'in-progress' ? 'in-progress' : formData.status,
         attachments: newAttachment
           ? [...formData.attachments, newAttachment]

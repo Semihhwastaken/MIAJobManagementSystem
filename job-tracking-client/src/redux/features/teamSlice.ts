@@ -231,6 +231,18 @@ export const fetchMemberActiveTasks = createAsyncThunk(
     }
 );
 
+export const getTeamMembersByTeamId = createAsyncThunk(
+    'Team/getTeamMembersByTeamId',
+    async (teamId: string, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.get(`/Team/${teamId}/members`);
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Takım üyeleri alınırken bir hata oluştu');
+        }
+    }
+);
+
 const teamSlice = createSlice({
     name: 'team',
     initialState,
@@ -371,6 +383,21 @@ const teamSlice = createSlice({
                 state.activeTasksData = action.payload;
             })
             .addCase(fetchMemberActiveTasks.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+            .addCase(getTeamMembersByTeamId.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(getTeamMembersByTeamId.fulfilled, (state, action) => {
+                state.loading = false;
+                const team = state.teams.find(t => t.members.some(m => m.id === action.payload[0]?.id));
+                if (team) {
+                    team.members = action.payload;
+                }
+            })
+            .addCase(getTeamMembersByTeamId.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
             });

@@ -15,8 +15,10 @@ export interface Task {
     subTasks: { id?: string; title: string; completed: boolean }[];
     dependencies: string[];
     attachments: { fileName: string; fileUrl: string; fileType: string; uploadDate: string }[];
+    teamId: any;
     createdAt: string;
     updatedAt: string;
+    completedDate: Date;
 }
 
 interface TaskState {

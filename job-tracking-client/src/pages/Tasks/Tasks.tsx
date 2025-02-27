@@ -8,12 +8,38 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchTasks, createTask, updateTask, deleteTask } from '../../redux/features/tasksSlice';
 import { RootState, AppDispatch } from '../../redux/store';
 import Footer from '../../components/Footer/Footer';
+import { getTeamMembersByTeamId } from '../../redux/features/teamSlice';
 
 
 const Tasks: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { items: tasks, status, error } = useSelector((state: RootState) => state.tasks);
+  const currentUser = useSelector((state: RootState) => state.auth.user);
+  const [taskOwnerStatus, setTaskOwnerStatus] = useState<{[key: string]: boolean}>({});
 
+  useEffect(() => {
+    const checkOwnerStatus = async () => {
+      for (const task of tasks) {
+        if (task.teamId) {
+          if(task.status !== "completed" && task.status !== "overdue" ){
+            console.log(task.title)
+            const teamMembersResult = await dispatch(getTeamMembersByTeamId(task.teamId));
+            for (const teamMember of teamMembersResult.payload) {
+              //console.log(task.title,teamMember.role,teamMember.id)
+              if(teamMember.id && currentUser?.id && teamMember.id === currentUser.id && teamMember.role === "Owner"){
+                  setTaskOwnerStatus(prev => ({...prev, [task.id!]: true}));
+              }
+            }
+          }else{
+            //console.log('random')
+          }
+        }
+      }
+    };
+    if (tasks.length > 0 && currentUser?.id) {
+      checkOwnerStatus();
+    }
+  }, [tasks, currentUser?.id, dispatch]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Cases');
@@ -137,7 +163,6 @@ const Tasks: React.FC = () => {
       console.error('Görev oluşturulurken hata oluştu:', error);
     }
   };
-
   const categories = ['All Cases', 'Bug', 'Development', 'Documentation', 'Testing', 'Maintenance'];
 
   const filteredTasks = tasks.map(task => {
@@ -321,24 +346,30 @@ const Tasks: React.FC = () => {
                       {new Date(task.dueDate).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditClick(task);
-                        }}
-                        className="text-indigo-600 hover:text-indigo-900 mr-2"
-                      >
-                        <i className="fas fa-edit"></i>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteTask(task.id);
-                        }}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <i className="fas fa-trash"></i>
-                      </button>
+                      <span>{taskOwnerStatus[task.id]}</span>
+                      {task.teamId && taskOwnerStatus[task.id!] && (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditClick(task);
+                            }}
+                            className="text-indigo-600 hover:text-indigo-900 mr-2"
+                          >
+                            
+                            <i className="fas fa-edit"></i>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteTask(task.id);
+                            }}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
