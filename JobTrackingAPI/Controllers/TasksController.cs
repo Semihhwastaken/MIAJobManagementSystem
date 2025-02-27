@@ -19,16 +19,13 @@ namespace JobTrackingAPI.Controllers
     public class TasksController : ControllerBase
     {
         private readonly ITasksService _tasksService;
-        private readonly IPerformanceService _performanceService;
         private readonly IHubContext<NotificationHub> _notificationHub;
 
         public TasksController(
             ITasksService tasksService,
-            IPerformanceService performanceService,
             IHubContext<NotificationHub> notificationHub)
         {
             _tasksService = tasksService;
-            _performanceService = performanceService;
             _notificationHub = notificationHub;
         }
 
@@ -39,10 +36,10 @@ namespace JobTrackingAPI.Controllers
             {
                 var createdTask = await _tasksService.CreateTask(task);
                 
-                // Notify assigned user
-                if (!string.IsNullOrEmpty(task.AssignedTo))
+                // Notify assigned users
+                foreach (var user in task.AssignedUsers)
                 {
-                    await _notificationHub.Clients.User(task.AssignedTo).SendAsync(
+                    await _notificationHub.Clients.User(user.Id).SendAsync(
                         "ReceiveNotification",
                         new { type = "NewTask", message = $"Yeni görev atandı: {task.Title}" }
                     );
@@ -66,15 +63,10 @@ namespace JobTrackingAPI.Controllers
                 if (task == null)
                     return NotFound();
 
-                task.Status = "Completed";
+                task.Status = "completed";
                 task.CompletedDate = DateTime.UtcNow;
                 await _tasksService.UpdateTask(id, task);
-
-                // Update performance score for task completion
-                if (!string.IsNullOrEmpty(task.AssignedTo))
-                {
-                    await _performanceService.UpdatePerformanceScore(task.AssignedTo, task, true);
-                }
+                
 
                 return Ok(new { message = "Task completed successfully" });
             }
@@ -97,17 +89,9 @@ namespace JobTrackingAPI.Controllers
                     DateTime.UtcNow > existingTask.DueDate && 
                     existingTask.Status != "Overdue")
                 {
-                    updatedTask.Status = "Overdue";
+                    updatedTask.Status = "overdue";
                     
-                    // Update performance score for overdue task
-                    if (!string.IsNullOrEmpty(existingTask.AssignedTo))
-                    {
-                        await _performanceService.UpdatePerformanceScore(
-                            existingTask.AssignedTo, 
-                            existingTask, 
-                            false
-                        );
-                    }
+                    
                 }
 
                 await _tasksService.UpdateTask(id, updatedTask);
@@ -262,8 +246,7 @@ namespace JobTrackingAPI.Controllers
                     return BadRequest(new { message = "User not authenticated" });
                 }
 
-                var score = await _performanceService.GetUserPerformanceScore(userId);
-                return Ok(score);
+                return Ok(new { message = "200" });
             }
             catch (Exception ex)
             {

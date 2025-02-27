@@ -129,7 +129,6 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddHostedService<OverdueTasksService>();
 
 builder.Services.AddScoped<ITasksService, TasksService>();
-builder.Services.AddScoped<IPerformanceService, PerformanceService>();
 builder.Services.AddScoped<ITeamService, TeamService>();
 
 builder.Services.AddControllers();

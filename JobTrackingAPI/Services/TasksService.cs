@@ -20,7 +20,6 @@ namespace JobTrackingAPI.Services
         {
             task.CreatedAt = DateTime.UtcNow;
             task.UpdatedAt = DateTime.UtcNow;
-            task.StartDate = DateTime.UtcNow;
             await _tasks.InsertOneAsync(task);
             return task;
         }

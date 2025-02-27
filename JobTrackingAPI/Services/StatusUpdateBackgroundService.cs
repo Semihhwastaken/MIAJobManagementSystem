@@ -28,11 +28,17 @@ public class StatusUpdateBackgroundService : BackgroundService
         try
         {
             await UpdateTeamMemberStatuses();
-            Console.WriteLine("Initial team member status check completed.");
+            Console.WriteLine($"[{DateTime.Now}] Initial team member status check completed.");
+        }
+        catch (MongoException ex)
+        {
+            Console.Error.WriteLine($"[{DateTime.Now}] MongoDB Error in initial status check: {ex.Message}");
+            Console.Error.WriteLine($"Stack trace: {ex.StackTrace}");
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error in initial status check: {ex.Message}");
+            Console.Error.WriteLine($"[{DateTime.Now}] Unexpected error in initial status check: {ex.Message}");
+            Console.Error.WriteLine($"Stack trace: {ex.StackTrace}");
         }
 
         while (!stoppingToken.IsCancellationRequested)
@@ -42,10 +48,17 @@ public class StatusUpdateBackgroundService : BackgroundService
                 await UpdateTeamMemberStatuses();
                 await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken); // Run every 5 minutes
             }
+            catch (MongoException ex)
+            {
+                Console.Error.WriteLine($"[{DateTime.Now}] MongoDB Error in StatusUpdateBackgroundService: {ex.Message}");
+                Console.Error.WriteLine($"Stack trace: {ex.StackTrace}");
+                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken); // Wait before retrying
+            }
             catch (Exception ex)
             {
-                // Log the error but continue running
-                Console.Error.WriteLine($"Error in StatusUpdateBackgroundService: {ex.Message}");
+                Console.Error.WriteLine($"[{DateTime.Now}] Unexpected error in StatusUpdateBackgroundService: {ex.Message}");
+                Console.Error.WriteLine($"Stack trace: {ex.StackTrace}");
+                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken); // Wait before retrying
             }
         }
     }
@@ -63,6 +76,7 @@ public class StatusUpdateBackgroundService : BackgroundService
             {
                 // Get active tasks for the member
                 var activeTasks = await _tasks.Find(t => 
+                    t.AssignedUsers != null &&
                     t.AssignedUsers.Any(u => u.Id == member.Id) && 
                     t.Status != "completed" && 
                     t.Status != "overdue")
@@ -80,7 +94,7 @@ public class StatusUpdateBackgroundService : BackgroundService
                 }
             }
             
-            // Sadece değişiklik varsa takımı güncelle
+            // Only update the team if there are changes
             if (teamUpdated)
             {
                 await _teams.ReplaceOneAsync(t => t.Id == team.Id, team);
@@ -89,7 +103,7 @@ public class StatusUpdateBackgroundService : BackgroundService
         
         if (updatedMembersCount > 0)
         {
-            Console.WriteLine($"[{DateTime.Now}] {updatedMembersCount} üyenin durumu güncellendi");
+            Console.WriteLine($"[{DateTime.Now}] {updatedMembersCount} member statuses updated");
         }
     }
 }

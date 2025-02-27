@@ -2,6 +2,7 @@ using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System.Text.Json.Serialization;
 using System.Collections.Generic;
+using MongoDB.Bson.Serialization;
 
 namespace JobTrackingAPI.Models
 {
@@ -106,10 +107,6 @@ namespace JobTrackingAPI.Models
         [BsonElement("isLocked")]
         [JsonPropertyName("isLocked")]
         public bool IsLocked { get; set; } = false;
-    
-        [BsonElement("assignedTo")]
-        [JsonPropertyName("assignedTo")]
-        public string AssignedTo { get; set; } = string.Empty;
 
         [BsonElement("assignedUsers")]
         [JsonPropertyName("assignedUsers")]
@@ -147,16 +144,9 @@ namespace JobTrackingAPI.Models
         [JsonPropertyName("dependencies")]
         public List<string> Dependencies { get; set; } = new List<string>();
 
-        [BsonElement("startDate")]
-        [JsonPropertyName("startDate")]
-        public DateTime StartDate { get; set; }
-
         [BsonElement("completedDate")]
         [JsonPropertyName("completedDate")]
         public DateTime? CompletedDate { get; set; }
 
-        [BsonElement("difficulty")]
-        [JsonPropertyName("difficulty")]
-        public string Difficulty { get; set; } = "Low";
     }
 }
