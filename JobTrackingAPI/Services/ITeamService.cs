@@ -17,5 +17,6 @@ namespace JobTrackingAPI.Services
         Task<bool> JoinTeamViaInviteLink(string inviteLink, string userId);
         Task<Team> UpdateTeamDepartments(string teamId, UpdateTeamDepartmentsRequest request);
         Task<bool> UpdateMemberMetrics(string teamId, string userId, MemberMetricsUpdateDto metrics);
+        Task<Team> GetTeamByMemberId(string memberId);
     }
 }

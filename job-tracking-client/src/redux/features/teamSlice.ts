@@ -11,6 +11,19 @@ interface ActiveTasksData {
     };
 }
 
+interface PerformanceScore {
+    id: string;
+    userId: string;
+    score: number;
+    completedTasksCount: number;
+    lastUpdated: string;
+    history: Array<{
+        date: string;
+        scoreChange: number;
+        reason: string;
+    }>;
+}
+
 const initialState: TeamState = {
     members: [],
     teams: [],
@@ -27,6 +40,7 @@ const initialState: TeamState = {
     sortBy: 'name',
     sortOrder: 'asc',
     activeTasksData: {},
+    performanceScores: {}
 };
 
 // Response tipleri
@@ -231,6 +245,30 @@ export const fetchMemberActiveTasks = createAsyncThunk(
     }
 );
 
+export const getMemberPerformance = createAsyncThunk(
+    'Team/getMemberPerformance',
+    async (userId: string, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.get(`/Team/members/${userId}/performance`);
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to fetch performance score');
+        }
+    }
+);
+
+export const updateMemberPerformance = createAsyncThunk(
+    'Team/updateMemberPerformance',
+    async (userId: string, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.post(`/Team/members/${userId}/update-performance`);
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to update performance score');
+        }
+    }
+);
+
 export const getTeamMembersByTeamId = createAsyncThunk(
     'Team/getTeamMembersByTeamId',
     async (teamId: string, { rejectWithValue }) => {
@@ -398,6 +436,30 @@ const teamSlice = createSlice({
                 }
             })
             .addCase(getTeamMembersByTeamId.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+            .addCase(getMemberPerformance.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(getMemberPerformance.fulfilled, (state, action) => {
+                state.loading = false;
+                state.performanceScores[action.meta.arg] = action.payload;
+            })
+            .addCase(getMemberPerformance.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+            .addCase(updateMemberPerformance.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(updateMemberPerformance.fulfilled, (state, action) => {
+                state.loading = false;
+                state.performanceScores[action.meta.arg] = action.payload;
+            })
+            .addCase(updateMemberPerformance.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
             });

@@ -12,12 +12,41 @@ namespace JobTrackingAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize] // Tüm endpoint'ler için authentication gerekli
+    [Authorize]
     public class TeamController : ControllerBase
     {
         private readonly TeamService _teamService;
         private readonly UserService _userService;
         private readonly IMongoDatabase _database;
+
+        [HttpGet("members/{userId}/performance")]
+        public async Task<IActionResult> GetMemberPerformance(string userId)
+        {
+            try
+            {
+                var performanceScore = await _teamService.GetUserPerformance(userId);
+                return Ok(performanceScore);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("members/{userId}/update-performance")]
+        public async Task<IActionResult> UpdateMemberPerformance(string userId)
+        {
+            try
+            {
+                await _teamService.UpdateUserPerformance(userId);
+                var updatedScore = await _teamService.GetUserPerformance(userId);
+                return Ok(updatedScore);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
 
         public TeamController(TeamService teamService, UserService userService, IMongoDatabase database)
         {

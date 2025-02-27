@@ -20,15 +20,18 @@ namespace JobTrackingAPI.Controllers
     {
         private readonly ITasksService _tasksService;
         private readonly IHubContext<NotificationHub> _notificationHub;
-
+        private readonly ITeamService _teamsService;
+    
         public TasksController(
             ITasksService tasksService,
-            IHubContext<NotificationHub> notificationHub)
+            IHubContext<NotificationHub> notificationHub,
+            ITeamService teamsService)
         {
             _tasksService = tasksService;
             _notificationHub = notificationHub;
+            _teamsService = teamsService;
         }
-
+    
         [HttpPost]
         public async Task<ActionResult<TaskItem>> CreateTask([FromBody] TaskItem task)
         {
@@ -67,6 +70,24 @@ namespace JobTrackingAPI.Controllers
                 task.CompletedDate = DateTime.UtcNow;
                 await _tasksService.UpdateTask(id, task);
                 
+                // Calculate and update performance scores for assigned users
+                foreach (var user in task.AssignedUsers)
+                {
+                    var userTasks = await _tasksService.GetTasksByUserId(user.Id);
+                    var performanceScore = PerformanceCalculator.CalculateUserPerformance(userTasks);
+                    
+                    // Update the user's performance score in their team
+                    var team = await _teamsService.GetTeamByMemberId(user.Id);
+                    if (team != null)
+                    {
+                        var member = team.Members.FirstOrDefault(m => m.Id == user.Id);
+                        if (member != null)
+                        {
+                            member.PerformanceScore = performanceScore;
+                            await _teamsService.UpdateTeam(team.Id, team);
+                        }
+                    }
+                }
 
                 return Ok(new { message = "Task completed successfully" });
             }
@@ -174,9 +195,34 @@ namespace JobTrackingAPI.Controllers
                 if (task == null)
                     return NotFound();
 
+                var oldStatus = task.Status;
                 task.Status = status;
+                
+                if (status == "completed" && oldStatus != "completed")
+                {
+                    task.CompletedDate = DateTime.UtcNow;
+                    
+                    // Calculate performance scores for all assigned users
+                    foreach (var user in task.AssignedUsers)
+                    {
+                        var userTasks = await _tasksService.GetTasksByUserId(user.Id);
+                        var performanceScore = PerformanceCalculator.CalculateUserPerformance(userTasks);
+                        
+                        // Update the user's performance score in their team
+                        var team = await _teamsService.GetTeamByMemberId(user.Id);
+                        if (team != null)
+                        {
+                            var member = team.Members.FirstOrDefault(m => m.Id == user.Id);
+                            if (member != null)
+                            {
+                                member.PerformanceScore = performanceScore;
+                                await _teamsService.UpdateTeam(team.Id, team);
+                            }
+                        }
+                    }
+                }
+                
                 await _tasksService.UpdateTask(id, task);
-
                 return Ok(new { message = "Task status updated successfully" });
             }
             catch (Exception ex)

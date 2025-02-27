@@ -23,6 +23,7 @@ public class TeamService : ITeamService
     private readonly IUserService _userService;
     private readonly IOptions<MongoDbSettings> _settings;
     private readonly IMongoCollection<TaskItem> _tasks;
+    private readonly IMongoCollection<PerformanceScore> _performanceScores;
     private readonly IHubContext<NotificationHub> _notificationHubContext;
 
     public TeamService(
@@ -34,7 +35,8 @@ public class TeamService : ITeamService
         var client = new MongoClient(settings.Value.ConnectionString);
         var db = client.GetDatabase(settings.Value.DatabaseName);
         _teams = db.GetCollection<Team>("Teams");
-        _tasks = db.GetCollection<TaskItem>("Tasks"); // Tasks collection'ı eklendi
+        _tasks = db.GetCollection<TaskItem>("Tasks");
+        _performanceScores = db.GetCollection<PerformanceScore>("PerformanceScores");
         _userService = userService;
         _settings = settings;
         _notificationHubContext = notificationHubContext;
@@ -95,6 +97,11 @@ public class TeamService : ITeamService
         return result.ModifiedCount > 0;
     }
 
+    public async Task<Team> GetTeamByMemberId(string memberId)
+    {
+        return await _teams.Find(t => t.Members.Any(m => m.Id == memberId)).FirstOrDefaultAsync();
+    }
+
     public async Task<bool> UpdateMemberRole(string teamId, string userId, string newRole)
     {
         var filter = Builders<Team>.Filter.And(
@@ -104,6 +111,52 @@ public class TeamService : ITeamService
         var update = Builders<Team>.Update.Set("Members.$.Role", newRole);
         var result = await _teams.UpdateOneAsync(filter, update);
         return result.ModifiedCount > 0;
+    }
+
+    public async Task<PerformanceScore> GetUserPerformance(string userId)
+    {
+        var performanceScore = await _performanceScores
+            .Find(p => p.UserId == userId)
+            .FirstOrDefaultAsync();
+
+        if (performanceScore == null)
+        {
+            performanceScore = new PerformanceScore
+            {
+                UserId = userId,
+                LastUpdated = DateTime.UtcNow
+            };
+            await _performanceScores.InsertOneAsync(performanceScore);
+        }
+
+        return performanceScore;
+    }
+
+    public async Task UpdateUserPerformance(string userId)
+    {
+        var userTasks = await _tasks
+            .Find(t => t.AssignedUsers.Any(u => u.Id == userId))
+            .ToListAsync();
+
+        var performanceScore = await GetUserPerformance(userId);
+        var oldScore = performanceScore.Score;
+
+        performanceScore.Score = PerformanceCalculator.CalculateUserPerformance(userTasks);
+        performanceScore.CompletedTasksCount = userTasks.Count(t => t.Status == "completed");
+        performanceScore.LastUpdated = DateTime.UtcNow;
+
+        performanceScore.History.Add(new ScoreHistory
+        {
+            Date = DateTime.UtcNow,
+            ScoreChange = performanceScore.Score - oldScore,
+            Reason = "Performance recalculated based on task updates"
+        });
+
+        await _performanceScores.ReplaceOneAsync(
+            p => p.UserId == userId,
+            performanceScore,
+            new ReplaceOptions { IsUpsert = true }
+        );
     }
 
     public async Task<Team> SetTeamInviteLink(string teamId, string inviteLink)

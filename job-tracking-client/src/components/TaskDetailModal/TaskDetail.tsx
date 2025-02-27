@@ -3,6 +3,7 @@ import { Task } from '../../types/task';
 import { useDispatch, useSelector } from 'react-redux';
 import { updateTaskStatus, completeTask, updateTask, downloadFile } from '../../redux/features/tasksSlice';
 import { RootState, AppDispatch } from '../../redux/store';
+import { updateMemberPerformance } from '../../redux/features/teamSlice';
 
 interface TaskDetailModalProps {
     task: Task;
@@ -110,6 +111,14 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
         try {
             setIsSubmitting(true);
             await dispatch(completeTask(localTask.id!)).unwrap();
+            
+            // Update performance after task completion
+            if (localTask.id && typeof localTask.id === 'string') {
+                await dispatch(updateMemberPerformance(localTask.id)).unwrap();
+            } else {
+                throw new Error('Invalid task ID format');
+            }
+            
             setLocalTask(prev => ({
                 ...prev,
                 status: 'completed'
@@ -128,7 +137,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
     };
 
     const progressPercentage = localTask.subTasks.length > 0
-        ? Math.round((localTask.subTasks.filter(st => st.completed).length / localTask.subTasks.length) * 100)
+        ? Math.floor((localTask.subTasks.filter(st => st.completed).length / localTask.subTasks.length) * 100)
         : 0;
 
     // Bağlı görevlerin başlıklarını bul

@@ -165,13 +165,13 @@ export const downloadFile = createAsyncThunk(
         }
     }
 );
-
 export const completeTask = createAsyncThunk(
     'tasks/completeTask',
     async (taskId: string, { dispatch, rejectWithValue }) => {
         try {
             const response = await axiosInstance.post(`/Tasks/${taskId}/complete`);
             if (response.status === 200) {
+                // Fetch member active tasks to update the performance scores
                 dispatch(fetchMemberActiveTasks());
                 return { taskId, status: 'completed' as const };
             } else {
@@ -185,7 +185,6 @@ export const completeTask = createAsyncThunk(
         }
     }
 );
-
 const taskSlice = createSlice({
     name: 'tasks',
     initialState,
