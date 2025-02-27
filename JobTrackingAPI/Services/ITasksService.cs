@@ -11,5 +11,6 @@ namespace JobTrackingAPI.Services
         Task<TaskItem> UpdateTask(string id, TaskItem task);
         Task DeleteTask(string id);
         Task<List<TaskHistoryDto>> GetUserTaskHistory(string userId);
+        Task FileUpload(string taskId, string fileUrl);
     }
 }

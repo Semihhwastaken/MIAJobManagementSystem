@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Task, User, SubTask, Attachment } from '../../types/task';
 import { Team, TeamMember } from '../../types/team';
-import { Task as TaskType } from '../../store/slices/taskSlice';
+import { fileUpload, Task as TaskType } from '../../redux/features/tasksSlice';
 import teamService from '../../services/teamService';
 import { Listbox, Transition } from '@headlessui/react';
 import { CheckIcon, ChevronUpDownIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { enqueueSnackbar } from 'notistack';
+import { useAppDispatch } from '../../redux/hooks';
 
 interface TaskFormProps {
   isOpen: boolean;
@@ -97,15 +99,41 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     fetchTeamMembers();
   }, [selectedTeam]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
-      ...formData,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      status: formData.status === 'in-progress' ? 'in_progress' : formData.status
-    });
-    onClose();
+    const now = new Date().toISOString();
+
+    try {
+      // Upload file if selected
+      let newAttachment = null;
+      if (selectedFile && task?.id) {
+        try {
+          const result = await dispatch(fileUpload({ taskId: task.id, file: selectedFile })).unwrap();
+          newAttachment = result.attachment;
+        } catch (error) {
+          console.error('Error uploading file:', error);
+          enqueueSnackbar('Dosya yüklenirken bir hata oluştu', { variant: 'error' });
+          return;
+        }
+      }
+
+      // Update form data with new attachment if file was uploaded
+      const updatedFormData = {
+        ...formData,
+        createdAt: now,
+        updatedAt: now,
+        status: formData.status === 'in-progress' ? 'in-progress' : formData.status,
+        attachments: newAttachment 
+          ? [...formData.attachments, newAttachment]
+          : formData.attachments
+      };
+
+      onSave(updatedFormData);
+      onClose();
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      enqueueSnackbar('Form gönderilirken bir hata oluştu', { variant: 'error' });
+    }
   };
 
   const handleAddSubTask = () => {
@@ -128,24 +156,12 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     });
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const dispatch = useAppDispatch();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      // Normalde burada bir API'ye dosya yüklenip URL alınır
-      const mockFileUrl = URL.createObjectURL(file);
-      setFormData({
-        ...formData,
-        attachments: [
-          ...formData.attachments,
-          {
-            fileName: file.name,
-            fileUrl: mockFileUrl,
-            fileType: file.type,
-            uploadDate: new Date().toISOString()
-          }
-        ]
-      });
     }
   };
 

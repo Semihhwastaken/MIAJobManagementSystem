@@ -9,6 +9,8 @@ using Microsoft.OpenApi.Models;
 using JobTrackingAPI.Filters;
 using MongoDB.Driver;
 using System.Text;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -143,11 +145,6 @@ builder.Services.AddSwaggerGen(c =>
         Description = "API for the Job Tracking Application"
     });
 
-    // XML belgeleme dosyasını ekle
-    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-    c.IncludeXmlComments(xmlPath);
-
     // JWT Bearer Authentication için
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -173,9 +170,19 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
-
     // Dosya yükleme için
     c.OperationFilter<FileUploadOperationFilter>();
+});
+// Kestrel ayarı (büyük dosyalar için)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 100_000_000; // 100 MB
+});
+
+// Form ayarları
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 100_000_000; // 100 MB
 });
 
 builder.Services.AddSignalR();
@@ -227,5 +234,23 @@ app.MapControllers();
 // Configure SignalR Hub
 app.MapHub<ChatHub>("/chatHub");
 app.MapHub<NotificationHub>("/notificationHub");
+
+// Configure static file serving
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")),
+    RequestPath = ""
+});
+
+// Configure URL rewriting for uploaded files
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/uploads"))
+    {
+        context.Request.Path = "/" + context.Request.Path;
+    }
+    await next();
+});
 
 app.Run();

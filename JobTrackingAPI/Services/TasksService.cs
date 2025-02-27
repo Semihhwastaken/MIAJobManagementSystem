@@ -51,6 +51,24 @@ namespace JobTrackingAPI.Services
         {
             await _tasks.DeleteOneAsync(t => t.Id == id);
         }
+
+        public async Task FileUpload(string id, string fileUrl)
+        {
+            var filter = Builders<TaskItem>.Filter.Eq(t => t.Id, id);
+            var update = Builders<TaskItem>.Update
+                .Push(t => t.Attachments, new TaskAttachment
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    FileUrl = fileUrl,
+                    FileName = Path.GetFileName(fileUrl),
+                    FileType = Path.GetExtension(fileUrl),
+                    UploadDate = DateTime.UtcNow
+                })
+                .Set(t => t.UpdatedAt, DateTime.UtcNow);
+
+            await _tasks.UpdateOneAsync(filter, update);
+        }
+
         public async Task<List<TaskHistoryDto>> GetUserTaskHistory(string userId)
         {
             var tasks = await _tasks.Find(t => t.AssignedUsers.Any(u => u.Id == userId) &&
@@ -68,6 +86,11 @@ namespace JobTrackingAPI.Services
                 DueDate = t.DueDate,
                 AssignedUsers = t.AssignedUsers.Select(u => new UserDto { Id = u.Id, FullName = u.FullName }).ToList()
             }).ToList();
+        }
+
+        public string GetFilePath(string fileName)
+        {
+            return Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", fileName);
         }
     }
 }

@@ -57,7 +57,8 @@ namespace JobTrackingAPI.Controllers
         }
 
         [HttpPut("{id}/complete")]
-        public async Task<ActionResult> CompleteTask(string id)
+        [HttpPost("{id}/complete")]
+        public async Task<ActionResult> CompleteTaskPost(string id)
         {
             try
             {
@@ -82,7 +83,6 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-
         [HttpPut("{id}")]
         public async Task<ActionResult> UpdateTask(string id, [FromBody] TaskItem updatedTask)
         {
@@ -128,9 +128,16 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = "User not authenticated" });
             }
             var tasks = await _tasksService.GetTasksByUserId(userId);
-            return Ok(tasks);
+            var activeTasks = tasks.Where(t => t.Status != "Completed").ToList();
+            return Ok(activeTasks);
         }
-
+        [HttpGet("user/{userId}/active-tasks")]
+        public async Task<ActionResult<IEnumerable<TaskItem>>> GetUserActiveTasks(string userId)
+        {
+            var tasks = await _tasksService.GetTasksByUserId(userId);
+            var activeTasks = tasks.Where(t => t.Status != "Completed" && t.Status != "Cancelled").ToList();
+            return Ok(activeTasks);
+        }
         [HttpGet("{id}")]
         public async Task<ActionResult<TaskItem>> GetTask(string id)
         {
@@ -147,7 +154,19 @@ namespace JobTrackingAPI.Controllers
             var tasks = await _tasksService.GetTasksByUserId(userId);
             return Ok(tasks);
         }
+        [HttpGet("download/{attachmentId}/{fileName}")]
+        public IActionResult DownloadFile(string attachmentId, string fileName)
+        {            
+            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", fileName);
+            
+            if (!System.IO.File.Exists(filePath))
+                return NotFound("File not found");
 
+            var contentType = "application/octet-stream";
+            var originalFileName = fileName.Substring(fileName.IndexOf('_') + 1);
+
+            return PhysicalFile(filePath, contentType, originalFileName);
+        }
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteTask(string id)
         {
@@ -162,6 +181,75 @@ namespace JobTrackingAPI.Controllers
             }
         }
 
+        [HttpPut("{id}/status")]
+        public async Task<ActionResult> UpdateTaskStatus(string id, [FromBody] string status)
+        {
+            try
+            {
+                var task = await _tasksService.GetTask(id);
+                if (task == null)
+                    return NotFound();
+
+                task.Status = status;
+                await _tasksService.UpdateTask(id, task);
+
+                return Ok(new { message = "Task status updated successfully" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        [HttpPost("{id}/file")]
+        public async Task<IActionResult> FileUpload(string id, IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                    return BadRequest("No file uploaded.");
+                
+                if (file.Length > 1024 * 1024 * 10) // 10MB limit
+                    return BadRequest("File size exceeds the limit (10MB).");
+
+                var allowedExtensions = new[] {".jpg", ".png", ".jpeg", ".pdf", ".zip", ".docx", ".doc", ".rar", ".txt", ".xlsx", ".xls"};
+                var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                
+                if (!allowedExtensions.Contains(fileExtension))
+                    return BadRequest("Invalid file format.");
+
+                var uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+                Directory.CreateDirectory(uploadFolder);
+
+                var uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
+                var filePath = Path.Combine(uploadFolder, uniqueFileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                var fileUrl = $"/uploads/{uniqueFileName}";
+                await _tasksService.FileUpload(id, fileUrl);
+
+                var task = await _tasksService.GetTask(id);
+                var attachment = task.Attachments.LastOrDefault();
+
+                return Ok(new { 
+                    taskId = id,
+                    attachment = new {
+                        id = attachment.Id,
+                        fileName = attachment.FileName,
+                        fileUrl = attachment.FileUrl,
+                        fileType = attachment.FileType,
+                        uploadDate = attachment.UploadDate
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
         [HttpGet("dashboard")]
         [Authorize]
         public async Task<ActionResult<DashboardStats>> GetDashboardStats()

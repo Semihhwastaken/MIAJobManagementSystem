@@ -123,6 +123,46 @@ export const updateTaskStatus = createAsyncThunk(
         }
     }
 );
+export const fileUpload = createAsyncThunk(
+    'tasks/fileUpload',
+    async ({ taskId, file }: { taskId: string; file: File }, { dispatch, rejectWithValue }) => {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await axiosInstance.post(`/Tasks/${taskId}/file`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            dispatch(fetchMemberActiveTasks());
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to upload file');
+        }
+    }
+);
+
+export const downloadFile = createAsyncThunk(
+    'tasks/downloadFile',
+    async ({ attachmentId, fileName }: { attachmentId: string; fileName: string }, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.get(`/Tasks/download/${attachmentId}/${fileName}`, {
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            return { success: true };
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Dosya indirilirken bir hata oluştu');
+        }
+    }
+);
 
 export const completeTask = createAsyncThunk(
     'tasks/completeTask',
@@ -177,6 +217,21 @@ const taskSlice = createSlice({
             .addCase(updateTask.pending, (state) => {
                 state.loading = true;
                 state.error = null;
+            })
+            .addCase(fileUpload.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fileUpload.fulfilled, (state, action) => {
+                state.loading = false;
+                const taskIndex = state.items.findIndex(task => task.id === action.payload.taskId);
+                if (taskIndex !== -1) {
+                    state.items[taskIndex].attachments.push(action.payload.attachment);
+                }
+            })
+            .addCase(fileUpload.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
             })
             .addCase(updateTask.fulfilled, (state, action) => {
                 state.loading = false;

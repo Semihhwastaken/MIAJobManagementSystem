@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Task } from '../../types/task';
 import { useDispatch, useSelector } from 'react-redux';
-import { updateTaskStatus, completeTask, updateTask } from '../../redux/features/tasksSlice';
+import { updateTaskStatus, completeTask, updateTask, downloadFile } from '../../redux/features/tasksSlice';
 import { RootState, AppDispatch } from '../../redux/store';
-import axiosInstance from '../../services/axiosInstance';
 
 interface TaskDetailModalProps {
     task: Task;
@@ -229,10 +228,23 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                                             </svg>
                                             <a 
-                                                href={attachment.fileUrl} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="text-indigo-600 hover:text-indigo-800"
+                                                href="#"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    if (!attachment.id) {
+                                                        alert('Geçersiz dosya ID');
+                                                        return;
+                                                    }
+                                                    dispatch(downloadFile({
+                                                        attachmentId: attachment.id,
+                                                        fileName: attachment.fileName
+                                                    })).unwrap()
+                                                    .catch(error => {
+                                                        console.error('Error downloading file:', error);
+                                                        alert('Dosya indirilirken bir hata oluştu');
+                                                    });
+                                                }}
+                                                className="text-indigo-600 hover:text-indigo-800 cursor-pointer"
                                             >
                                                 {attachment.fileName}
                                             </a>

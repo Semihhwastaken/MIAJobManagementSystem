@@ -29,3 +29,5 @@ nupkg/
 # IDE
 .idea/
 *.sln.iml
+
+/JobTrackingAPI/wwwroot
