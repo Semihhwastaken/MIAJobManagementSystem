@@ -15,15 +15,13 @@ class SignalRService {
     private userDisconnectedCallbacks: ((userId: string) => void)[] = [];
 
     private constructor() {
-        
-        
         // Chat Hub bağlantısı
         this.hubConnection = new signalR.HubConnectionBuilder()
             .withUrl("http://localhost:5193/chatHub", {
                 accessTokenFactory: () => localStorage.getItem('token') || ''
             })
             .withAutomaticReconnect()
-            .configureLogging(signalR.LogLevel.Information)
+            .configureLogging(signalR.LogLevel.Warning) // Changed from Information to Warning
             .build();
 
         // Notification Hub bağlantısı
@@ -32,7 +30,7 @@ class SignalRService {
                 accessTokenFactory: () => localStorage.getItem('token') || ''
             })
             .withAutomaticReconnect()
-            .configureLogging(signalR.LogLevel.Information)
+            .configureLogging(signalR.LogLevel.Warning) // Changed from Information to Warning
             .build();
 
         // Chat event listeners
@@ -41,12 +39,10 @@ class SignalRService {
         });
 
         this.hubConnection.on("UserConnected", (userId: string) => {
-            console.log(`User connected: ${userId}`);
             this.userConnectedCallbacks.forEach(callback => callback(userId));
         });
 
         this.hubConnection.on("UserDisconnected", (userId: string) => {
-            console.log(`User disconnected: ${userId}`);
             this.userDisconnectedCallbacks.forEach(callback => callback(userId));
         });
 
@@ -62,6 +58,7 @@ class SignalRService {
             this.messageReadCallbacks.forEach(callback => callback(messageId));
         });
 
+        // Changed to only log actual errors
         this.hubConnection.on("ErrorOccurred", (error: string) => {
             console.error("SignalR Error:", error);
         });
@@ -81,13 +78,11 @@ class SignalRService {
             // Start Chat Hub connection
             if (this.hubConnection.state === signalR.HubConnectionState.Disconnected) {
                 await this.hubConnection.start();
-                console.log("Chat Hub Connected!");
             }
 
             // Start Notification Hub connection
             if (this.notificationHubConnection.state === signalR.HubConnectionState.Disconnected) {
                 await this.notificationHubConnection.start();
-                console.log("Notification Hub Connected!");
             }
         } catch (err) {
             console.error("Error while establishing connection: ", err);
@@ -99,11 +94,9 @@ class SignalRService {
         try {
             if (this.hubConnection.state === signalR.HubConnectionState.Connected) {
                 await this.hubConnection.stop();
-                console.log("Chat Hub Disconnected!");
             }
             if (this.notificationHubConnection.state === signalR.HubConnectionState.Connected) {
                 await this.notificationHubConnection.stop();
-                console.log("Notification Hub Disconnected!");
             }
         } catch (err) {
             console.error("Error while stopping connection: ", err);

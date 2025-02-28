@@ -3,8 +3,6 @@ import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material';
 import { useDispatch } from 'react-redux';
 import { setUser,setToken } from './redux/features/authSlice';
 import { getCurrentUser } from './services/api';
-
-
 import { CssBaseline } from '@mui/material';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
@@ -23,6 +21,7 @@ import Profile from './pages/Profile/Profile';
 import TeamInvite from './pages/TeamInvite/TeamInvite';
 import Main from './pages/Main/Main';
 import { createBrowserRouter } from 'react-router-dom';
+import { SnackbarProvider } from 'notistack';
 
 const AppContent: React.FC = () => {
   const { isDarkMode } = useTheme();
@@ -48,8 +47,6 @@ const AppContent: React.FC = () => {
         localStorage.removeItem('user');
         setIsAuthenticated(false);
       }
-    } else {
-      console.log('No stored auth data found');
     }
   }, [dispatch]);
 
@@ -288,13 +285,8 @@ const App: React.FC = () => {
     
     if (token && userDataStr) {
       try {
-        console.log('Initializing auth state from localStorage');
         const userData = JSON.parse(userDataStr);
-        
-        // Set token first
         dispatch(setToken(token));
-        
-        // Then set user data
         dispatch(setUser({
           id: userData.id,
           username: userData.username,
@@ -302,23 +294,26 @@ const App: React.FC = () => {
           fullName: userData.fullName,
           department: userData.department
         }));
-
-        console.log('Auth state initialized successfully');
       } catch (error) {
         console.error('Error initializing auth state:', error);
-        // Clear invalid data
         localStorage.removeItem('user');
         localStorage.removeItem('token');
       }
-    } else {
-      console.log('No stored auth data found');
     }
   }, [dispatch]);
 
   return (
     <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID">
       <ThemeProvider>
-        <AppContent />
+        <SnackbarProvider 
+          maxSnack={3} 
+          anchorOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+        >
+          <AppContent />
+        </SnackbarProvider>
       </ThemeProvider>
     </GoogleOAuthProvider>
   );

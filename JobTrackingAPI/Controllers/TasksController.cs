@@ -37,8 +37,36 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
-                var createdTask = await _tasksService.CreateTask(task);
+                // Validate required fields
+                if (task == null)
+                    return BadRequest(new { message = "Task data is required" });
+
+                if (string.IsNullOrEmpty(task.Title))
+                    return BadRequest(new { message = "Task title is required" });
+
+                // Initialize collections if they're null
+                task.Attachments ??= new List<TaskAttachment>();
+                task.Dependencies ??= new List<string>();
+                task.SubTasks ??= new List<SubTask>();
+
+                // Set initial status and dates
+                task.CreatedAt = DateTime.UtcNow;
+                task.UpdatedAt = DateTime.UtcNow;
                 
+                // Check if dependencies exist and are valid
+                if (task.Dependencies.Any())
+                {
+                    var dependencyTasks = await _tasksService.GetTasks();
+                    var validDependencyIds = dependencyTasks.Select(t => t.Id).ToList();
+                    
+                    if (task.Dependencies.Any(depId => !validDependencyIds.Contains(depId)))
+                    {
+                        return BadRequest(new { message = "One or more dependency tasks do not exist" });
+                    }
+                }
+
+                var createdTask = await _tasksService.CreateTask(task);
+
                 // Notify assigned users
                 foreach (var user in task.AssignedUsers)
                 {
@@ -66,8 +94,13 @@ namespace JobTrackingAPI.Controllers
                 if (task == null)
                     return NotFound();
 
+                // Store old status to check if it's changing
+                var oldStatus = task.Status;
+                
                 task.Status = "completed";
                 task.CompletedDate = DateTime.UtcNow;
+                
+                // Update task - file deletion is handled inside the TasksService.UpdateTask method
                 await _tasksService.UpdateTask(id, task);
                 
                 // Calculate and update performance scores for assigned users
@@ -96,6 +129,7 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        
         [HttpPut("{id}")]
         public async Task<ActionResult> UpdateTask(string id, [FromBody] TaskItem updatedTask)
         {
@@ -106,15 +140,14 @@ namespace JobTrackingAPI.Controllers
                     return NotFound();
 
                 // Check if task became overdue
-                if (existingTask.Status != "Completed" && 
+                if (existingTask.Status != "completed" && 
                     DateTime.UtcNow > existingTask.DueDate && 
-                    existingTask.Status != "Overdue")
+                    existingTask.Status != "overdue")
                 {
                     updatedTask.Status = "overdue";
-                    
-                    
                 }
 
+                // UpdateTask in the service now handles file deletion if status changes to completed or overdue
                 await _tasksService.UpdateTask(id, updatedTask);
                 return Ok(updatedTask);
             }
@@ -133,16 +166,18 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = "User not authenticated" });
             }
             var tasks = await _tasksService.GetTasksByUserId(userId);
-            var activeTasks = tasks.Where(t => t.Status != "Completed").ToList();
+            var activeTasks = tasks.Where(t => t.Status != "completed").ToList();
             return Ok(activeTasks);
         }
+        
         [HttpGet("user/{userId}/active-tasks")]
         public async Task<ActionResult<IEnumerable<TaskItem>>> GetUserActiveTasks(string userId)
         {
             var tasks = await _tasksService.GetTasksByUserId(userId);
-            var activeTasks = tasks.Where(t => t.Status != "Completed" && t.Status != "Cancelled").ToList();
+            var activeTasks = tasks.Where(t => t.Status != "completed" && t.Status != "cancelled").ToList();
             return Ok(activeTasks);
         }
+        
         [HttpGet("{id}")]
         public async Task<ActionResult<TaskItem>> GetTask(string id)
         {
@@ -159,6 +194,7 @@ namespace JobTrackingAPI.Controllers
             var tasks = await _tasksService.GetTasksByUserId(userId);
             return Ok(tasks);
         }
+        
         [HttpGet("download/{attachmentId}/{fileName}")]
         public IActionResult DownloadFile(string attachmentId, string fileName)
         {            
@@ -172,11 +208,13 @@ namespace JobTrackingAPI.Controllers
 
             return PhysicalFile(filePath, contentType, originalFileName);
         }
+        
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteTask(string id)
         {
             try
             {
+                // DeleteTask in the service now handles file deletion
                 await _tasksService.DeleteTask(id);
                 return Ok(new { message = "Task deleted successfully" });
             }
@@ -222,6 +260,7 @@ namespace JobTrackingAPI.Controllers
                     }
                 }
                 
+                // UpdateTask in the service now handles file deletion if status changes to completed or overdue
                 await _tasksService.UpdateTask(id, task);
                 return Ok(new { message = "Task status updated successfully" });
             }
@@ -230,11 +269,20 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        
         [HttpPost("{id}/file")]
         public async Task<IActionResult> FileUpload(string id, IFormFile file)
         {
             try
             {
+                // Check if the task is completed or overdue before allowing file upload
+                var task = await _tasksService.GetTask(id);
+                if (task == null) 
+                    return NotFound("Task not found");
+
+                if (task.Status == "completed" || task.Status == "overdue")
+                    return BadRequest("Cannot upload files to completed or overdue tasks");
+
                 if (file == null || file.Length == 0)
                     return BadRequest("No file uploaded.");
                 
@@ -261,8 +309,8 @@ namespace JobTrackingAPI.Controllers
                 var fileUrl = $"/uploads/{uniqueFileName}";
                 await _tasksService.FileUpload(id, fileUrl);
 
-                var task = await _tasksService.GetTask(id);
-                var attachment = task.Attachments.LastOrDefault();
+                var updatedTask = await _tasksService.GetTask(id);
+                var attachment = updatedTask.Attachments.LastOrDefault();
 
                 return Ok(new { 
                     taskId = id,
@@ -280,6 +328,7 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        
         [HttpGet("dashboard")]
         [Authorize]
         public async Task<ActionResult<DashboardStats>> GetDashboardStats()

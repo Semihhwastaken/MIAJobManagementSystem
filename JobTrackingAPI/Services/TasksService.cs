@@ -8,12 +8,14 @@ namespace JobTrackingAPI.Services
     public class TasksService : ITasksService
     {
         private readonly IMongoCollection<TaskItem> _tasks;
+        private readonly string _uploadsFolder;
 
         public TasksService(IOptions<MongoDbSettings> settings)
         {
             var client = new MongoClient(settings.Value.ConnectionString);
             var database = client.GetDatabase(settings.Value.DatabaseName);
             _tasks = database.GetCollection<TaskItem>("Tasks");
+            _uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
         }
 
         public async Task<TaskItem> CreateTask(TaskItem task)
@@ -42,12 +44,30 @@ namespace JobTrackingAPI.Services
         public async Task<TaskItem> UpdateTask(string id, TaskItem task)
         {
             task.UpdatedAt = DateTime.UtcNow;
+            
+            // Check if the status is changing to completed or overdue
+            var existingTask = await GetTask(id);
+            if (existingTask != null && 
+                (existingTask.Status != "completed" && task.Status == "completed" ||
+                 existingTask.Status != "overdue" && task.Status == "overdue"))
+            {
+                // Delete associated files
+                await DeleteTaskFiles(existingTask);
+            }
+            
             await _tasks.ReplaceOneAsync(t => t.Id == id, task);
             return task;
         }
 
         public async Task DeleteTask(string id)
         {
+            var task = await GetTask(id);
+            if (task != null)
+            {
+                // Delete associated files before deleting the task
+                await DeleteTaskFiles(task);
+            }
+            
             await _tasks.DeleteOneAsync(t => t.Id == id);
         }
 
@@ -65,6 +85,37 @@ namespace JobTrackingAPI.Services
                 })
                 .Set(t => t.UpdatedAt, DateTime.UtcNow);
 
+            await _tasks.UpdateOneAsync(filter, update);
+        }
+
+        // New method to delete all files associated with a task
+        public async Task DeleteTaskFiles(TaskItem task)
+        {
+            if (task.Attachments == null || task.Attachments.Count == 0)
+                return;
+
+            foreach (var attachment in task.Attachments)
+            {
+                string fileName = Path.GetFileName(attachment.FileUrl);
+                string filePath = Path.Combine(_uploadsFolder, fileName);
+                
+                if (File.Exists(filePath))
+                {
+                    try
+                    {
+                        File.Delete(filePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log the error but continue with other files
+                        Console.WriteLine($"Error deleting file {filePath}: {ex.Message}");
+                    }
+                }
+            }
+            
+            // Optionally clear the attachments list in the database
+            var filter = Builders<TaskItem>.Filter.Eq(t => t.Id, task.Id);
+            var update = Builders<TaskItem>.Update.Set(t => t.Attachments, new List<TaskAttachment>());
             await _tasks.UpdateOneAsync(filter, update);
         }
 
@@ -89,7 +140,7 @@ namespace JobTrackingAPI.Services
 
         public string GetFilePath(string fileName)
         {
-            return Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", fileName);
+            return Path.Combine(_uploadsFolder, fileName);
         }
     }
 }

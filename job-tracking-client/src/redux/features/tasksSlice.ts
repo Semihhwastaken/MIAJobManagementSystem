@@ -38,7 +38,7 @@ export const fetchTasks = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         try {
             const response = await axiosInstance.get('/Tasks');
-            console.log('Fetched tasks response:', response.data);
+            // Remove console.log to prevent flooding the console with messages
             if (!response.data) {
                 throw new Error('No data received from the server');
             }
@@ -207,12 +207,11 @@ export const fileUpload = createAsyncThunk(
           `/Tasks/download/${attachmentId}/${fileName}`,
           { responseType: 'blob' }
         );
-        console.log('İndirilen blob:', response.data);
-  
+        
+        // Remove debug console logs
         // 2. Blob'u ArrayBuffer'a dönüştürüyoruz.
         const blobArrayBuffer = await response.data.arrayBuffer();
-        console.log('Blob ArrayBuffer uzunluğu:', blobArrayBuffer.byteLength);
-  
+        
         // Kontrol: Dosya boyutunun IV (12 byte) ve şifreli veriyi kapsadığından emin olun.
         if (blobArrayBuffer.byteLength <= 12) {
           throw new Error('İndirilen dosya boyutu beklenenden küçük.');
@@ -220,20 +219,17 @@ export const fileUpload = createAsyncThunk(
   
         // 3. İlk 12 byte'ı IV olarak alıyoruz.
         const iv = new Uint8Array(blobArrayBuffer.slice(0, 12));
-        console.log('IV:', iv);
-  
+        
         // 4. Geri kalan kısmı şifreli içerik olarak alıyoruz.
         const encryptedContent = blobArrayBuffer.slice(12);
-        console.log('Şifreli içerik uzunluğu:', encryptedContent.byteLength);
-  
+        
         // 5. Daha önce upload sırasında localStorage'a kaydedilen JWK formatındaki anahtarı alıyoruz.
         const storedKey = localStorage.getItem(`encryptionKey_${taskId}`);
         if (!storedKey) {
           throw new Error('Bu task için şifreleme anahtarı bulunamadı.');
         }
         const jwkKey = JSON.parse(storedKey);
-        console.log('Import edilecek anahtar:', jwkKey);
-  
+        
         // 6. AES-GCM için anahtarı import ediyoruz.
         const key = await window.crypto.subtle.importKey(
           "jwk",
@@ -249,8 +245,7 @@ export const fileUpload = createAsyncThunk(
           key,
           encryptedContent
         );
-        console.log('Deşifre edilmiş buffer uzunluğu:', decryptedBuffer.byteLength);
-  
+        
         // 8. Deşifre edilmiş veriden yeni bir Blob oluşturup indirme linki oluşturuyoruz.
         const decryptedBlob = new Blob([new Uint8Array(decryptedBuffer)], { type: response.data.type });
         const url = window.URL.createObjectURL(decryptedBlob);
@@ -269,7 +264,6 @@ export const fileUpload = createAsyncThunk(
       }
     }
   );
-  
   
 export const completeTask = createAsyncThunk(
     'tasks/completeTask',

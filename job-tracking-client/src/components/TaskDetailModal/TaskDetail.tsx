@@ -23,6 +23,18 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
 
     if (!isOpen) return null;
 
+    // Check if all dependencies are completed
+    const areAllDependenciesCompleted = () => {
+        if (!localTask.dependencies || localTask.dependencies.length === 0) {
+            return true;
+        }
+        
+        return localTask.dependencies.every(depId => {
+            const dependentTask = allTasks.find(t => t.id === depId);
+            return dependentTask?.status === 'completed';
+        });
+    };
+
     const getPriorityColor = (priority: string) => {
         switch (priority) {
             case 'high':
@@ -108,6 +120,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
             return;
         }
 
+        // Check if all dependent tasks are completed
+        if (!areAllDependenciesCompleted()) {
+            alert('Bu görevi tamamlayabilmek için önce tüm bağlı görevlerin tamamlanması gerekmektedir.');
+            return;
+        }
+
         try {
             setIsSubmitting(true);
             await dispatch(completeTask(localTask.id!)).unwrap();
@@ -145,6 +163,18 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
         const dependentTask = allTasks.find(t => t.id === depId);
         return dependentTask?.title || 'Silinmiş Görev';
     };
+
+    // Check if a dependency is completed
+    const isDependencyCompleted = (depId: string) => {
+        const dependentTask = allTasks.find(t => t.id === depId);
+        return dependentTask?.status === 'completed';
+    };
+
+    // Should the task completion button be enabled
+    const canCompleteTask = localTask.status !== 'completed' && 
+                           localTask.status !== 'overdue' && 
+                           progressPercentage === 100 &&
+                           areAllDependenciesCompleted();
 
     return (
         <div className="fixed inset-y-0 right-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
@@ -217,11 +247,16 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                             <h4 className="text-sm font-medium text-gray-900">Bağlı Görevler</h4>
                             <div className="mt-2 space-y-2">
                                 {localTask.dependencies.map((depId, index) => (
-                                    <div key={index} className="text-sm text-gray-500 flex items-center">
-                                        <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                                        </svg>
-                                        {getDependencyTitle(depId)}
+                                    <div key={index} className="text-sm text-gray-500 flex items-center justify-between">
+                                        <div className="flex items-center">
+                                            <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                            </svg>
+                                            {getDependencyTitle(depId)}
+                                        </div>
+                                        <span className={`text-xs px-2 py-1 rounded-full ${isDependencyCompleted(depId) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                            {isDependencyCompleted(depId) ? 'Tamamlandı' : 'Bekliyor'}
+                                        </span>
                                     </div>
                                 ))}
                             </div>
@@ -301,8 +336,29 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                         </div>
                     </div>
 
-                    {/* Submit Button - Only show if not completed, not overdue, and all subtasks are done */}
-                    {localTask.status !== 'completed' && localTask.status !== 'overdue' && progressPercentage === 100 && (
+                    {/* Warning Message for Incomplete Dependencies */}
+                    {localTask.status !== 'completed' && 
+                     localTask.status !== 'overdue' && 
+                     progressPercentage === 100 &&
+                     !areAllDependenciesCompleted() && (
+                        <div className="mt-6 p-4 bg-yellow-50 rounded-md">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-sm font-medium text-yellow-800">
+                                        Bağlı görevler tamamlanmadan bu görev tamamlanamaz.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Submit Button - Only show if not completed, not overdue, all subtasks are done, and all dependencies are completed */}
+                    {canCompleteTask && (
                         <div className="mt-6">
                             <button
                                 onClick={handleCompleteTask}
