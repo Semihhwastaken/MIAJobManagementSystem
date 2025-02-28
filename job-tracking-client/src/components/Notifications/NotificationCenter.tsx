@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppSelector } from '../../redux/hooks';
-import axiosInstance from '../../services/axiosInstance';
+import { notificationAxiosInstance } from '../../services/axiosInstance';
 import SignalRService from '../../services/signalRService';
 import { Transition } from '@headlessui/react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -54,12 +54,9 @@ export const NotificationCenter: React.FC = () => {
   
       try {
         const url = `/Notifications/user/${user.id}`;
-        console.log('Fetching notifications from:', url, {
-          userId: user.id,
-          token: token?.substring(0, 10) + '...' // Only log first 10 chars of token for security
-        });
+        console.log('Fetching notifications from:', url);
   
-        const response = await axiosInstance.get(url);
+        const response = await notificationAxiosInstance.get(url);
   
         if (Array.isArray(response.data)) {
           console.log('Notifications fetched successfully:', response.data.length);
@@ -109,7 +106,7 @@ export const NotificationCenter: React.FC = () => {
 
   const handleMarkAsRead = async (id: string) => {
     try {
-      await axiosInstance.put(`/Notifications/${id}/read`);
+      await notificationAxiosInstance.put(`/Notifications/${id}/read`);
       setNotifications(notifications.map(n =>
         n.id === id ? { ...n, isRead: true } : n
       ));
@@ -123,7 +120,7 @@ export const NotificationCenter: React.FC = () => {
     if (!user?.id) return;
 
     try {
-      await axiosInstance.put(`/Notifications/user/${user.id}/read-all`);
+      await notificationAxiosInstance.put(`/Notifications/user/${user.id}/read-all`);
       setNotifications(notifications.map(n => ({ ...n, isRead: true })));
       setUnreadCount(0);
     } catch (error) {

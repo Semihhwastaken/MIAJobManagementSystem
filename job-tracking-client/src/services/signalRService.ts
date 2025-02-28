@@ -19,7 +19,7 @@ class SignalRService {
         
         // Chat Hub bağlantısı
         this.hubConnection = new signalR.HubConnectionBuilder()
-            .withUrl("http://localhost:5193/chatHub", {
+            .withUrl("/chatHub", {
                 accessTokenFactory: () => localStorage.getItem('token') || ''
             })
             .withAutomaticReconnect()
@@ -28,7 +28,7 @@ class SignalRService {
 
         // Notification Hub bağlantısı
         this.notificationHubConnection = new signalR.HubConnectionBuilder()
-            .withUrl("http://localhost:5193/notificationHub", {
+            .withUrl("/notificationHub", {
                 accessTokenFactory: () => localStorage.getItem('token') || ''
             })
             .withAutomaticReconnect()

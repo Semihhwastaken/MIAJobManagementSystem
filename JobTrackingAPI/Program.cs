@@ -25,7 +25,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins("http://localhost:5173")
+            policy.SetIsOriginAllowed(_ => true)
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
@@ -66,7 +66,7 @@ builder.Services.AddAuthentication(options =>
             var path = context.HttpContext.Request.Path;
             
             if (!string.IsNullOrEmpty(accessToken) && 
-                (path.StartsWithSegments("/chatHub") || path.StartsWithSegments("/notificationHub")))
+                path.StartsWithSegments("/chatHub"))
             {
                 context.Token = accessToken;
             }
@@ -111,6 +111,9 @@ builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("Mo
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 
+// HttpClient for NotificationService
+builder.Services.AddHttpClient<NotificationService>();
+
 // UserService'i singleton olarak kaydet
 builder.Services.AddSingleton<UserService>();
 
@@ -121,6 +124,7 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IConnectionService,ConnectionService>();
 builder.Services.AddScoped<CalendarEventService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 builder.Services.AddControllers();
 

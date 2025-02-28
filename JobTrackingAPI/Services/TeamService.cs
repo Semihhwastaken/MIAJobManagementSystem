@@ -7,8 +7,6 @@ using System.Threading.Tasks;
 using System.Text;
 using JobTrackingAPI.Controllers;
 using JobTrackingAPI.Constants;
-using JobTrackingAPI.Hubs;
-using Microsoft.AspNetCore.SignalR;
 
 namespace JobTrackingAPI.Services;
 
@@ -21,13 +19,13 @@ public class TeamService
     private readonly UserService _userService;
     private readonly IOptions<MongoDbSettings> _settings;
     private readonly IMongoCollection<TaskItem> _tasks; // Yeni eklenen
-    private readonly IHubContext<NotificationHub> _notificationHubContext;
+    private readonly INotificationService _notificationService;
 
     public TeamService(
         IOptions<MongoDbSettings> settings, 
         UserService userService,
         IMongoDatabase database,
-        IHubContext<NotificationHub> notificationHubContext) // Constructor güncellendi
+        INotificationService notificationService)
     {
         var client = new MongoClient(settings.Value.ConnectionString);
         var db = client.GetDatabase(settings.Value.DatabaseName);
@@ -35,7 +33,7 @@ public class TeamService
         _tasks = db.GetCollection<TaskItem>("Tasks"); // Tasks collection'ı eklendi
         _userService = userService;
         _settings = settings;
-        _notificationHubContext = notificationHubContext;
+        _notificationService = notificationService;
     }
 
     /// <summary>
@@ -134,6 +132,7 @@ public class TeamService
         }
     }
 
+    /// <summary>
     /// Takımı günceller
     /// </summary>
     public async Task<bool> UpdateAsync(string id, Team team)

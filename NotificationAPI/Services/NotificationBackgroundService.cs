@@ -32,6 +32,10 @@ namespace NotificationAPI.Services
         private const int MaxRetryCount = 10;
         private readonly AsyncRetryPolicy _retryPolicy;
         private readonly SemaphoreSlim _connectionLock = new SemaphoreSlim(1, 1);
+        private readonly IConnectionFactory _connectionFactory;
+        private readonly int _workerCount = 4; // Number of concurrent consumers
+        private readonly List<IModel> _channels = new();
+        private IConnection _connection;
 
         /// <summary>
         /// NotificationBackgroundService yapıcı metodu
@@ -47,6 +51,15 @@ namespace NotificationAPI.Services
             _hubContext = hubContext;
             _logger = logger;
             _consumerChannels = new List<IModel>();
+            
+            _connectionFactory = new ConnectionFactory
+            {
+                HostName = _rabbitSettings.HostName,
+                UserName = _rabbitSettings.UserName,
+                Password = _rabbitSettings.Password,
+                Port = _rabbitSettings.Port,
+                DispatchConsumersAsync = true
+            };
             
             // Yeniden deneme politikası oluştur
             _retryPolicy = Policy
@@ -163,128 +176,73 @@ namespace NotificationAPI.Services
         /// </summary>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            // RabbitMQ'ya bağlanana kadar denemeye devam et
-            if (!await TryConnectAsync())
-            {
-                _logger.LogError("RabbitMQ bağlantısı kurulamadı. Servis başlatılamıyor.");
-                return;
-            }
-
-            try
-            {
-                // Birden fazla consumer oluştur
-                for (int i = 0; i < _rabbitSettings.ConcurrentConsumers; i++)
-                {
-                    await StartConsumerAsync(i, stoppingToken);
-                }
-
-                // Servis çalışırken bağlantı durumunu kontrol et
-                while (!stoppingToken.IsCancellationRequested)
-                {
-                    if (!_isConnected)
-                    {
-                        _logger.LogWarning("RabbitMQ bağlantısı koptu. Yeniden bağlanmaya çalışılıyor...");
-                        if (await TryConnectAsync())
-                        {
-                            // Yeniden bağlantı başarılı olduğunda tüm consumer'ları yeniden başlat
-                            for (int i = 0; i < _rabbitSettings.ConcurrentConsumers; i++)
-                            {
-                                await StartConsumerAsync(i, stoppingToken);
-                            }
-                        }
-                    }
-                    
-                    await Task.Delay(30000, stoppingToken); // 30 saniyede bir kontrol et
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // Servis durdurulduğunda normal bir durum
-                _logger.LogInformation("Notification Background Service durduruldu.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "NotificationBackgroundService'de beklenmeyen bir hata oluştu");
-            }
-        }
+            _connection = _connectionFactory.CreateConnection();
         
-        /// <summary>
-        /// Belirtilen indekste yeni bir consumer başlatır
-        /// </summary>
-        private async Task StartConsumerAsync(int index, CancellationToken stoppingToken)
+            // Create multiple consumers
+            var tasks = new List<Task>();
+            for (int i = 0; i < _workerCount; i++)
+            {
+                var channel = _connection.CreateModel();
+                channel.BasicQos(0, 50, false); // Prefetch count per consumer
+                _channels.Add(channel);
+            
+                tasks.Add(StartConsumerAsync(channel, stoppingToken));
+            }
+
+            await Task.WhenAll(tasks);
+        }
+
+        private async Task StartConsumerAsync(IModel channel, CancellationToken stoppingToken)
         {
-            try
+            // Configure queue with proper settings
+            channel.QueueDeclare("notifications", 
+                durable: true,
+                exclusive: false,
+                autoDelete: false,
+                arguments: new Dictionary<string, object>
+                {
+                    {"x-message-ttl", 60000}, // 1 minute TTL
+                    {"x-max-length", 10000}, // Max queue length
+                    {"x-overflow", "reject-publish"} // Reject new messages when full
+                });
+
+            var consumer = new AsyncEventingBasicConsumer(channel);
+            consumer.Received += async (model, ea) =>
             {
-                // Önceki channel varsa kapat
-                if (_consumerChannels.Count > index && _consumerChannels[index]?.IsOpen == true)
+                try
                 {
-                    _consumerChannels[index].Close();
-                    _consumerChannels[index].Dispose();
-                    _consumerChannels[index] = null;
+                    // Process message
+                    await ProcessMessageAsync(ea.Body.ToArray());
+                    channel.BasicAck(ea.DeliveryTag, false);
                 }
-                
-                if (!_isConnected)
+                catch (Exception)
                 {
-                    await TryConnectAsync();
+                    channel.BasicNack(ea.DeliveryTag, false, true);
                 }
-                
-                if (!_isConnected)
-                {
-                    return;
-                }
-                
-                var consumerChannel = _rabbitConnection.CreateModel();
-                
-                // Mevcut listeyi güncelle
-                if (_consumerChannels.Count > index)
-                {
-                    _consumerChannels[index] = consumerChannel;
-                }
-                else
-                {
-                    _consumerChannels.Add(consumerChannel);
-                }
-                
-                // QoS ayarları
-                consumerChannel.BasicQos(0, (ushort)_rabbitSettings.BatchSize, false);
-                
-                _logger.LogInformation("Consumer {Index} başlatılıyor...", index);
+            };
 
-                var consumer = new AsyncEventingBasicConsumer(consumerChannel);
-                consumer.Received += async (model, ea) =>
-                {
-                    try
-                    {
-                        var body = ea.Body.ToArray();
-                        var message = Encoding.UTF8.GetString(body);
-                        var notifications = JsonSerializer.Deserialize<List<Notification>>(message);
+            channel.BasicConsume(queue: "notifications",
+                autoAck: false,
+                consumer: consumer);
 
-                        if (notifications != null && notifications.Any())
-                        {
-                            _logger.LogInformation("Consumer {Index}: {Count} adet bildirim alındı", index, notifications.Count);
-                            await ProcessNotificationBatchAsync(notifications);
-                            consumerChannel.BasicAck(ea.DeliveryTag, false);
-                            _logger.LogInformation("Consumer {Index}: Bildirimler başarıyla işlendi", index);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Consumer {Index}: Bildirim işlenirken hata oluştu", index);
-                        consumerChannel.BasicNack(ea.DeliveryTag, false, true);
-                    }
-                };
+            await Task.Delay(-1, stoppingToken);
+        }
 
-                consumerChannel.BasicConsume(
-                    queue: _rabbitSettings.NotificationQueueName,
-                    autoAck: false,
-                    consumer: consumer);
-                    
-                _logger.LogInformation("Consumer {Index} başarıyla başlatıldı", index);
-            }
-            catch (Exception ex)
+        public override async Task StopAsync(CancellationToken cancellationToken)
+        {
+            foreach (var channel in _channels)
             {
-                _logger.LogError(ex, "Consumer {Index} başlatılırken hata oluştu", index);
+                channel.Close();
+                channel.Dispose();
             }
+        
+            if (_connection != null && _connection.IsOpen)
+            {
+                _connection.Close();
+                _connection.Dispose();
+            }
+
+            await base.StopAsync(cancellationToken);
         }
 
         /// <summary>
@@ -351,6 +309,28 @@ namespace NotificationAPI.Services
             }
 
             base.Dispose();
+        }
+        /// <summary>
+        /// Process a single message from RabbitMQ
+        /// </summary>
+        private async Task ProcessMessageAsync(byte[] messageBody)
+        {
+            try
+            {
+                var message = Encoding.UTF8.GetString(messageBody);
+                var notification = JsonSerializer.Deserialize<Notification>(message);
+
+                if (notification != null)
+                {
+                    await ProcessNotificationBatchAsync(new List<Notification> { notification });
+                    _logger.LogInformation("Notification processed successfully for user: {UserId}", notification.UserId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing message");
+                throw;
+            }
         }
     }
 }

@@ -8,6 +8,9 @@ using RabbitMQ.Client;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Threading.RateLimiting;
+using Microsoft.OpenApi.Models;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,9 +49,36 @@ builder.Services.AddHostedService<NotificationBackgroundService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", builder =>
-        builder.AllowAnyOrigin()
+        builder.SetIsOriginAllowed(_ => true)
                .AllowAnyMethod()
-               .AllowAnyHeader());
+               .AllowAnyHeader()
+               .AllowCredentials());
+});
+
+// Configure CORS
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
+// URL yapılandırmasını ekle
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.Limits.MaxConcurrentConnections = 1000;
+    serverOptions.Limits.MaxConcurrentUpgradedConnections = 1000;
+    serverOptions.Limits.Http2.MaxStreamsPerConnection = 100;
+    serverOptions.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
+    serverOptions.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
+    
+    // Use command line args to set different ports for each instance
+    var port = args.Length > 0 ? int.Parse(args[0]) : 8080;
+    serverOptions.ListenAnyIP(port);
 });
 
 // SignalR ve diğer servisler
@@ -63,16 +93,15 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
 // Daha detaylı Swagger yapılandırması
-builder.Services.ConfigureSwaggerGen(options => {
-    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "Notification API",
         Version = "v1",
         Description = "API for managing notifications in the task management system"
     });
 });
-
-builder.Services.AddSwaggerGen();
 
 // Sağlık kontrolleri ekle
 builder.Services.AddHealthChecks()
@@ -166,6 +195,58 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
+// Rate limiting ekle
+builder.Services.AddRateLimiter(options =>
+{
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.User.Identity?.Name ?? context.Request.Headers.Host.ToString(),
+            factory: partition => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 100,
+                QueueLimit = 50,
+                Window = TimeSpan.FromSeconds(10)
+            }));
+});
+
+// Response caching ekle
+builder.Services.AddResponseCaching();
+builder.Services.AddMemoryCache();
+
+// MongoDB bağlantı havuzu ayarları
+builder.Services.Configure<MongoClientSettings>(settings =>
+{
+    settings.MaxConnectionPoolSize = 1000;
+    settings.MinConnectionPoolSize = 10;
+    settings.WaitQueueSize = 1000;
+});
+
+// Add Redis for distributed caching
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    options.InstanceName = "NotificationAPI_";
+});
+
+// Optimize RabbitMQ connection
+builder.Services.AddSingleton<IConnectionFactory>(sp =>
+{
+    var settings = sp.GetRequiredService<IOptions<RabbitMQSettings>>().Value;
+    return new ConnectionFactory
+    {
+        HostName = settings.HostName,
+        UserName = settings.UserName,
+        Password = settings.Password,
+        Port = settings.Port,
+        DispatchConsumersAsync = true,
+        RequestedChannelMax = 10,
+        RequestedConnectionTimeout = TimeSpan.FromSeconds(30),
+        AutomaticRecoveryEnabled = true,
+        NetworkRecoveryInterval = TimeSpan.FromSeconds(10)
+    };
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -179,8 +260,25 @@ app.UseSwaggerUI(c => {
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 
-// Kimlik doğrulamayı pipeline'a ekle
-app.UseAuthentication();
+// Middleware sıralaması önemli
+app.UseRateLimiter();
+app.UseResponseCaching();
+app.UseRouting();
+app.UseCors();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Notification API V1");
+        c.RoutePrefix = string.Empty; // Swagger UI'ı root URL'de göster
+    });
+}
+
+app.UseCors();
+app.UseRouting();
 app.UseAuthorization();
 
 app.MapControllers();

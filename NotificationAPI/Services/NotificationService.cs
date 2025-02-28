@@ -46,6 +46,7 @@ namespace NotificationAPI.Services
             _logger = logger;
             
             TryConnect();
+            CreateIndexes();
         }
         
         /// <summary>
@@ -99,6 +100,36 @@ namespace NotificationAPI.Services
             }
         }
 
+        private void CreateIndexes()
+        {
+            try
+            {
+                var indexes = new[]
+                {
+                    new CreateIndexModel<Notification>(
+                        Builders<Notification>.IndexKeys
+                            .Ascending(n => n.UserId)
+                            .Descending(n => n.CreatedDate),
+                        new CreateIndexOptions { Background = true, Name = "UserId_CreatedDate" }
+                    ),
+                    new CreateIndexModel<Notification>(
+                        Builders<Notification>.IndexKeys.Ascending(n => n.IsRead),
+                        new CreateIndexOptions { Background = true, Name = "IsRead" }
+                    ),
+                    new CreateIndexModel<Notification>(
+                        Builders<Notification>.IndexKeys.Ascending("UserId").Ascending("IsRead"),
+                        new CreateIndexOptions { Background = true, Name = "UserId_IsRead" }
+                    )
+                };
+
+                _notifications.Indexes.CreateMany(indexes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating indexes");
+            }
+        }
+
         /// <summary>
         /// Belirli bir kullanıcının tüm bildirimlerini getirir
         /// </summary>
@@ -108,13 +139,20 @@ namespace NotificationAPI.Services
         {
             try
             {
-                return await _notifications.Find(n => n.UserId == userId)
-                                         .SortByDescending(n => n.CreatedDate)
-                                         .ToListAsync();
+                var filter = Builders<Notification>.Filter.Eq(n => n.UserId, userId);
+                var sort = Builders<Notification>.Sort.Descending(n => n.CreatedDate);
+                var options = new FindOptions<Notification>
+                {
+                    Limit = 50, // Son 50 bildirimi getir
+                    Sort = sort
+                };
+
+                var notifications = await _notifications.FindAsync(filter, options);
+                return await notifications.ToListAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Kullanıcı bildirimleri getirilirken hata oluştu. UserId: {UserId}", userId);
+                _logger.LogError(ex, "Error getting notifications for user {UserId}", userId);
                 throw;
             }
         }

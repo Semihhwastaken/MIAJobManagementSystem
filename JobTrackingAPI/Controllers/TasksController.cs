@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.SignalR;
 using JobTrackingAPI.Hubs;
+using JobTrackingAPI.Services;
+using JobTrackingAPI.DTOs;
 using JobTrackingAPI.Enums;
 
 namespace JobTrackingAPI.Controllers
@@ -19,13 +21,18 @@ namespace JobTrackingAPI.Controllers
         private readonly IMongoCollection<TaskItem> _tasksCollection;
         private readonly IMongoCollection<User> _usersCollection;
         private readonly IMongoCollection<Team> _teamsCollection;
+        private readonly NotificationService _notificationService;
 
-        public TasksController(IMongoClient mongoClient, IOptions<MongoDbSettings> settings)
+        public TasksController(
+            IMongoClient mongoClient, 
+            IOptions<MongoDbSettings> settings,
+            NotificationService notificationService)
         {
             var database = mongoClient.GetDatabase(settings.Value.DatabaseName);
             _tasksCollection = database.GetCollection<TaskItem>("Tasks");
             _usersCollection = database.GetCollection<User>("Users");
             _teamsCollection = database.GetCollection<Team>("Teams");
+            _notificationService = notificationService;
         }
 
         [HttpGet]
@@ -102,19 +109,14 @@ namespace JobTrackingAPI.Controllers
                             ProfileImage = user.ProfileImage
                         });
                         // Send notification to assigned user
-                        var notificationHub = HttpContext.RequestServices.GetService<IHubContext<NotificationHub>>();
-                        
-                        if (notificationHub != null)
+                        await _notificationService.SendNotificationAsync(new NotificationDto
                         {
-                            var notification = new Notification(
-                                userId: user.Id,
-                                title: "Yeni Görev Atandı",
-                                message: $"{task.Title} görevi size atandı.",
-                                type: NotificationType.TaskAssigned,
-                                relatedJobId: task.Id
-                            );
-                            await notificationHub.Clients.User(user.Id).SendAsync("ReceiveNotification", notification);
-                        }
+                            UserId = user.Id,
+                            Title = "Yeni Görev Atandı",
+                            Message = $"{task.Title} görevi size atandı.",
+                            Type = NotificationType.TaskAssigned,
+                            RelatedJobId = task.Id
+                        });
                     }
                     task.AssignedUsers = updatedAssignedUsers;
                 }
@@ -175,19 +177,18 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 // Send notifications to all assigned users about the task update
-                var notificationHub = HttpContext.RequestServices.GetService<IHubContext<NotificationHub>>();
-                if (notificationHub != null && taskUpdate.AssignedUsers != null)
+                if (taskUpdate.AssignedUsers != null)
                 {
                     foreach (var user in taskUpdate.AssignedUsers)
                     {
-                        var notification = new Notification(
-                            userId: user.Id,
-                            title: "Görev Güncellendi",
-                            message: $"{taskUpdate.Title} görevi güncellendi.",
-                            type: NotificationType.TaskUpdated,
-                            relatedJobId: taskUpdate.Id
-                        );
-                        await notificationHub.Clients.User(user.Id).SendAsync("ReceiveNotification", notification);
+                        await _notificationService.SendNotificationAsync(new NotificationDto
+                        {
+                            UserId = user.Id,
+                            Title = "Görev Güncellendi",
+                            Message = $"{taskUpdate.Title} görevi güncellendi.",
+                            Type = NotificationType.TaskUpdated,
+                            RelatedJobId = taskUpdate.Id
+                        });
                     }
                 }
                 
@@ -278,19 +279,18 @@ namespace JobTrackingAPI.Controllers
                 await _tasksCollection.UpdateOneAsync(t => t.Id == id, updateTask);
 
                 // Send notifications to all assigned users about task completion
-                var notificationHub = HttpContext.RequestServices.GetService<IHubContext<NotificationHub>>();
-                if (notificationHub != null && task.AssignedUsers != null)
+                if (task.AssignedUsers != null)
                 {
                     foreach (var user in task.AssignedUsers)
                     {
-                        var notification = new Notification(
-                            userId: user.Id,
-                            title: "Görev Tamamlandı",
-                            message: $"{task.Title} görevi tamamlandı.",
-                            type: NotificationType.TaskCompleted,
-                            relatedJobId: task.Id
-                        );
-                        await notificationHub.Clients.User(user.Id).SendAsync("ReceiveNotification", notification);
+                        await _notificationService.SendNotificationAsync(new NotificationDto
+                        {
+                            UserId = user.Id,
+                            Title = "Görev Tamamlandı",
+                            Message = $"{task.Title} görevi tamamlandı.",
+                            Type = NotificationType.TaskCompleted,
+                            RelatedJobId = task.Id
+                        });
                     }
                 }
                 

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using MongoDB.Driver;
 
 namespace NotificationAPI.Controllers
 {
@@ -36,5 +37,22 @@ namespace NotificationAPI.Controllers
                 });
             }
         }
+
+        [HttpGet("health/mongo")]
+        public async Task<IActionResult> CheckMongoDbConnection()
+        {
+            try
+            {
+                var client = new MongoClient("mongodb+srv://200315055:asker123@mia-ime.9gv81.mongodb.net/JobTrackingDb");
+                var database = client.GetDatabase("JobTrackingDb");
+                var collections = await database.ListCollectionNamesAsync();
+                return Ok("MongoDB bağlantısı başarılı");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"MongoDB bağlantı hatası: {ex.Message}");
+            }
+        }
+
     }
 }

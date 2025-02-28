@@ -1,12 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 using JobTrackingAPI.Models;
-using JobTrackingAPI.Models.Requests;  // Tek bir using ifadesi bırakıyoruz
 using JobTrackingAPI.Services;
-using MongoDB.Driver;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using JobTrackingAPI.Models.Requests;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -17,11 +14,16 @@ namespace JobTrackingAPI.Controllers
     {
         private readonly TeamService _teamService;
         private readonly UserService _userService;
+        private readonly NotificationService _notificationService;
 
-        public TeamController(TeamService teamService, UserService userService)
+        public TeamController(
+            TeamService teamService, 
+            UserService userService,
+            NotificationService notificationService)
         {
             _teamService = teamService;
             _userService = userService;
+            _notificationService = notificationService;
         }
 
         /// <summary>

@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using JobTrackingAPI.Models;
 using JobTrackingAPI.Services;
-using JobTrackingAPI.Enums;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 
@@ -164,33 +163,6 @@ namespace JobTrackingAPI.Hubs
                 Console.Error.WriteLine($"Error in StoppedTyping: {ex}");
                 throw new HubException($"Failed to send stopped typing indicator: {ex.Message}");
             }
-        }
-
-        // Notification Methods
-        public async Task SendNotification(string userId, string title, string message, NotificationType type, string? relatedJobId = null)
-        {
-            var notification = new Notification(
-                userId: userId,
-                title: title,
-                message: message,
-                type: type,
-                relatedJobId: relatedJobId
-            );
-
-            await Clients.User(userId).SendAsync("ReceiveNotification", notification);
-        }
-
-        public async Task SendTestNotification(string userId)
-        {
-            var notification = new Notification(
-                userId: userId,
-                title: "Test Bildirimi",
-                message: "Bu bir test bildirimidir. Bildirim sistemi başarıyla çalışıyor!",
-                type: NotificationType.TaskAssigned,
-                relatedJobId: "test-job-123"
-            );
-
-            await Clients.User(userId).SendAsync("ReceiveNotification", notification);
         }
 
         public async Task RegisterUser(string userId)

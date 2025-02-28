@@ -8,11 +8,7 @@ using JobTrackingAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using MongoDB.Driver;
-using Microsoft.AspNetCore.SignalR;
-using JobTrackingAPI.Hubs;
 using JobTrackingAPI.Enums;
-
 namespace JobTrackingAPI.Controllers
 {
     [Authorize]
@@ -22,22 +18,19 @@ namespace JobTrackingAPI.Controllers
     {
         private readonly CalendarEventService _calendarEventService;
         private readonly ILogger<CalendarEventsController> _logger;
-        private readonly IMongoCollection<Notification> _notifications;
-        private readonly IHubContext<NotificationHub> _hubContext;
         private readonly UserService _userService;
+        private readonly INotificationService _notificationService;
 
         public CalendarEventsController(
             CalendarEventService calendarEventService,
             ILogger<CalendarEventsController> logger,
-            IMongoDatabase database,
-            IHubContext<NotificationHub> hubContext,
-            UserService userService)
+            UserService userService,
+            INotificationService notificationService)
         {
             _calendarEventService = calendarEventService;
             _logger = logger;
-            _notifications = database.GetCollection<Notification>("Notifications");
-            _hubContext = hubContext;
             _userService = userService;
+            _notificationService = notificationService;
         }
 
         /// <summary>
@@ -185,15 +178,13 @@ namespace JobTrackingAPI.Controllers
                     if (user != null)
                     {
                         _logger.LogInformation("Sending notification to user: {@UserId} for email: {@Email}", user.Id, participantEmail);
-                        var notification = new Notification(
+                        await _notificationService.SendNotificationAsync(
                             userId: user.Id,
                             title: "Yeni Takvim Planı",
                             message: $"{calendarEvent.Title}a davet edildiniz.",
-                            type: NotificationType.CalendarEventCreated,
+                            notificationType: NotificationType.CalendarEventCreated,
                             relatedJobId: createdEvent.Id
                         );
-                        await _notifications.InsertOneAsync(notification);
-                        await _hubContext.Clients.User(user.Id).SendAsync("ReceiveNotification", notification);
                     }
                     else
                     {
@@ -267,17 +258,13 @@ namespace JobTrackingAPI.Controllers
                     if (user != null)
                     {
                         _logger.LogInformation("Sending update notification to user: {@UserId} for email: {@Email}", user.Id, participantEmail);
-                        var notification = new Notification
-                        {
-                            UserId = user.Id,
-                            Title = "Takvim Planı Değişikliği.",
-                            Message = $"{calendarEvent.Title} planı güncellendi.",
-                            Type = NotificationType.CalendarEventUpdated,
-                            RelatedJobId = id,
-                            IsRead = false
-                        };
-                        await _notifications.InsertOneAsync(notification);
-                        await _hubContext.Clients.User(user.Id).SendAsync("ReceiveNotification", notification);
+                        await _notificationService.SendNotificationAsync(
+                            userId: user.Id,
+                            title: "Takvim Planı Değişikliği.",
+                            message: $"{calendarEvent.Title} planı güncellendi.",
+                            notificationType: NotificationType.CalendarEventUpdated,
+                            relatedJobId: id
+                        );
                     }
                     else
                     {
@@ -322,17 +309,13 @@ namespace JobTrackingAPI.Controllers
                     if (user != null)
                     {
                         _logger.LogInformation("Sending deletion notification to user: {@UserId} for email: {@Email}", user.Id, participantEmail);
-                        var notification = new Notification
-                        {
-                            UserId = user.Id,
-                            Title = "Takvim Planı İptal",
-                            Message = $"{existingEvent.Title} planı iptal edildi.",
-                            Type = NotificationType.CalendarEventDeleted,
-                            RelatedJobId = id,
-                            IsRead = false
-                        };
-                        await _notifications.InsertOneAsync(notification);
-                        await _hubContext.Clients.User(user.Id).SendAsync("ReceiveNotification", notification);
+                        await _notificationService.SendNotificationAsync(
+                            userId: user.Id,
+                            title: "Takvim Planı İptal",
+                            message: $"{existingEvent.Title} planı iptal edildi.",
+                            notificationType: NotificationType.CalendarEventDeleted,
+                            relatedJobId: id
+                        );
                     }
                     else
                     {
