@@ -113,8 +113,11 @@ const Tasks: React.FC = () => {
   const filteredTasks = useMemo(() => {
     return processedTasks
       .filter(task => {
-        if (task.status === 'completed' || task.status === 'overdue') {
-          return false;
+        // Ana ekranda sadece aktif görevleri göster (completed ve overdue olmayanlar)
+        if (!isHistoryModalOpen) {
+          if (task.status === 'completed' || task.status === 'overdue') {
+            return false;
+          }
         }
 
         const isSubTask = tasks.some(parentTask => 
@@ -140,7 +143,7 @@ const Tasks: React.FC = () => {
         }
         return 0;
       });
-  }, [processedTasks, searchTerm, selectedCategory, isFilterActive, dateFilter, sortByPriority]);
+  }, [processedTasks, searchTerm, selectedCategory, isFilterActive, dateFilter, sortByPriority, isHistoryModalOpen]);
 
   // Memoize action handlers
   const handleTaskClick = useCallback((task: Task, e?: React.MouseEvent) => {
@@ -654,7 +657,6 @@ const Tasks: React.FC = () => {
         <TaskHistory
           isOpen={isHistoryModalOpen}
           onClose={() => setIsHistoryModalOpen(false)}
-          tasks={tasks}
         />
       )}
 

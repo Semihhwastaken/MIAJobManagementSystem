@@ -348,5 +348,23 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        [HttpGet("history")]
+        public async Task<ActionResult<IEnumerable<TaskHistoryDto>>> GetTaskHistory()
+        {
+            try
+            {
+                var tasks = await _tasksService.GetTasks();
+                var historicalTasks = tasks.Where(t => t.Status == "completed" || t.Status == "overdue")
+                                         .OrderByDescending(t => t.UpdatedAt)
+                                         .ToList();
+
+                return Ok(historicalTasks);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
+            }
+        }
     }
 }
