@@ -21,10 +21,15 @@ interface TaskFormProps {
 }
 
 const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTasks = [], task, selectedUser, isDarkMode,teamId,teamName }) => {
+  const formatDateForInput = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+  };
+
   const [formData, setFormData] = useState({
     title: task?.title || '',
     description: task?.description || '',
-    dueDate: task?.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+    dueDate: task?.dueDate ? formatDateForInput(task.dueDate) : formatDateForInput(new Date().toISOString()),
     priority: task?.priority || 'medium',
     status: task?.status || 'todo',
     category: task?.category || 'Bug',
@@ -49,7 +54,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
       setFormData({
         title: task.title,
         description: task.description,
-        dueDate: task.dueDate,
+        dueDate: formatDateForInput(task.dueDate),
         priority: task.priority,
         status: task.status,
         category: task.category,
