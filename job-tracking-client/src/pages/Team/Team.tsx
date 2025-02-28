@@ -420,11 +420,11 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                                                 <div className="flex-1 h-2 bg-gray-200 rounded-full">
                                                     <div
                                                         className="h-2 bg-blue-500 rounded-full"
-                                                        style={{ width: `${member.performanceScore}%` }}
+                                                        style={{ width: `${Math.round(member.performanceScore)}%` }}
                                                     ></div>
                                                 </div>
                                                 <span className={`ml-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                    {member.performanceScore}%
+                                                    {Math.round(member.performanceScore)}%
                                                 </span>
                                             </div>
                                         </td>

@@ -89,7 +89,7 @@ const Tasks: React.FC = () => {
     if (tasks.length > 0 && currentUser?.id) {
       checkOwnerStatus(tasks);
     }
-  }, [tasks, currentUser?.id, checkOwnerStatus]);
+  }, [tasks.length, currentUser?.id, checkOwnerStatus]);
 
   // Memoize filtered and processed tasks
   const processedTasks = useMemo(() => {
@@ -143,14 +143,33 @@ const Tasks: React.FC = () => {
   }, [processedTasks, searchTerm, selectedCategory, isFilterActive, dateFilter, sortByPriority]);
 
   // Memoize action handlers
-  const handleTaskClick = useCallback((task: Task) => {
+  const handleTaskClick = useCallback((task: Task, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (task.id) {
       setSelectedTask(task);
       setIsDetailModalOpen(true);
     }
   }, []);
 
-  const handleEditClick = useCallback((task: Task) => {
+  const handleCloseModal = useCallback(() => {
+    setIsDetailModalOpen(false);
+    // Don't clear selectedTask immediately to avoid UI flicker
+    // during the close animation
+    setTimeout(() => {
+      setSelectedTask(null);
+    }, 300); // Match this with your modal animation duration
+  }, []);
+
+  const handleEditClick = useCallback((task: Task, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (task.id) {
       setSelectedTask({
         ...task,
@@ -160,7 +179,7 @@ const Tasks: React.FC = () => {
     }
   }, []);
 
-  const handleUpdateTask = async (updatedTaskData: Omit<Task, 'id'>) => {
+  const handleUpdateTask = useCallback(async (updatedTaskData: Omit<Task, 'id'>) => {
     if (selectedTask?.id) {
       try {
         const updatedTask = {
@@ -169,14 +188,23 @@ const Tasks: React.FC = () => {
         };
         await dispatch(updateTask(updatedTask));
         setIsEditModalOpen(false);
-        setSelectedTask(null);
+        
+        // Add a slight delay to improve UX
+        setTimeout(() => {
+          setSelectedTask(null);
+        }, 300);
       } catch (error) {
         console.error('Görev güncellenirken hata oluştu:', error);
       }
     }
-  };
+  }, [dispatch, selectedTask]);
 
-  const handleDeleteTask = useCallback(async (taskId: string | undefined) => {
+  const handleDeleteTask = useCallback(async (taskId: string | undefined, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (!taskId || taskId === 'undefined') {
       console.error('Geçersiz görev ID', taskId);
       return;
@@ -190,17 +218,19 @@ const Tasks: React.FC = () => {
     }
   }, [dispatch]);
 
-  const handleCreateTask = async (newTask: Omit<Task, 'id'>) => {
+  const handleCreateTask = useCallback(async (newTask: Omit<Task, 'id'>) => {
     try {
       await dispatch(createTask(newTask));
       setIsNewTaskModalOpen(false);
     } catch (error) {
       console.error('Görev oluşturulurken hata oluştu:', error);
     }
-  };
+  }, [dispatch]);
+
   const categories = ['All Cases', 'Bug', 'Development', 'Documentation', 'Testing', 'Maintenance'];
 
-  const TaskGroup: React.FC<{ task: GroupedTask }> = ({ task }) => {
+  // Memoize TaskGroup and TaskRow components
+  const TaskGroup = useCallback<React.FC<{ task: GroupedTask }>>(({ task }) => {
     if (!task.isLinked) {
       return <TaskRow task={task} />;
     }
@@ -217,9 +247,9 @@ const Tasks: React.FC = () => {
         </div>
       </div>
     );
-  };
+  }, []);
 
-  const TaskRow: React.FC<{ task: GroupedTask; isMainTask?: boolean }> = ({ task, isMainTask }) => {
+  const TaskRow = useCallback<React.FC<{ task: GroupedTask; isMainTask?: boolean }>>(({ task, isMainTask }) => {
     return (
       <div 
         className={`bg-white rounded-lg p-4 ${
@@ -250,7 +280,7 @@ const Tasks: React.FC = () => {
         </div>
       </div>
     );
-  };
+  }, []);
 
   if (status === 'loading' || isValidationLoading) {
     return (
@@ -275,6 +305,7 @@ const Tasks: React.FC = () => {
       </div>
     );
   }
+  
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Main Content */}
@@ -290,6 +321,7 @@ const Tasks: React.FC = () => {
         {/* Task Management Tools */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
           <div className="flex items-center justify-between mb-6">
+            {/* Search Input */}
             <div className="relative flex-1 max-w-md">
               <input
                 type="text"
@@ -301,22 +333,32 @@ const Tasks: React.FC = () => {
               <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
             </div>
 
+            {/* Action Buttons */}
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => setIsHistoryModalOpen(true)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsHistoryModalOpen(true);
+                }}
                 className="!rounded-button flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <i className="fas fa-history text-gray-600"></i>
               </button>
               <button
-                onClick={() => setSortByPriority(!sortByPriority)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSortByPriority(!sortByPriority);
+                }}
                 className={`!rounded-button flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors ${sortByPriority ? 'bg-indigo-100 border-indigo-300' : ''}`}
               >
                 <i className="fas fa-sort text-gray-600"></i>
                 <span className="text-gray-600">Sort</span>
               </button>
               <button
-                onClick={() => setIsDateFilterModalOpen(true)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsDateFilterModalOpen(true);
+                }}
                 className={`!rounded-button flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors ${isFilterActive ? 'bg-indigo-100 border-indigo-300' : ''}`}
               >
                 <i className="fas fa-filter text-gray-600"></i>
@@ -334,7 +376,10 @@ const Tasks: React.FC = () => {
                   ? 'bg-indigo-600 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
-                onClick={() => setSelectedCategory(category)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSelectedCategory(category);
+                }}
               >
                 {category}
               </button>
@@ -363,7 +408,7 @@ const Tasks: React.FC = () => {
                       className={`hover:bg-gray-50 cursor-pointer transition-colors ${
                         task.isLinked ? 'border-l-4 border-blue-400' : ''
                       }`}
-                      onClick={() => handleTaskClick(task)}
+                      onClick={(e) => handleTaskClick(task, e)}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{task.title}</td>
                       <td className="px-6 py-4 whitespace-normal text-sm text-gray-500 max-w-xs">{task.description}</td>
@@ -388,6 +433,7 @@ const Tasks: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{task.category}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
+                        {/* User Avatars */}
                         <div className="flex items-center space-x-2">
                           {task.assignedUsers && task.assignedUsers.length > 0 ? (
                             <div className="flex -space-x-2">
@@ -415,19 +461,13 @@ const Tasks: React.FC = () => {
                         {task.teamId && taskOwnerStatus[task.id!] && (
                           <>
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditClick(task);
-                              }}
+                              onClick={(e) => handleEditClick(task, e)}
                               className="text-indigo-600 hover:text-indigo-900 mr-2"
                             >
                               <i className="fas fa-edit"></i>
                             </button>
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteTask(task.id);
-                              }}
+                              onClick={(e) => handleDeleteTask(task.id, e)}
                               className="text-red-600 hover:text-red-900"
                             >
                               <i className="fas fa-trash"></i>
@@ -436,12 +476,12 @@ const Tasks: React.FC = () => {
                         )}
                       </td>
                     </tr>
-                    {/* Bağlı görevleri render et */}
+                    {/* Render linked tasks */}
                     {task.isLinked && task.linkedTasks?.map(linkedTask => (
                       <tr 
                         key={linkedTask.id}
                         className="hover:bg-blue-50 cursor-pointer transition-colors bg-blue-50/30"
-                        onClick={() => handleTaskClick(linkedTask)}
+                        onClick={(e) => handleTaskClick(linkedTask, e)}
                       >
                         <td className="px-6 py-4 pl-12 whitespace-nowrap text-sm font-medium text-gray-900">
                           <div className="flex items-center">
@@ -449,6 +489,7 @@ const Tasks: React.FC = () => {
                             {linkedTask.title}
                           </div>
                         </td>
+                        {/* ...other cells similar to above... */}
                         <td className="px-6 py-4 whitespace-normal text-sm text-gray-500 max-w-xs">{linkedTask.description}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -498,19 +539,13 @@ const Tasks: React.FC = () => {
                           {linkedTask.teamId && taskOwnerStatus[linkedTask.id!] && (
                             <>
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditClick(linkedTask);
-                                }}
+                                onClick={(e) => handleEditClick(linkedTask, e)}
                                 className="text-indigo-600 hover:text-indigo-900 mr-2"
                               >
                                 <i className="fas fa-edit"></i>
                               </button>
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteTask(linkedTask.id);
-                                }}
+                                onClick={(e) => handleDeleteTask(linkedTask.id, e)}
                                 className="text-red-600 hover:text-red-900"
                               >
                                 <i className="fas fa-trash"></i>
@@ -528,26 +563,30 @@ const Tasks: React.FC = () => {
         </div>
       </div>
 
-      {/* Task Form Modal */}
-      <TaskForm
-        isOpen={isNewTaskModalOpen}
-        isDarkMode={false}
-        onClose={() => setIsNewTaskModalOpen(false)}
-        onSave={handleCreateTask}
-        existingTasks={tasks}
-      />
+      {/* Task Form Modal - Only render when needed */}
+      {isNewTaskModalOpen && (
+        <TaskForm
+          isOpen={isNewTaskModalOpen}
+          isDarkMode={false}
+          onClose={() => setIsNewTaskModalOpen(false)}
+          onSave={handleCreateTask}
+          existingTasks={tasks}
+        />
+      )}
 
-      {/* Edit Task Modal */}
-      <TaskForm
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        onSave={handleUpdateTask}
-        existingTasks={tasks}
-        task={selectedTask || null}
-      />
+      {/* Edit Task Modal - Only render when needed */}
+      {isEditModalOpen && selectedTask && (
+        <TaskForm
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={handleUpdateTask}
+          existingTasks={tasks}
+          task={selectedTask}
+        />
+      )}
 
-      {/* Task Detail Modal */}
-      {selectedTask && (
+      {/* Task Detail Modal - Only render when needed */}
+      {isDetailModalOpen && selectedTask && (
         <TaskDetail
           isOpen={isDetailModalOpen}
           onClose={handleCloseModal}
@@ -555,10 +594,10 @@ const Tasks: React.FC = () => {
         />
       )}
 
-      {/* Date Filter Modal */}
+      {/* Date Filter Modal - Only render when needed */}
       {isDateFilterModalOpen && (
         <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white/90 backdrop-blur-md p-6 rounded-lg shadow-xl w-96">
+          <div className="bg-white/90 backdrop-blur-md p-6 rounded-lg shadow-xl w-96" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-semibold mb-4 text-gray-900">Tarih Aralığı Seçin</h2>
             <div className="space-y-4">
               <div>
@@ -581,7 +620,8 @@ const Tasks: React.FC = () => {
               </div>
               <div className="flex justify-end space-x-3 mt-6">
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
                     setDateFilter({ startDate: '', endDate: '' });
                     setIsFilterActive(false);
                     setIsDateFilterModalOpen(false);
@@ -591,7 +631,8 @@ const Tasks: React.FC = () => {
                   Filtreyi Temizle
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
                     if (dateFilter.startDate && dateFilter.endDate) {
                       setIsFilterActive(true);
                       setIsDateFilterModalOpen(false);
@@ -608,12 +649,14 @@ const Tasks: React.FC = () => {
         </div>
       )}
 
-      {/* Task History Modal */}
-      <TaskHistory
-        isOpen={isHistoryModalOpen}
-        onClose={() => setIsHistoryModalOpen(false)}
-        tasks={tasks}
-      />
+      {/* Task History Modal - Only render when needed */}
+      {isHistoryModalOpen && (
+        <TaskHistory
+          isOpen={isHistoryModalOpen}
+          onClose={() => setIsHistoryModalOpen(false)}
+          tasks={tasks}
+        />
+      )}
 
       <Footer />
     </div>
