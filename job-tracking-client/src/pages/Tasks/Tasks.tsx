@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import * as echarts from 'echarts';
 import TaskDetail from '../../components/TaskDetailModal/TaskDetail';
 import TaskForm from '../../components/TaskForm/TaskForm';
@@ -10,35 +10,17 @@ import { RootState, AppDispatch } from '../../redux/store';
 import Footer from '../../components/Footer/Footer';
 import { getTeamMembersByTeamId } from '../../redux/features/teamSlice';
 
+interface GroupedTask extends Task {
+  isLinked?: boolean;
+  linkedTasks?: Task[];
+}
 
 const Tasks: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { items: tasks, status, error } = useSelector((state: RootState) => state.tasks);
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const [taskOwnerStatus, setTaskOwnerStatus] = useState<{[key: string]: boolean}>({});
-
-  useEffect(() => {
-    const checkOwnerStatus = async () => {
-      for (const task of tasks) {
-        if (task.teamId) {
-          if(task.status !== "completed" && task.status !== "overdue" ){
-            const teamMembersResult = await dispatch(getTeamMembersByTeamId(task.teamId));
-            for (const teamMember of teamMembersResult.payload) {
-              //console.log(task.title,teamMember.role,teamMember.id)
-              if(teamMember.id && currentUser?.id && teamMember.id === currentUser.id && teamMember.role === "Owner"){
-                  setTaskOwnerStatus(prev => ({...prev, [task.id!]: true}));
-              }
-            }
-          }else{
-            //console.log('random')
-          }
-        }
-      }
-    };
-    if (tasks.length > 0 && currentUser?.id) {
-      checkOwnerStatus();
-    }
-  }, [tasks, currentUser?.id, dispatch]);
+  const [isValidationLoading, setIsValidationLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Cases');
@@ -57,67 +39,118 @@ const Tasks: React.FC = () => {
     'low': 1
   };
 
-  useEffect(() => {
-    dispatch(fetchTasks()).catch((error) => {
-      console.error('Error fetching tasks:', error);
-    });
-  }, [dispatch]);
+  // Optimize task owner validation
+  const checkOwnerStatus = useCallback(async (tasks: Task[]) => {
+    setIsValidationLoading(true);
+    const ownerStatusMap: {[key: string]: boolean} = {};
+    const processedTeams = new Set<string>();
 
-  // Refetch tasks after any task updates
+    try {
+      for (const task of tasks) {
+        if (task.teamId && task.status !== "completed" && task.status !== "overdue") {
+          if (!processedTeams.has(task.teamId)) {
+            processedTeams.add(task.teamId);
+            try {
+              const teamMembersResult = await dispatch(getTeamMembersByTeamId(task.teamId));
+              const isOwner = teamMembersResult.payload.some(
+                teamMember => teamMember.id === currentUser?.id && teamMember.role === "Owner"
+              );
+              
+              if (isOwner) {
+                tasks
+                  .filter(t => t.teamId === task.teamId)
+                  .forEach(t => {
+                    if (t.id) ownerStatusMap[t.id] = true;
+                  });
+              }
+            } catch (error) {
+              console.error('Error checking team ownership:', error);
+            }
+          }
+        }
+      }
+      setTaskOwnerStatus(ownerStatusMap);
+    } finally {
+      setIsValidationLoading(false);
+    }
+  }, [dispatch, currentUser?.id]);
+
+  // Initial tasks fetch
   useEffect(() => {
-    if (status === 'succeeded' || status === 'failed') {
+    if (!tasks.length) {
       dispatch(fetchTasks()).catch((error) => {
         console.error('Error fetching tasks:', error);
       });
     }
-  }, [status, dispatch]);
+  }, [dispatch, tasks.length]);
 
+  // Check owner status when tasks or user changes
   useEffect(() => {
-    const chartDom = document.getElementById('taskProgressChart');
-    if (chartDom) {
-      const myChart = echarts.init(chartDom);
-      const option = {
-        animation: false,
-        tooltip: {
-          trigger: 'item'
-        },
-        series: [
-          {
-            name: 'Task Status',
-            type: 'pie',
-            radius: ['60%', '80%'],
-            data: [
-              { value: tasks.filter(t => t.status === 'todo').length, name: 'To Do' },
-              { value: tasks.filter(t => t.status === 'in-progress').length, name: 'In Progress' },
-              { value: tasks.filter(t => t.status === 'completed').length, name: 'Completed' }
-            ],
-            emphasis: {
-              itemStyle: {
-                shadowBlur: 10,
-                shadowOffsetX: 0,
-                shadowColor: 'rgba(0, 0, 0, 0.5)'
-              }
-            }
-          }
-        ]
-      };
-      myChart.setOption(option);
+    if (tasks.length > 0 && currentUser?.id) {
+      checkOwnerStatus(tasks);
     }
+  }, [tasks, currentUser?.id, checkOwnerStatus]);
+
+  // Memoize filtered and processed tasks
+  const processedTasks = useMemo(() => {
+    return tasks.map(task => {
+      const dueDate = new Date(task.dueDate);
+      const now = new Date();
+      
+      const linkedTasks = tasks.filter(t => 
+          task.dependencies?.includes(t.id!)
+      );
+      
+      return {
+          ...task,
+          status: now > dueDate && task.status !== 'completed' ? 'overdue' as const : task.status,
+          isLinked: linkedTasks.length > 0,
+          linkedTasks: linkedTasks.length > 0 ? linkedTasks : undefined
+      };
+    });
   }, [tasks]);
 
-  const handleTaskClick = (task: Task) => {
+  const filteredTasks = useMemo(() => {
+    return processedTasks
+      .filter(task => {
+        if (task.status === 'completed' || task.status === 'overdue') {
+          return false;
+        }
+
+        const isSubTask = tasks.some(parentTask => 
+          parentTask.dependencies?.includes(task.id!)
+        );
+
+        if (isSubTask) {
+          return false;
+        }
+
+        const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          task.description.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesCategory = selectedCategory === 'All Cases' || task.category === selectedCategory;
+        const matchesDateFilter = !isFilterActive || (
+          task.dueDate >= dateFilter.startDate &&
+          task.dueDate <= dateFilter.endDate
+        );
+        return matchesSearch && matchesCategory && matchesDateFilter;
+      })
+      .sort((a, b) => {
+        if (sortByPriority) {
+          return priorityOrder[b.priority as keyof typeof priorityOrder] - priorityOrder[a.priority as keyof typeof priorityOrder];
+        }
+        return 0;
+      });
+  }, [processedTasks, searchTerm, selectedCategory, isFilterActive, dateFilter, sortByPriority]);
+
+  // Memoize action handlers
+  const handleTaskClick = useCallback((task: Task) => {
     if (task.id) {
       setSelectedTask(task);
       setIsDetailModalOpen(true);
     }
-  };
+  }, []);
 
-  const handleCloseModal = () => {
-    setIsDetailModalOpen(false);
-    setSelectedTask(null);
-  };
-
-  const handleEditClick = (task: Task) => {
+  const handleEditClick = useCallback((task: Task) => {
     if (task.id) {
       setSelectedTask({
         ...task,
@@ -125,7 +158,7 @@ const Tasks: React.FC = () => {
       });
       setIsEditModalOpen(true);
     }
-  };
+  }, []);
 
   const handleUpdateTask = async (updatedTaskData: Omit<Task, 'id'>) => {
     if (selectedTask?.id) {
@@ -143,7 +176,7 @@ const Tasks: React.FC = () => {
     }
   };
 
-  const handleDeleteTask = async (taskId: string | undefined) => {
+  const handleDeleteTask = useCallback(async (taskId: string | undefined) => {
     if (!taskId || taskId === 'undefined') {
       console.error('Geçersiz görev ID', taskId);
       return;
@@ -155,7 +188,7 @@ const Tasks: React.FC = () => {
       console.error('Görev silinirken bir hata oluştu');
       console.error('Görev silinirken hata oluştu:', error);
     }
-  };
+  }, [dispatch]);
 
   const handleCreateTask = async (newTask: Omit<Task, 'id'>) => {
     try {
@@ -167,37 +200,67 @@ const Tasks: React.FC = () => {
   };
   const categories = ['All Cases', 'Bug', 'Development', 'Documentation', 'Testing', 'Maintenance'];
 
-  const filteredTasks = tasks.map(task => {
-    // Check if task is overdue
-    const dueDate = new Date(task.dueDate);
-    const now = new Date();
-    if (now > dueDate && task.status !== 'completed') {
-      return { ...task, status: 'overdue' as const };
-    }
-    return task;
-  }).filter(task => {
-    // Only show todo and in-progress tasks in the main list
-    if (task.status === 'completed' || task.status === 'overdue') {
-      return false;
+  const TaskGroup: React.FC<{ task: GroupedTask }> = ({ task }) => {
+    if (!task.isLinked) {
+      return <TaskRow task={task} />;
     }
 
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'All Cases' || task.category === selectedCategory;
-    const matchesDateFilter = !isFilterActive || (
-      task.dueDate >= dateFilter.startDate &&
-      task.dueDate <= dateFilter.endDate
+    return (
+      <div className="border-2 border-blue-400 rounded-lg p-4 mb-4">
+        <TaskRow task={task} isMainTask />
+        <div className="space-y-2 mt-3">
+          {task.linkedTasks?.map(linkedTask => (
+            <div key={linkedTask.id} className="ml-4">
+              <TaskRow task={linkedTask as GroupedTask} />
+            </div>
+          ))}
+        </div>
+      </div>
     );
-    return matchesSearch && matchesCategory && matchesDateFilter;
-  }).sort((a, b) => {
-    if (sortByPriority) {
-      return priorityOrder[b.priority as keyof typeof priorityOrder] - priorityOrder[a.priority as keyof typeof priorityOrder];
-    }
-    return 0;
-  });
+  };
 
-  if (status === 'loading') {
-    return <div className="flex justify-center items-center h-full">Yükleniyor...</div>;
+  const TaskRow: React.FC<{ task: GroupedTask; isMainTask?: boolean }> = ({ task, isMainTask }) => {
+    return (
+      <div 
+        className={`bg-white rounded-lg p-4 ${
+          isMainTask ? 'border-b-2 border-blue-200' : 'hover:bg-blue-50'
+        }`}
+      >
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">{task.title}</h3>
+            <p className="text-gray-600 mt-1">{task.description}</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              task.priority === 'high' ? 'bg-red-100 text-red-800' :
+              task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+              'bg-green-100 text-green-800'
+            }`}>
+              {task.priority}
+            </span>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              task.status === 'todo' ? 'bg-gray-100 text-gray-800' :
+              task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+              'bg-green-100 text-green-800'
+            }`}>
+              {task.status}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  if (status === 'loading' || isValidationLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-50">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          <p className="text-gray-600">Yükleniyor...</p>
+        </div>
+      </div>
+    );
   }
 
   if (status === 'failed') {
@@ -289,89 +352,175 @@ const Tasks: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategori</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Atanan Kişiler</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Son Düzenleme</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Son Düzenleme</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredTasks.map((task) => (
-                  <tr 
-                    key={task.id}
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => handleTaskClick(task)}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{task.title}</td>
-                    <td className="px-6 py-4 whitespace-normal text-sm text-gray-500 max-w-xs">{task.description}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        task.priority === 'high' ? 'bg-red-100 text-red-800' :
-                        task.priority === 'medium' ? 'bg-orange-100 text-orange-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {task.priority}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        task.status === 'todo' ? 'bg-blue-100 text-blue-800' :
-                        task.status === 'in-progress' ? 'bg-purple-100 text-purple-800' :
-                        task.status === 'overdue' ? 'bg-red-100 text-red-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {task.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{task.category}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-2">
-                        {task.assignedUsers && task.assignedUsers.length > 0 ? (
-                          <div className="flex -space-x-2">
-                            {task.assignedUsers.map((user, index) => (
-                              <div
-                                key={index}
-                                className="relative inline-flex items-center justify-center w-8 h-8 bg-indigo-500 rounded-full ring-2 ring-white"
-                                title={user.fullName}
-                              >
-                                <span className="text-xs font-medium text-white">
-                                  {user.fullName?.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 text-sm">Atanmamış</span>
+                  <React.Fragment key={task.id}>
+                    <tr 
+                      className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                        task.isLinked ? 'border-l-4 border-blue-400' : ''
+                      }`}
+                      onClick={() => handleTaskClick(task)}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{task.title}</td>
+                      <td className="px-6 py-4 whitespace-normal text-sm text-gray-500 max-w-xs">{task.description}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          task.priority === 'high' ? 'bg-red-100 text-red-800' :
+                          task.priority === 'medium' ? 'bg-orange-100 text-orange-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {task.priority}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          task.status === 'todo' ? 'bg-blue-100 text-blue-800' :
+                          task.status === 'in-progress' ? 'bg-purple-100 text-purple-800' :
+                          task.status === 'overdue' ? 'bg-red-100 text-red-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {task.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{task.category}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center space-x-2">
+                          {task.assignedUsers && task.assignedUsers.length > 0 ? (
+                            <div className="flex -space-x-2">
+                              {task.assignedUsers.map((user, index) => (
+                                <div
+                                  key={index}
+                                  className="relative inline-flex items-center justify-center w-8 h-8 bg-indigo-500 rounded-full ring-2 ring-white"
+                                  title={user.fullName}
+                                >
+                                  <span className="text-xs font-medium text-white">
+                                    {user.fullName?.charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-sm">Atanmamış</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(task.dueDate).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {task.teamId && taskOwnerStatus[task.id!] && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditClick(task);
+                              }}
+                              className="text-indigo-600 hover:text-indigo-900 mr-2"
+                            >
+                              <i className="fas fa-edit"></i>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteTask(task.id);
+                              }}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              <i className="fas fa-trash"></i>
+                            </button>
+                          </>
                         )}
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(task.dueDate).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {task.teamId && taskOwnerStatus[task.id!] && (
-                        <>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditClick(task);
-                            }}
-                            className="text-indigo-600 hover:text-indigo-900 mr-2"
-                          >
-                            <i className="fas fa-edit"></i>
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteTask(task.id);
-                            }}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <i className="fas fa-trash"></i>
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
+                      </td>
+                    </tr>
+                    {/* Bağlı görevleri render et */}
+                    {task.isLinked && task.linkedTasks?.map(linkedTask => (
+                      <tr 
+                        key={linkedTask.id}
+                        className="hover:bg-blue-50 cursor-pointer transition-colors bg-blue-50/30"
+                        onClick={() => handleTaskClick(linkedTask)}
+                      >
+                        <td className="px-6 py-4 pl-12 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <div className="flex items-center">
+                            <div className="w-6 border-l-2 border-b-2 border-blue-400 h-6 -ml-6"></div>
+                            {linkedTask.title}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-normal text-sm text-gray-500 max-w-xs">{linkedTask.description}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            linkedTask.priority === 'high' ? 'bg-red-100 text-red-800' :
+                            linkedTask.priority === 'medium' ? 'bg-orange-100 text-orange-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {linkedTask.priority}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            linkedTask.status === 'todo' ? 'bg-blue-100 text-blue-800' :
+                            linkedTask.status === 'in-progress' ? 'bg-purple-100 text-purple-800' :
+                            linkedTask.status === 'overdue' ? 'bg-red-100 text-red-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {linkedTask.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{linkedTask.category}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center space-x-2">
+                            {linkedTask.assignedUsers && linkedTask.assignedUsers.length > 0 ? (
+                              <div className="flex -space-x-2">
+                                {linkedTask.assignedUsers.map((user, index) => (
+                                  <div
+                                    key={index}
+                                    className="relative inline-flex items-center justify-center w-8 h-8 bg-indigo-500 rounded-full ring-2 ring-white"
+                                    title={user.fullName}
+                                  >
+                                    <span className="text-xs font-medium text-white">
+                                      {user.fullName?.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-sm">Atanmamış</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(linkedTask.dueDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {linkedTask.teamId && taskOwnerStatus[linkedTask.id!] && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditClick(linkedTask);
+                                }}
+                                className="text-indigo-600 hover:text-indigo-900 mr-2"
+                              >
+                                <i className="fas fa-edit"></i>
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteTask(linkedTask.id);
+                                }}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                <i className="fas fa-trash"></i>
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>

@@ -481,27 +481,49 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
           </div>
 
           {/* Bağımlı Görevler */}
-          {existingTasks.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Bağımlı Görevler
-              </label>
-              <div className="space-y-2">
-                {existingTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${formData.dependencies.includes(task.id || '')
-                      ? 'bg-indigo-50'
-                      : 'hover:bg-gray-50'
-                      }`}
-                    onClick={() => task.id && handleDependencyToggle(task.id)}
-                  >
-                    <span className="text-gray-900">{task.title}</span>
-                  </div>
-                ))}
+          {existingTasks
+            .filter(existingTask => {
+              // Tamamlanmış veya süresi geçmiş görevleri filtrele
+              if (existingTask.status === 'completed' || existingTask.status === 'overdue') {
+                return false;
+              }
+              // Düzenlenen görevin kendisini filtrele
+              if (task?.id === existingTask.id) {
+                return false;
+              }
+              return true;
+            })
+            .length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Bağımlı Görevler
+                </label>
+                <div className="space-y-2">
+                  {existingTasks
+                    .filter(existingTask => {
+                      if (existingTask.status === 'completed' || existingTask.status === 'overdue') {
+                        return false;
+                      }
+                      if (task?.id === existingTask.id) {
+                        return false;
+                      }
+                      return true;
+                    })
+                    .map((filteredTask) => (
+                      <div
+                        key={filteredTask.id}
+                        className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${formData.dependencies.includes(filteredTask.id || '')
+                          ? 'bg-indigo-50'
+                          : 'hover:bg-gray-50'
+                          }`}
+                        onClick={() => filteredTask.id && handleDependencyToggle(filteredTask.id)}
+                      >
+                        <span className="text-gray-900">{filteredTask.title}</span>
+                      </div>
+                    ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Dosya Yükleme */}
           <div>
