@@ -1,9 +1,9 @@
 using System;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
-using JobTrackingAPI.Enums;
+using NotificationAPI.Enums;
 
-namespace JobTrackingAPI.Models
+namespace NotificationAPI.Models
 {
     public class Notification
     {

@@ -170,7 +170,12 @@ builder.Services.AddSwaggerGen(c =>
     c.OperationFilter<FileUploadOperationFilter>();
 });
 
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options => {
+    options.MaximumReceiveMessageSize = 102400; // 100KB
+    options.EnableDetailedErrors = false;
+    options.MaximumParallelInvocationsPerClient = 2;
+    options.StreamBufferCapacity = 20;
+});
 
 var app = builder.Build();
 

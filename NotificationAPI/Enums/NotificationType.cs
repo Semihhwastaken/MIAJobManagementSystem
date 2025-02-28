@@ -1,4 +1,4 @@
-namespace JobTrackingAPI.Enums
+namespace NotificationAPI.Enums
 {
     public enum NotificationType
     {
