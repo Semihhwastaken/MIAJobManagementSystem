@@ -246,7 +246,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                                                     }
                                                     dispatch(downloadFile({
                                                         attachmentId: attachment.id,
-                                                        fileName: attachment.fileName
+                                                        fileName: attachment.fileName,
+                                                        taskId: task.id!
                                                     })).unwrap()
                                                     .catch(error => {
                                                         console.error('Error downloading file:', error);

@@ -16,22 +16,24 @@ interface TaskFormProps {
   task?: TaskType;
   selectedUser?: TeamMember;
   isDarkMode: boolean;
+  teamId?: string;
+  teamName?: string;
 }
 
-const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTasks = [], task, selectedUser, isDarkMode }) => {
+const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTasks = [], task, selectedUser, isDarkMode,teamId,teamName }) => {
   const [formData, setFormData] = useState({
     title: task?.title || '',
     description: task?.description || '',
-    dueDate: task?.dueDate || '',
+    dueDate: task?.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     priority: task?.priority || 'medium',
     status: task?.status || 'todo',
     category: task?.category || 'Bug',
-    teamId: null,
+    teamId: undefined as string | undefined,
     assignedUsers: task?.assignedUsers || [] as TeamMember[],
     subTasks: task?.subTasks || [] as SubTask[],
     dependencies: task?.dependencies || [] as string[],
     attachments: task?.attachments || [] as Attachment[],
-    completedDate: null,
+    completedDate: null as Date | null,
   });
 
   const [newSubTask, setNewSubTask] = useState('');
@@ -39,6 +41,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [users, setUsers] = useState<TeamMember[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(teamId || null);
+  const [selectedTeamName, setSelectedTeamName] = useState<string | null>(teamName || null);
 
   useEffect(() => {
     if (task) {
@@ -49,9 +53,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         priority: task.priority,
         status: task.status,
         category: task.category,
-        assignedUsers: task.assignedUsers,
+        assignedUsers: task.assignedUsers || [],
         subTasks: task.subTasks,
-        teamId: selectedTeam?.id || null,
+        teamId: task.teamId,  // Update teamId from task
         dependencies: task.dependencies,
         attachments: task.attachments,
         completedDate: task?.status === 'completed' ? new Date() : null,
@@ -65,19 +69,20 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         const myTeams = await teamService.getMyTeams();
         setTeams(myTeams);
 
-        if (selectedUser) {
-          const userTeam = myTeams.find(team =>
-            team.members?.some(member => member.id === selectedUser.id)
-          );
-          if (userTeam) {
-            setSelectedTeam(userTeam);
-            setFormData(prev => ({
-              ...prev,
-              assignedUsers: [selectedUser]
+        // Find team using task.teamId if task exists, or teamId from props
+        const selectedTaskTeamId = task?.teamId || teamId;
+        const userTeam = selectedTaskTeamId ? myTeams.find(team => team.id === selectedTaskTeamId) : null;
+
+        if (userTeam) {
+          setSelectedTeam(userTeam);
+          setSelectedTeamId(userTeam.id);
+          setSelectedTeamName(userTeam.name);
+          if (selectedUser) {
+            setFormData(prevState => ({
+              ...prevState,
+              assignedUsers: selectedUser ? [selectedUser] : []
             }));
           }
-        } else if (myTeams.length > 0) {
-          setSelectedTeam(myTeams[0]);
         }
       } catch (error) {
         console.error('Error fetching teams:', error);
@@ -85,11 +90,11 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     };
 
     fetchTeams();
-  }, [selectedUser]);
+  }, [task, teamId, selectedUser]);
 
   useEffect(() => {
     const fetchTeamMembers = async () => {
-      if (selectedTeam) {
+      if (selectedTeam && selectedTeam.id) {
         try {
           const members = await teamService.getTeamMembers(selectedTeam.id);
           setUsers(members);
@@ -107,42 +112,49 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     e.preventDefault();
     const now = new Date().toISOString();
     
-    // Set the due date time to 23:59
+    if (!formData.dueDate) {
+        console.error('Due date is required');
+        return;
+    }
+
     const dueDate = new Date(formData.dueDate);
-    dueDate.setHours(23, 59, 59, 59);
+    dueDate.setHours(23, 59, 59, 999);
+    const localOffset = dueDate.getTimezoneOffset() * 60000;
+    const dueDateUTC = new Date(dueDate.getTime() - localOffset);
 
     try {
-      let newAttachment = null;
-      if (selectedFile && task?.id) {
-        try {
-          const result = await dispatch(fileUpload({ taskId: task.id, file: selectedFile })).unwrap();
-          newAttachment = result.attachment;
-        } catch (error) {
-          console.error('Error uploading file:', error);
-          enqueueSnackbar('Dosya yüklenirken bir hata oluştu', { variant: 'error' });
-          return;
+        let newAttachment = null;
+        if (selectedFile && task?.id) {
+            try {
+                const result = await dispatch(fileUpload({ taskId: task.id, file: selectedFile })).unwrap();
+                newAttachment = result.attachment;
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                enqueueSnackbar('Dosya yüklenirken bir hata oluştu', { variant: 'error' });
+                return;
+            }
         }
-      }
 
-      const updatedFormData = {
-        ...formData,
-        teamId: selectedTeam?.id || null,
-        createdAt: now,
-        updatedAt: now,
-        dueDate: dueDate.toISOString(),
-        status: formData.status === 'in-progress' ? 'in-progress' : formData.status,
-        attachments: newAttachment
-          ? [...formData.attachments, newAttachment]
-          : formData.attachments
-      };
+        // Ensure teamId is included in the form data
+        const updatedFormData = {
+            ...formData,
+            teamId: selectedTeamId || task?.teamId || teamId, // Use selected team or task team or prop team
+            createdAt: now,
+            updatedAt: now,
+            dueDate: dueDateUTC.toISOString(),
+            status: formData.status === 'in-progress' ? 'in-progress' : formData.status,
+            attachments: newAttachment
+                ? [...formData.attachments, newAttachment]
+                : formData.attachments
+        };
 
-      onSave(updatedFormData);
-      onClose();
+        onSave(updatedFormData);
+        onClose();
     } catch (error) {
-      console.error('Error submitting form:', error);
-      enqueueSnackbar('Form gönderilirken bir hata oluştu', { variant: 'error' });
+        console.error('Error submitting form:', error);
+        enqueueSnackbar('Form gönderilirken bir hata oluştu', { variant: 'error' });
     }
-  };
+};
 
   const handleAddSubTask = () => {
     if (newSubTask.trim()) {
@@ -260,7 +272,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
               <input
                 type="date"
                 required
-                value={formData.dueDate || new Date().toISOString().split('T')[0]}
+                value={formData.dueDate}
                 min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"

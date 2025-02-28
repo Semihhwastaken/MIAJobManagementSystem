@@ -39,6 +39,7 @@ export interface Task {
     attachments: Attachment[];
     createdAt: string;
     updatedAt: string;
+    completedDate?: Date | null;
 }
 
 export type NewTask = Omit<Task, 'id' | 'createdAt' | 'updatedAt'>;

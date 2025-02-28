@@ -15,7 +15,7 @@ export interface Task {
     subTasks: { id?: string; title: string; completed: boolean }[];
     dependencies: string[];
     attachments: { fileName: string; fileUrl: string; fileType: string; uploadDate: string }[];
-    teamId: any;
+    teamId?: string;
     createdAt: string;
     updatedAt: string;
     completedDate: Date;
@@ -128,43 +128,149 @@ export const updateTaskStatus = createAsyncThunk(
 export const fileUpload = createAsyncThunk(
     'tasks/fileUpload',
     async ({ taskId, file }: { taskId: string; file: File }, { dispatch, rejectWithValue }) => {
-        try {
-            const formData = new FormData();
-            formData.append('file', file);
-            const response = await axiosInstance.post(`/Tasks/${taskId}/file`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
-            dispatch(fetchMemberActiveTasks());
-            return response.data;
-        } catch (error: any) {
-            return rejectWithValue(error.response?.data?.message || 'Failed to upload file');
+      try {
+        const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'docx'];
+        const maxFileSize = 5 * 1024 * 1024; // 5 MB
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+  
+        if (file.size > maxFileSize) {
+            throw new Error('Dosya boyutu izin verilen limitin üzerinde.');
         }
+    
+        if (!allowedExtensions.includes(fileExtension)) {
+            throw new Error('Bu dosya uzantısına izin verilmiyor.');
+        }
+        // 1. Dosya içeriğini ArrayBuffer'a dönüştürün.
+        const arrayBuffer = await file.arrayBuffer();
+  
+        // 2. AES-GCM algoritması ile simetrik anahtar oluşturun.
+        const key = await window.crypto.subtle.generateKey(
+          {
+            name: 'AES-GCM',
+            length: 256, // 256-bit güvenlik seviyesi
+          },
+          true, // anahtar dışa aktarılabilir
+          ['encrypt', 'decrypt']
+        );
+  
+        // 3. Şifreleme için 12 byte uzunluğunda random bir initialization vector (iv) oluşturun.
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  
+        // 4. Dosya içeriğini şifreleyin.
+        const encryptedContent = await window.crypto.subtle.encrypt(
+          { name: 'AES-GCM', iv },
+          key,
+          arrayBuffer
+        );
+  
+        // 5. Şifreli veriyi ve iv'yi birleştirerek tek bir Blob oluşturun.
+        // iv, deşifreleme sırasında ihtiyaç duyulacağından şifreli veriye eklenir.
+        const encryptedBlob = new Blob(
+          [new Uint8Array(iv.buffer), new Uint8Array(encryptedContent)],
+          { type: file.type }
+        );
+  
+        // 6. FormData'ya şifrelenmiş dosya ekleyin. (Dosya ismine .enc ekleyebilirsiniz.)
+        const formData = new FormData();
+        formData.append('file', encryptedBlob, file.name + ".enc");
+  
+        // 7. (Opsiyonel) Anahtarı dışa aktarın ve güvenli bir yerde saklayın.
+        // Bu örnekte, JWK formatında anahtarı localStorage'a kaydediyoruz.
+        const exportedKey = await window.crypto.subtle.exportKey('jwk', key);
+        localStorage.setItem(`encryptionKey_${taskId}`, JSON.stringify(exportedKey));
+  
+        // 8. Şifrelenmiş dosyayı backend'e gönderin.
+        const response = await axiosInstance.post(`/Tasks/${taskId}/file`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+  
+        dispatch(fetchMemberActiveTasks());
+        return response.data;
+      } catch (error: any) {
+        return rejectWithValue(error.response?.data?.message || 'Failed to upload file');
+      }
     }
-);
+  );
+  
 
-export const downloadFile = createAsyncThunk(
+  export const downloadFile = createAsyncThunk(
     'tasks/downloadFile',
-    async ({ attachmentId, fileName }: { attachmentId: string; fileName: string }, { rejectWithValue }) => {
-        try {
-            const response = await axiosInstance.get(`/Tasks/download/${attachmentId}/${fileName}`, {
-                responseType: 'blob'
-            });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', fileName);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-            return { success: true };
-        } catch (error: any) {
-            return rejectWithValue(error.response?.data?.message || 'Dosya indirilirken bir hata oluştu');
+    async (
+      { taskId, attachmentId, fileName }: { taskId: string; attachmentId: string; fileName: string },
+      { rejectWithValue }
+    ) => {
+      try {
+        // 1. Şifrelenmiş dosyayı blob olarak indiriyoruz.
+        const response = await axiosInstance.get(
+          `/Tasks/download/${attachmentId}/${fileName}`,
+          { responseType: 'blob' }
+        );
+        console.log('İndirilen blob:', response.data);
+  
+        // 2. Blob'u ArrayBuffer'a dönüştürüyoruz.
+        const blobArrayBuffer = await response.data.arrayBuffer();
+        console.log('Blob ArrayBuffer uzunluğu:', blobArrayBuffer.byteLength);
+  
+        // Kontrol: Dosya boyutunun IV (12 byte) ve şifreli veriyi kapsadığından emin olun.
+        if (blobArrayBuffer.byteLength <= 12) {
+          throw new Error('İndirilen dosya boyutu beklenenden küçük.');
         }
+  
+        // 3. İlk 12 byte'ı IV olarak alıyoruz.
+        const iv = new Uint8Array(blobArrayBuffer.slice(0, 12));
+        console.log('IV:', iv);
+  
+        // 4. Geri kalan kısmı şifreli içerik olarak alıyoruz.
+        const encryptedContent = blobArrayBuffer.slice(12);
+        console.log('Şifreli içerik uzunluğu:', encryptedContent.byteLength);
+  
+        // 5. Daha önce upload sırasında localStorage'a kaydedilen JWK formatındaki anahtarı alıyoruz.
+        const storedKey = localStorage.getItem(`encryptionKey_${taskId}`);
+        if (!storedKey) {
+          throw new Error('Bu task için şifreleme anahtarı bulunamadı.');
+        }
+        const jwkKey = JSON.parse(storedKey);
+        console.log('Import edilecek anahtar:', jwkKey);
+  
+        // 6. AES-GCM için anahtarı import ediyoruz.
+        const key = await window.crypto.subtle.importKey(
+          "jwk",
+          jwkKey,
+          { name: "AES-GCM" },
+          true,
+          ["decrypt"]
+        );
+  
+        // 7. Şifrelenmiş veriyi deşifre ediyoruz.
+        const decryptedBuffer = await window.crypto.subtle.decrypt(
+          { name: "AES-GCM", iv },
+          key,
+          encryptedContent
+        );
+        console.log('Deşifre edilmiş buffer uzunluğu:', decryptedBuffer.byteLength);
+  
+        // 8. Deşifre edilmiş veriden yeni bir Blob oluşturup indirme linki oluşturuyoruz.
+        const decryptedBlob = new Blob([new Uint8Array(decryptedBuffer)], { type: response.data.type });
+        const url = window.URL.createObjectURL(decryptedBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', fileName.replace(/\.enc$/, ''));
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        
+        return { success: true };
+      } catch (error: any) {
+        console.error('Download error detail:', error);
+        return rejectWithValue(error.response?.data?.message || 'Dosya indirilirken bir hata oluştu');
+      }
     }
-);
+  );
+  
+  
 export const completeTask = createAsyncThunk(
     'tasks/completeTask',
     async (taskId: string, { dispatch, rejectWithValue }) => {

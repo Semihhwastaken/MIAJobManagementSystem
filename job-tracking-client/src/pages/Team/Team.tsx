@@ -273,11 +273,15 @@ const Team: React.FC = () => {
         setShowExpertiesModal(true);
     };
 
-    const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string) => {
-        setSelectedMemberForTask(member);
-        setSelectedTeamForTask({ id: teamId, name: teamName });
-        setShowTaskForm(true);
-    };
+const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string) => {
+    setSelectedMemberForTask(member);
+    // Pass team info including id and name to TaskForm component
+    setSelectedTeamForTask({
+        id: teamId,
+        name: teamName
+    });
+    setShowTaskForm(true);
+};
 
     const handleCreateTask = async (taskData: Omit<Task, 'id'>) => {
         try {
@@ -804,7 +808,8 @@ const Team: React.FC = () => {
                     onClose={() => setShowTaskForm(false)}
                     onSave={handleCreateTask}
                     selectedUser={selectedMemberForTask}
-                    selectedTeam={selectedTeamForTask}
+                    teamId={selectedTeamForTask?.id}
+                    teamName={selectedTeamForTask?.name}
                     isDarkMode={isDarkMode}
                 />
             )}

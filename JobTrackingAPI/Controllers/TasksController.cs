@@ -241,7 +241,7 @@ namespace JobTrackingAPI.Controllers
                 if (file.Length > 1024 * 1024 * 10) // 10MB limit
                     return BadRequest("File size exceeds the limit (10MB).");
 
-                var allowedExtensions = new[] {".jpg", ".png", ".jpeg", ".pdf", ".zip", ".docx", ".doc", ".rar", ".txt", ".xlsx", ".xls"};
+                var allowedExtensions = new[] {".jpg", ".png", ".jpeg", ".pdf", ".zip", ".docx", ".doc", ".rar", ".txt", ".xlsx", ".xls",".enc"};
                 var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
                 
                 if (!allowedExtensions.Contains(fileExtension))

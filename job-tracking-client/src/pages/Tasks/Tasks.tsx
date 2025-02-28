@@ -22,7 +22,6 @@ const Tasks: React.FC = () => {
       for (const task of tasks) {
         if (task.teamId) {
           if(task.status !== "completed" && task.status !== "overdue" ){
-            console.log(task.title)
             const teamMembersResult = await dispatch(getTeamMembersByTeamId(task.teamId));
             for (const teamMember of teamMembersResult.payload) {
               //console.log(task.title,teamMember.role,teamMember.id)
@@ -120,7 +119,10 @@ const Tasks: React.FC = () => {
 
   const handleEditClick = (task: Task) => {
     if (task.id) {
-      setSelectedTask(task);
+      setSelectedTask({
+        ...task,
+        teamId: task.teamId // Ensure teamId is included
+      });
       setIsEditModalOpen(true);
     }
   };
@@ -346,7 +348,6 @@ const Tasks: React.FC = () => {
                       {new Date(task.dueDate).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span>{taskOwnerStatus[task.id]}</span>
                       {task.teamId && taskOwnerStatus[task.id!] && (
                         <>
                           <button
@@ -356,7 +357,6 @@ const Tasks: React.FC = () => {
                             }}
                             className="text-indigo-600 hover:text-indigo-900 mr-2"
                           >
-                            
                             <i className="fas fa-edit"></i>
                           </button>
                           <button
@@ -382,6 +382,7 @@ const Tasks: React.FC = () => {
       {/* Task Form Modal */}
       <TaskForm
         isOpen={isNewTaskModalOpen}
+        isDarkMode={false}
         onClose={() => setIsNewTaskModalOpen(false)}
         onSave={handleCreateTask}
         existingTasks={tasks}
@@ -393,7 +394,7 @@ const Tasks: React.FC = () => {
         onClose={() => setIsEditModalOpen(false)}
         onSave={handleUpdateTask}
         existingTasks={tasks}
-        task={selectedTask || undefined}
+        task={selectedTask || null}
       />
 
       {/* Task Detail Modal */}
