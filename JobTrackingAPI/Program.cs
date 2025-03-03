@@ -113,25 +113,23 @@ builder.Services.AddScoped<EmailService>(sp =>
 });
 
 // Add services to the container
-builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("MongoDbSettings"));
-builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
-builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
-builder.Services.AddScoped<ITasksService, TasksService>();
-
-// HttpClient for NotificationService
-builder.Services.AddHttpClient<NotificationService>();
-
-// TeamService'i scoped olarak değiştir
-builder.Services.AddScoped<AuthService>();
-builder.Services.AddScoped<IMessageService, MessageService>();
-builder.Services.AddScoped<IConnectionService,ConnectionService>();
-builder.Services.AddScoped<CalendarEventService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<ITeamService, TeamService>();
+builder.Services.AddScoped<TeamService>();
+builder.Services.AddScoped<ITasksService, TasksService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
+builder.Services.AddScoped<IConnectionService, ConnectionService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<CalendarEventService>();
+
+// Register background services
+builder.Services.AddHostedService<StatusUpdateBackgroundService>();
 builder.Services.AddHostedService<OverdueTasksService>();
 
-builder.Services.AddScoped<ITasksService, TasksService>();
-builder.Services.AddScoped<ITeamService, TeamService>();
-builder.Services.AddScoped<INotificationService, NotificationService>();
+// Add HttpClient for NotificationService
+builder.Services.AddHttpClient<NotificationService>();
 
 builder.Services.AddControllers();
 

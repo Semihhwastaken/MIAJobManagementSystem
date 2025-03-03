@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
-using JobTrackingAPI.Models;
-using JobTrackingAPI.Services;
 using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
-using JobTrackingAPI.Models.Requests;
+using JobTrackingAPI.Models;
+using JobTrackingAPI.Models.Requests;  // Tek bir using ifadesi bırakıyoruz
+using JobTrackingAPI.Services;
 using MongoDB.Driver;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Security.Claims;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -16,7 +18,6 @@ namespace JobTrackingAPI.Controllers
         private readonly TeamService _teamService;
         private readonly UserService _userService;
         private readonly IMongoDatabase _database;
-        private readonly NotificationService _notificationService;
 
         [HttpGet("members/{userId}/performance")]
         public async Task<IActionResult> GetMemberPerformance(string userId)
@@ -60,13 +61,11 @@ namespace JobTrackingAPI.Controllers
             }
         }
 
-        public TeamController(TeamService teamService, UserService userService, IMongoDatabase database,NotificationService notificationService)
+        public TeamController(TeamService teamService, UserService userService, IMongoDatabase database)
         {
             _teamService = teamService;
             _userService = userService;
             _database = database;
-            _notificationService = notificationService;
-
         }
 
         /// <summary>
@@ -501,10 +500,15 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
-                var result = await _teamService.AddExpertiesAsync(memberId, request.Experties);
-                if (result != null)
+                Team updatedTeam = null;
+                foreach (var expertise in request.Experties)
                 {
-                    return Ok(result);
+                    updatedTeam = await _teamService.AddExpertiesAsync(memberId, expertise);
+                }
+                
+                if (updatedTeam != null)
+                {
+                    return Ok(updatedTeam);
                 }
                 return BadRequest("Yetenek eklenirken bir hata oluştu");
             }
