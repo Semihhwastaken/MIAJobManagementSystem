@@ -24,13 +24,14 @@ public class TeamService : ITeamService
     private readonly IOptions<MongoDbSettings> _settings;
     private readonly IMongoCollection<TaskItem> _tasks;
     private readonly IMongoCollection<PerformanceScore> _performanceScores;
-    private readonly IHubContext<NotificationHub> _notificationHubContext;
+   
+    private readonly INotificationService _notificationService;
 
     public TeamService(
         IOptions<MongoDbSettings> settings, 
         IUserService userService,
         IMongoDatabase database,
-        IHubContext<NotificationHub> notificationHubContext) // Constructor güncellendi
+        INotificationService notificationService)
     {
         var client = new MongoClient(settings.Value.ConnectionString);
         var db = client.GetDatabase(settings.Value.DatabaseName);
@@ -39,7 +40,7 @@ public class TeamService : ITeamService
         _performanceScores = db.GetCollection<PerformanceScore>("PerformanceScores");
         _userService = userService;
         _settings = settings;
-        _notificationHubContext = notificationHubContext;
+        _notificationService = notificationService;
     }
 
     /// <summary>

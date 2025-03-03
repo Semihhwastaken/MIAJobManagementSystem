@@ -14,6 +14,7 @@ interface GroupedTask extends Task {
   isLinked?: boolean;
   linkedTasks?: Task[];
 }
+import { useTheme } from '../../context/ThemeContext';
 
 const Tasks: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -21,6 +22,8 @@ const Tasks: React.FC = () => {
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const [taskOwnerStatus, setTaskOwnerStatus] = useState<{[key: string]: boolean}>({});
   const [isValidationLoading, setIsValidationLoading] = useState(true);
+  const { isDarkMode } = useTheme();
+
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Cases');
@@ -310,26 +313,30 @@ const Tasks: React.FC = () => {
   }
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
-            <p className="text-gray-600">Track and manage your tasks efficiently</p>
+            <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>My Tasks</h1>
+            <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Track and manage your tasks efficiently</p>
           </div>
         </div>
 
         {/* Task Management Tools */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+        <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-sm p-6 mb-8`}>
           <div className="flex items-center justify-between mb-6">
             {/* Search Input */}
             <div className="relative flex-1 max-w-md">
               <input
                 type="text"
                 placeholder="Search tasks..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
+                className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                  isDarkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                    : 'border-gray-300 text-gray-900'
+                }`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -390,9 +397,11 @@ const Tasks: React.FC = () => {
           </div>
 
           {/* Task List */}
-          <div className="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+          <div className={`overflow-x-auto rounded-lg shadow-sm border ${
+            isDarkMode ? 'border-gray-700' : 'border-gray-200'
+          }`}>
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanımlama</th>
@@ -404,7 +413,9 @@ const Tasks: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} divide-y ${
+                isDarkMode ? 'divide-gray-700' : 'divide-gray-200'
+              }`}>
                 {filteredTasks.map((task) => (
                   <React.Fragment key={task.id}>
                     <tr 

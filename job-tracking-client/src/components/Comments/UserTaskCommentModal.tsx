@@ -27,6 +27,7 @@ const UserTaskCommentModal: React.FC<UserTaskCommentModalProps> = ({ isOpen, onC
             // Only fetch tasks if we have a userId
             fetchUserTasks();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, userId]);
 
     const fetchUserTasks = async () => {

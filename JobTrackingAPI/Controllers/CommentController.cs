@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using MongoDB.Driver;
 using JobTrackingAPI.Models;
-using JobTrackingAPI.Enums;
-using System.Text.RegularExpressions;
-using System.Linq;
-using System.Security.Claims;
+using JobTrackingAPI.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.SignalR;
-using JobTrackingAPI.Hubs; // Add this line
+using System.Security.Claims;
+using JobTrackingAPI.DTOs;
+using MongoDB.Driver;
+using JobTrackingAPI.Enums;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -16,18 +14,20 @@ namespace JobTrackingAPI.Controllers
     public class CommentController : ControllerBase
     {
         private readonly IMongoCollection<Comment> _comments;
-        private readonly IMongoCollection<Notification> _notifications;
+        private readonly IMongoCollection<NotificationDto> _notifications;
         private readonly IMongoCollection<User> _users;
         private readonly IMongoCollection<TaskItem> _tasksCollection;
-        private readonly IHubContext<NotificationHub> _hubContext;
+        private readonly INotificationService _notificationService;
 
-        public CommentController(IMongoDatabase database, IHubContext<NotificationHub> hubContext)
+        public CommentController(
+            IMongoDatabase database, 
+            INotificationService notificationService)
         {
             _comments = database.GetCollection<Comment>("Comments");
-            _notifications = database.GetCollection<Notification>("Notifications");
+            _notifications = database.GetCollection<NotificationDto>("Notifications");
             _users = database.GetCollection<User>("Users");
             _tasksCollection = database.GetCollection<TaskItem>("Tasks");
-            _hubContext = hubContext;
+            _notificationService = notificationService;
         }
 
         // TaskId'ye göre yorumları getirir
@@ -45,7 +45,7 @@ namespace JobTrackingAPI.Controllers
         public async Task<ActionResult<Comment>> CreateComment([FromBody] Comment comment)
         {
             // @ ile başlayan kullanıcı adlarını Regex ile tespit et
-            var mentions = Regex.Matches(comment.Content, @"@(\w+)")
+            var mentions = System.Text.RegularExpressions.Regex.Matches(comment.Content, @"@(\w+)")
                                 .Select(m => m.Groups[1].Value)
                                 .ToList();
 
@@ -58,14 +58,17 @@ namespace JobTrackingAPI.Controllers
             // Bildirim gönderimi
             foreach (var user in mentionedUsers)
             {
-                var notification = new Notification(
-                    userId: user.Id,
-                    title: "Yeni Mention",
-                    message: $"Bir yorumda {comment.UserId} tarafından etiketlendiniz.",
-                    type: NotificationType.Mention,
-                    relatedJobId: comment.TaskId
-                );
-                await _notifications.InsertOneAsync(notification);
+                var notification = new NotificationDto
+                {
+                    UserId = user.Id,
+                    Title = "Yeni Mention",
+                    Message = $"Bir yorumda {comment.UserId} tarafından etiketlendiniz.",
+                    Type = NotificationType.Comment,
+                    RelatedJobId = comment.TaskId
+                };
+                
+                // Notification API'ye bildirim gönder
+                await _notificationService.SendNotificationAsync(notification);
             }
             return CreatedAtAction(nameof(GetCommentsByTask), new { taskId = comment.TaskId }, comment);
         }
@@ -114,17 +117,17 @@ namespace JobTrackingAPI.Controllers
             await _comments.InsertOneAsync(comment);
 
             // Kullanıcı için bildirim oluştur
-            var notification = new Notification(
-                userId: userId,
-                title: "Yeni Yorum",
-                message: "Görevinizle ilgili yeni yorum eklendi.",
-                type: NotificationType.Comment,
-                relatedJobId: request.TaskId
-            );
-            await _notifications.InsertOneAsync(notification);
-
-            // Bildirimi SignalR üzerinden gönder
-            await _hubContext.Clients.User(userId).SendAsync("ReceiveNotification", notification);
+            var notification = new NotificationDto
+            {
+                UserId = userId,
+                Title = "Yeni Yorum",
+                Message = "Görevinizle ilgili yeni yorum eklendi.",
+                Type = NotificationType.Comment,
+                RelatedJobId = request.TaskId
+            };
+            
+            // Notification API'ye bildirim gönder
+            await _notificationService.SendNotificationAsync(notification);
 
             return Ok(comment);
         }

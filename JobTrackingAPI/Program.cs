@@ -27,7 +27,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins("http://localhost:5173")
+            policy.SetIsOriginAllowed(_ => true)
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
@@ -68,7 +68,7 @@ builder.Services.AddAuthentication(options =>
             var path = context.HttpContext.Request.Path;
             
             if (!string.IsNullOrEmpty(accessToken) && 
-                (path.StartsWithSegments("/chatHub") || path.StartsWithSegments("/notificationHub")))
+                path.StartsWithSegments("/chatHub"))
             {
                 context.Token = accessToken;
             }
@@ -118,18 +118,20 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSet
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<ITasksService, TasksService>();
 
+// HttpClient for NotificationService
+builder.Services.AddHttpClient<NotificationService>();
+
 // TeamService'i scoped olarak değiştir
-builder.Services.AddScoped<TeamService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IConnectionService,ConnectionService>();
 builder.Services.AddScoped<CalendarEventService>();
-builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddHostedService<OverdueTasksService>();
 
 builder.Services.AddScoped<ITasksService, TasksService>();
 builder.Services.AddScoped<ITeamService, TeamService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 builder.Services.AddControllers();
 
@@ -184,7 +186,12 @@ builder.Services.Configure<FormOptions>(options =>
     options.MultipartBodyLengthLimit = 100_000_000; // 100 MB
 });
 
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options => {
+    options.MaximumReceiveMessageSize = 102400; // 100KB
+    options.EnableDetailedErrors = false;
+    options.MaximumParallelInvocationsPerClient = 2;
+    options.StreamBufferCapacity = 20;
+});
 
 var app = builder.Build();
 

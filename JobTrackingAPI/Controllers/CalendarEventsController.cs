@@ -8,7 +8,7 @@ using JobTrackingAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-
+using JobTrackingAPI.Enums;
 namespace JobTrackingAPI.Controllers
 {
     [Authorize]
@@ -18,13 +18,19 @@ namespace JobTrackingAPI.Controllers
     {
         private readonly CalendarEventService _calendarEventService;
         private readonly ILogger<CalendarEventsController> _logger;
+        private readonly UserService _userService;
+        private readonly INotificationService _notificationService;
 
         public CalendarEventsController(
             CalendarEventService calendarEventService,
-            ILogger<CalendarEventsController> logger)
+            ILogger<CalendarEventsController> logger,
+            UserService userService,
+            INotificationService notificationService)
         {
             _calendarEventService = calendarEventService;
             _logger = logger;
+            _userService = userService;
+            _notificationService = notificationService;
         }
 
         /// <summary>
@@ -165,6 +171,27 @@ namespace JobTrackingAPI.Controllers
                 var createdEvent = await _calendarEventService.CreateEventAsync(calendarEvent);
                 _logger.LogInformation("Event created successfully: {@CreatedEvent}", createdEvent);
 
+                // Send notifications to all participants
+                foreach (var participantEmail in calendarEvent.Participants)
+                {
+                    var user = await _userService.GetUserByEmail(participantEmail);
+                    if (user != null)
+                    {
+                        _logger.LogInformation("Sending notification to user: {@UserId} for email: {@Email}", user.Id, participantEmail);
+                        await _notificationService.SendNotificationAsync(
+                            userId: user.Id,
+                            title: "Yeni Takvim Planı",
+                            message: $"{calendarEvent.Title}a davet edildiniz.",
+                            notificationType: NotificationType.CalendarEventCreated,
+                            relatedJobId: createdEvent.Id
+                        );
+                    }
+                    else
+                    {
+                        _logger.LogWarning("User not found for email: {@Email}", participantEmail);
+                    }
+                }
+
                 return CreatedAtAction(nameof(GetEvent), new { id = createdEvent.Id }, createdEvent);
             }
             catch (Exception ex)
@@ -223,6 +250,28 @@ namespace JobTrackingAPI.Controllers
                 calendarEvent.CreatedAt = existingEvent.CreatedAt;
 
                 var updatedEvent = await _calendarEventService.UpdateEventAsync(id, calendarEvent);
+
+                // Send notifications to all participants
+                foreach (var participantEmail in calendarEvent.Participants)
+                {
+                    var user = await _userService.GetUserByEmail(participantEmail);
+                    if (user != null)
+                    {
+                        _logger.LogInformation("Sending update notification to user: {@UserId} for email: {@Email}", user.Id, participantEmail);
+                        await _notificationService.SendNotificationAsync(
+                            userId: user.Id,
+                            title: "Takvim Planı Değişikliği.",
+                            message: $"{calendarEvent.Title} planı güncellendi.",
+                            notificationType: NotificationType.CalendarEventUpdated,
+                            relatedJobId: id
+                        );
+                    }
+                    else
+                    {
+                        _logger.LogWarning("User not found for email: {@Email}", participantEmail);
+                    }
+                }
+
                 return Ok(updatedEvent);
             }
             catch (Exception ex)
@@ -251,6 +300,27 @@ namespace JobTrackingAPI.Controllers
                 if (string.IsNullOrEmpty(userId) || existingEvent.CreatedBy != userId)
                 {
                     return Forbid();
+                }
+
+                // Send notifications to all participants before deleting
+                foreach (var participantEmail in existingEvent.Participants)
+                {
+                    var user = await _userService.GetUserByEmail(participantEmail);
+                    if (user != null)
+                    {
+                        _logger.LogInformation("Sending deletion notification to user: {@UserId} for email: {@Email}", user.Id, participantEmail);
+                        await _notificationService.SendNotificationAsync(
+                            userId: user.Id,
+                            title: "Takvim Planı İptal",
+                            message: $"{existingEvent.Title} planı iptal edildi.",
+                            notificationType: NotificationType.CalendarEventDeleted,
+                            relatedJobId: id
+                        );
+                    }
+                    else
+                    {
+                        _logger.LogWarning("User not found for email: {@Email}", participantEmail);
+                    }
                 }
 
                 await _calendarEventService.DeleteEventAsync(id);

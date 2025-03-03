@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { TeamState, TeamMember, Team } from '../../types/team';
 import axiosInstance from '../../services/axiosInstance';
@@ -350,17 +351,21 @@ const teamSlice = createSlice({
                 state.loading = false;
                 state.error = action.payload as string;
             })
-            .addCase(generateTeamInviteLink.fulfilled, (state, action) => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            .addCase(generateTeamInviteLink.fulfilled, (_state, _action) => {
                 // İsteğe bağlı olarak state'i güncelleyebilirsiniz
             })
-            .addCase(joinTeamWithInviteLink.fulfilled, (state, action) => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            .addCase(joinTeamWithInviteLink.fulfilled, (_state, _action) => {
                 // Takıma katılma başarılı olduğunda teams listesini güncelle
                 fetchTeams();
             })
-            .addCase(getTeamInviteLink.fulfilled, (state, action) => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            .addCase(getTeamInviteLink.fulfilled, (_state, _action) => {
                 // İsteğe bağlı olarak state'i güncelleyebilirsiniz
             })
-            .addCase(setTeamInviteLink.fulfilled, (state, action) => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            .addCase(setTeamInviteLink.fulfilled, (_state, _action) => {
                 // İsteğe bağlı olarak state'i güncelleyebilirsiniz
             })
             .addCase(fetchTeams.pending, (state) => {

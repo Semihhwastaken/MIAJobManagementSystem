@@ -1,12 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 using JobTrackingAPI.Models;
-using JobTrackingAPI.Models.Requests;  // Tek bir using ifadesi bırakıyoruz
 using JobTrackingAPI.Services;
-using MongoDB.Driver;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using JobTrackingAPI.Models.Requests;
+using MongoDB.Driver;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -18,6 +16,7 @@ namespace JobTrackingAPI.Controllers
         private readonly TeamService _teamService;
         private readonly UserService _userService;
         private readonly IMongoDatabase _database;
+        private readonly NotificationService _notificationService;
 
         [HttpGet("members/{userId}/performance")]
         public async Task<IActionResult> GetMemberPerformance(string userId)
@@ -61,11 +60,13 @@ namespace JobTrackingAPI.Controllers
             }
         }
 
-        public TeamController(TeamService teamService, UserService userService, IMongoDatabase database)
+        public TeamController(TeamService teamService, UserService userService, IMongoDatabase database,NotificationService notificationService)
         {
             _teamService = teamService;
             _userService = userService;
             _database = database;
+            _notificationService = notificationService;
+
         }
 
         /// <summary>

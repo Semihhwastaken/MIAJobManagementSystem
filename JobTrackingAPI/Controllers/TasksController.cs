@@ -10,6 +10,8 @@ using Microsoft.Extensions.Logging;
 using JobTrackingAPI.Services;
 using JobTrackingAPI.Hubs;
 using Microsoft.AspNetCore.SignalR;
+using JobTrackingAPI.DTOs;
+using JobTrackingAPI.Enums;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -19,16 +21,21 @@ namespace JobTrackingAPI.Controllers
     public class TasksController : ControllerBase
     {
         private readonly ITasksService _tasksService;
-        private readonly IHubContext<NotificationHub> _notificationHub;
+        private readonly NotificationService _notificationService;
         private readonly ITeamService _teamsService;
+        private readonly IMongoCollection<User> _usersCollection;
     
         public TasksController(
             ITasksService tasksService,
-            IHubContext<NotificationHub> notificationHub,
+            IMongoClient mongoClient, 
+            IOptions<MongoDbSettings> settings,
+            NotificationService notificationService,
             ITeamService teamsService)
         {
+            var database = mongoClient.GetDatabase(settings.Value.DatabaseName);
             _tasksService = tasksService;
-            _notificationHub = notificationHub;
+            _notificationService = notificationService;
+            _usersCollection = database.GetCollection<User>("Users");
             _teamsService = teamsService;
         }
     
@@ -50,6 +57,47 @@ namespace JobTrackingAPI.Controllers
                 task.SubTasks ??= new List<SubTask>();
 
                 // Set initial status and dates
+                
+                // Atanan kullanıcıları doğrula ve bilgilerini güncelle
+                if (task.AssignedUsers != null && task.AssignedUsers.Any())
+                {
+                    var updatedAssignedUsers = new List<AssignedUser>();
+                    foreach (var assignedUser in task.AssignedUsers)
+                    {
+                        if (string.IsNullOrEmpty(assignedUser.Id))
+                        {
+                            return BadRequest($"Atanan kullanıcı ID'si boş olamaz.");
+                        }
+                        var user = await _usersCollection.Find(u => u.Id == assignedUser.Id).FirstOrDefaultAsync();
+                        if (user == null)
+                        {
+                            return BadRequest($"ID'si {assignedUser.Id} olan kullanıcı bulunamadı.");
+                        }
+                        updatedAssignedUsers.Add(new AssignedUser
+                        {
+                            Id = user.Id,
+                            Username = user.Username,
+                            Email = user.Email,
+                            FullName = user.FullName,
+                            Department = user.Department,
+                            Title = user.Title,
+                            Position = user.Position,
+                            ProfileImage = user.ProfileImage
+                        });
+                        // Send notification to assigned user
+                        await _notificationService.SendNotificationAsync(new NotificationDto
+                        {
+                            UserId = user.Id,
+                            Title = "Yeni Görev Atandı",
+                            Message = $"{task.Title} görevi size atandı.",
+                            Type = NotificationType.TaskAssigned,
+                            RelatedJobId = task.Id
+                        });
+                    }
+                    task.AssignedUsers = updatedAssignedUsers;
+                }
+
+                // Tarihleri ayarla
                 task.CreatedAt = DateTime.UtcNow;
                 task.UpdatedAt = DateTime.UtcNow;
                 
@@ -70,7 +118,7 @@ namespace JobTrackingAPI.Controllers
                 // Notify assigned users
                 foreach (var user in task.AssignedUsers)
                 {
-                    await _notificationHub.Clients.User(user.Id).SendAsync(
+                    await _notificationService.Clients.User(user.Id).SendAsync(
                         "ReceiveNotification",
                         new { type = "NewTask", message = $"Yeni görev atandı: {task.Title}" }
                     );
@@ -165,6 +213,24 @@ namespace JobTrackingAPI.Controllers
 
                 // UpdateTask in the service now handles file deletion if status changes to completed or overdue
                 await _tasksService.UpdateTask(id, updatedTask);
+                // Send notifications to all assigned users about the task update
+                if (taskUpdate.AssignedUsers != null)
+                {
+                    foreach (var user in taskUpdate.AssignedUsers)
+                    {
+                        await _notificationService.SendNotificationAsync(new NotificationDto
+                        {
+                            UserId = user.Id,
+                            Title = "Görev Güncellendi",
+                            Message = $"{taskUpdate.Title} görevi güncellendi.",
+                            Type = NotificationType.TaskUpdated,
+                            RelatedJobId = taskUpdate.Id
+                        });
+                    }
+                }
+                
+                // Güncellenmiş görevi geri döndür
+                var updatedTask = await _tasksCollection.Find(t => t.Id == id).FirstOrDefaultAsync();
                 return Ok(updatedTask);
             }
             catch (Exception ex)
@@ -255,6 +321,36 @@ namespace JobTrackingAPI.Controllers
                 if (status == "completed" && oldStatus != "completed")
                 {
                     task.CompletedDate = DateTime.UtcNow;
+                    return BadRequest("Tüm alt görevler tamamlanmadan görev tamamlanamaz");
+                }
+
+                // Görevi tamamlandı olarak işaretle
+                var updateTask = Builders<TaskItem>.Update
+                    .Set(t => t.Status, "completed")
+                    .Set(t => t.UpdatedAt, DateTime.UtcNow)
+                    .Set(t => t.IsLocked, true); // Görevi kilitli olarak işaretle
+                await _tasksCollection.UpdateOneAsync(t => t.Id == id, updateTask);
+
+                // Send notifications to all assigned users about task completion
+                if (task.AssignedUsers != null)
+                {
+                    foreach (var user in task.AssignedUsers)
+                    {
+                        await _notificationService.SendNotificationAsync(new NotificationDto
+                        {
+                            UserId = user.Id,
+                            Title = "Görev Tamamlandı",
+                            Message = $"{task.Title} görevi tamamlandı.",
+                            Type = NotificationType.TaskCompleted,
+                            RelatedJobId = task.Id
+                        });
+                    }
+                }
+                
+                // Update team statistics
+                foreach (var assignedUser in task.AssignedUsers)
+                {
+                    var teams = await _teamsCollection.Find(t => t.Members.Any(m => m.Id == assignedUser.Id)).ToListAsync();
                     
                     // Görev tamamlandığında, atanan tüm kullanıcıların performans skorlarını güncelle
                     foreach (var user in task.AssignedUsers)

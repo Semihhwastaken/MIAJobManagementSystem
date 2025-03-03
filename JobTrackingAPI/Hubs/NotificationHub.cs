@@ -1,70 +1,64 @@
 using Microsoft.AspNetCore.SignalR;
 using JobTrackingAPI.Models;
-using JobTrackingAPI.Enums;
+using JobTrackingAPI.DTOs;
 using JobTrackingAPI.Services;
 
 namespace JobTrackingAPI.Hubs
 {
+    /// <summary>
+    /// SignalR hub for real-time notifications
+    /// </summary>
     public class NotificationHub : Hub
     {
-        private readonly IConnectionService _connectionService;
-        private static readonly Dictionary<string, string> UserConnections = new Dictionary<string, string>();
+        private readonly ILogger<NotificationHub> _logger;
 
-        public NotificationHub(IConnectionService connectionService)
+        /// <summary>
+        /// Constructor for NotificationHub
+        /// </summary>
+        /// <param name="logger">Logger instance</param>
+        public NotificationHub(ILogger<NotificationHub> logger)
         {
-            _connectionService = connectionService;
+            _logger = logger;
         }
 
-        public async Task RegisterUser(string userId)
-        {
-            UserConnections[userId] = Context.ConnectionId;
-            await Groups.AddToGroupAsync(Context.ConnectionId, userId);
-            await Clients.All.SendAsync("UserConnected", userId);
-        }
-
+        /// <summary>
+        /// Called when a client connects to the hub
+        /// </summary>
         public override async Task OnConnectedAsync()
         {
-            var userId = Context.UserIdentifier;
+            var userId = Context.GetHttpContext()?.Request.Query["userId"].ToString();
             if (!string.IsNullOrEmpty(userId))
             {
+                _logger.LogInformation("User {UserId} connected to NotificationHub", userId);
                 await Groups.AddToGroupAsync(Context.ConnectionId, userId);
-                await _connectionService.AddUserConnection(userId, Context.ConnectionId);
             }
             await base.OnConnectedAsync();
         }
 
+        /// <summary>
+        /// Called when a client disconnects from the hub
+        /// </summary>
+        /// <param name="exception">Exception that caused the disconnection, if any</param>
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            var userId = UserConnections.FirstOrDefault(x => x.Value == Context.ConnectionId).Key;
+            var userId = Context.GetHttpContext()?.Request.Query["userId"].ToString();
             if (!string.IsNullOrEmpty(userId))
             {
-                UserConnections.Remove(userId);
+                _logger.LogInformation("User {UserId} disconnected from NotificationHub", userId);
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, userId);
-                await Clients.All.SendAsync("UserDisconnected", userId);
-            }
-            userId = Context.UserIdentifier;
-            if (!string.IsNullOrEmpty(userId))
-            {
-                await Groups.RemoveFromGroupAsync(Context.ConnectionId, userId);
-                await _connectionService.RemoveUserConnection(userId, Context.ConnectionId);
             }
             await base.OnDisconnectedAsync(exception);
         }
 
-        public async Task SendUserNotification(string userId, string title, string message, NotificationType type, string? relatedJobId = null)
+        /// <summary>
+        /// Sends a notification to a specific user
+        /// </summary>
+        /// <param name="userId">User ID to send the notification to</param>
+        /// <param name="notification">Notification to send</param>
+        public async Task SendNotification(string userId, NotificationDto notification)
         {
-            if (UserConnections.TryGetValue(userId, out string? connectionId))
-            {
-                var notification = new Notification(
-                    userId: userId,
-                    title: title,
-                    message: message,
-                    type: type,
-                    relatedJobId: relatedJobId
-                );
-
-                await Clients.Client(connectionId).SendAsync("ReceiveNotification", notification);
-            }
+            _logger.LogInformation("Sending notification to user {UserId}", userId);
+            await Clients.Group(userId).SendAsync("ReceiveNotification", notification);
         }
     }
 }

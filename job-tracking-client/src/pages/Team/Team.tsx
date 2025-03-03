@@ -32,6 +32,7 @@ import { useSnackbar } from 'notistack';
 import { DEPARTMENTS } from '../../constants/departments';
 import TaskForm from '../../components/TaskForm/TaskForm';
 import { createTask, Task } from '../../redux/features/tasksSlice';
+import Footer from '../../components/Footer/Footer';
 
 const Team: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
@@ -790,7 +791,7 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                     </div>
                 </div>
             )}
-
+        <Footer />
             {showCommentModal && (
                 <UserTaskCommentModal
                     isOpen={showCommentModal}
@@ -814,6 +815,7 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                 />
             )}
         </div>
+        
     );
 };
 
