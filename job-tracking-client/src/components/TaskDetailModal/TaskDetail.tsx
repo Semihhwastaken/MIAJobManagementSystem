@@ -16,7 +16,7 @@ interface TaskDetailModalProps {
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose }) => {
     const dispatch: AppDispatch = useDispatch();
     const allTasks = useSelector((state: RootState) => state.tasks.items);
-    const [localTask, setLocalTask] = useState(task);
+    const [localTask, setLocalTask] = useState<Task>(task);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
@@ -27,14 +27,10 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
 
     // Check if all dependencies are completed
     const areAllDependenciesCompleted = () => {
-        if (!localTask.dependencies || localTask.dependencies.length === 0) {
-            return true;
-        }
-        
-        return localTask.dependencies.every(depId => {
-            const dependentTask = allTasks.find(t => t.id === depId);
-            return dependentTask?.status === 'completed';
-        });
+        return localTask.dependencies?.every(depId => {
+            const dependency = allTasks.find(t => t.id === depId);
+            return dependency?.status === 'completed';
+        }) ?? true;
     };
 
     const getPriorityColor = (priority: string) => {
@@ -132,11 +128,17 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
             setIsSubmitting(true);
             await dispatch(completeTask(localTask.id!)).unwrap();
             
-            // Update performance after task completion
-            if (localTask.id && typeof localTask.id === 'string') {
-                await dispatch(updateMemberPerformance(localTask.id)).unwrap();
-            } else {
-                throw new Error('Invalid task ID format');
+            // Update performance for each assigned user after task completion
+            if (localTask.assignedUsers && localTask.assignedUsers.length > 0) {
+                for (const user of localTask.assignedUsers) {
+                    if (user.id) {
+                        try {
+                            await dispatch(updateMemberPerformance(user.id)).unwrap();
+                        } catch (error) {
+                            console.error(`Error updating performance for user ${user.id}:`, error);
+                        }
+                    }
+                }
             }
             
             setLocalTask(prev => ({
@@ -151,6 +153,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
             } else {
                 alert('Görev tamamlanırken bir hata oluştu');
             }
+            console.error('Error completing task:', error);
         } finally {
             setIsSubmitting(false);
         }

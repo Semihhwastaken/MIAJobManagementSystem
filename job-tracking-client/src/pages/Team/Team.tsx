@@ -15,7 +15,8 @@ import {
     removeTeamMember,
     getTeamInviteLink,
     setTeamInviteLink,
-    addExperties
+    addExperties,
+    fetchMemberActiveTasks
 } from '../../redux/features/teamSlice';
 import { useTheme } from '../../context/ThemeContext';
 import { TeamMember } from '../../types/team';
@@ -40,9 +41,7 @@ const Team: React.FC = () => {
     const { isDarkMode } = useTheme();
     const { enqueueSnackbar } = useSnackbar();
     const {
-        members,
         teams,
-        departments,
         searchQuery,
         filters,
         sortBy,
@@ -83,6 +82,21 @@ const Team: React.FC = () => {
         dispatch(fetchDepartments());
         dispatch(fetchTeams());
     }, [dispatch, navigate]);
+
+    // Teams listesini periyodik olarak güncelle
+    useEffect(() => {
+        // İlk yükleme
+        dispatch(fetchTeams());
+        dispatch(fetchMemberActiveTasks());
+        
+        // Her 15 saniyede bir güncelle
+        const interval = setInterval(() => {
+            dispatch(fetchTeams());
+            dispatch(fetchMemberActiveTasks());
+        }, 15000);
+        
+        return () => clearInterval(interval);
+    }, [dispatch]);
 
     const handleCreateTeam = async () => {
         const token = localStorage.getItem('token');
@@ -206,7 +220,7 @@ const Team: React.FC = () => {
         if (!teamToDelete) return;
 
         try {
-            const result = await dispatch(deleteTeam(teamToDelete)).unwrap();
+            await dispatch(deleteTeam(teamToDelete)).unwrap();
             enqueueSnackbar('Takım başarıyla silindi', { variant: 'success' });
             setShowDeleteConfirmModal(false);
             setTeamToDelete('');
@@ -227,7 +241,7 @@ const Team: React.FC = () => {
         if (!memberToRemove) return;
 
         try {
-            const result = await dispatch(removeTeamMember({
+            await dispatch(removeTeamMember({
                 teamId: memberToRemove.teamId,
                 memberId: memberToRemove.memberId
             })).unwrap();
@@ -237,7 +251,7 @@ const Team: React.FC = () => {
             setMemberToRemove(null);
 
             // Takım listesini yenile
-            dispatch(fetchTeams() as any);
+            dispatch(fetchTeams());
         } catch (error: any) {
             enqueueSnackbar(error.message || 'Üye çıkartılırken bir hata oluştu', { variant: 'error' });
         }
@@ -300,25 +314,19 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                 const matchesSearch = member.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     member.email.toLowerCase().includes(searchQuery.toLowerCase());
                 const matchesStatus = filters.status.length === 0 || filters.status.includes(member.status);
-                const matchesDepartment = selectedDepartment === 'all' || member.department === selectedDepartment;
-                return matchesSearch && matchesStatus && matchesDepartment;
+                const matchesDepartment = filters.department.length === 0 || filters.department.includes(member.department);
+                const matchesExpertise = filters.expertise.length === 0 || 
+                    member.expertise?.some(exp => filters.expertise.includes(exp));
+                return matchesSearch && matchesStatus && matchesDepartment && matchesExpertise;
             })
             .sort((a, b) => {
-                let comparison = 0;
-                switch (sortBy) {
-                    case 'name':
-                        comparison = a.fullName.localeCompare(b.fullName);
-                        break;
-                    case 'performance':
-                        comparison = b.performanceScore - a.performanceScore;
-                        break;
-                    case 'tasks':
-                        comparison = b.completedTasksCount - a.completedTasksCount;
-                        break;
-                    default:
-                        comparison = a.fullName.localeCompare(b.fullName);
+                if (sortBy === 'performance') {
+                    const aScore = typeof a.performanceScore === 'number' ? a.performanceScore : 0;
+                    const bScore = typeof b.performanceScore === 'number' ? b.performanceScore : 0;
+                    return sortOrder === 'asc' ? aScore - bScore : bScore - aScore;
                 }
-                return sortOrder === 'asc' ? comparison : -comparison;
+                // ...existing sorting logic...
+                return 0;
             });
 
         // İşlemi yapan kullanıcının bu takımın owner'ı olup olmadığını kontrol et

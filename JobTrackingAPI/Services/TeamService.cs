@@ -340,7 +340,12 @@ public class TeamService : ITeamService
             Builders<Team>.Filter.Eq(t => t.Id, teamId),
             Builders<Team>.Filter.ElemMatch(t => t.Members, m => m.Id == userId));
 
-        var update = Builders<Team>.Update.Set("Members.$.Metrics", metrics);
+        var update = Builders<Team>.Update.Combine(
+            Builders<Team>.Update.Set("Members.$.Metrics", metrics),
+            Builders<Team>.Update.Set("Members.$.PerformanceScore", metrics.PerformanceScore),
+            Builders<Team>.Update.Set("Members.$.CompletedTasksCount", metrics.CompletedTasks)
+        );
+
         var result = await _teams.UpdateOneAsync(filter, update);
         return result.ModifiedCount > 0;
     }

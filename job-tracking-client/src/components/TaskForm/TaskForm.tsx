@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Task, User, SubTask, Attachment } from '../../types/task';
 import { Team, TeamMember } from '../../types/team';
-import { fileUpload, Task as TaskType, fetchTasks, createTask } from '../../redux/features/tasksSlice';
+import { fileUpload, Task as TaskType, fetchTasks, createTask, updateTask } from '../../redux/features/tasksSlice';
 import teamService from '../../services/teamService';
 import { Listbox, Transition } from '@headlessui/react';
 import { CheckIcon, ChevronUpDownIcon, XCircleIcon, DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline';
@@ -145,28 +145,42 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
       const taskPayload = {
         ...formData,
         teamId: selectedTeamId || task?.teamId || teamId,
-        createdAt: now,
+        createdAt: task ? task.createdAt : now,
         updatedAt: now,
         dueDate: dueDateUTC.toISOString(),
         status: formData.status === 'in-progress' ? 'in-progress' : formData.status,
         dependencies: formData.dependencies, // Bağımlılıkları ekle
-        attachments: [] // Başlangıçta boş attachments array'i
+        attachments: task?.attachments || [] // Mevcut ekleri koru
       };
 
-      // Görevi oluştur ve response'u al
-      const createdTask = await dispatch(createTask(taskPayload)).unwrap();
+      let taskId = '';
+
+      // Eğer task varsa update, yoksa create işlemi yap
+      if (task && task.id) {
+        // Mevcut görevi güncelle
+        const updatedTask = await dispatch(updateTask({
+          ...taskPayload,
+          id: task.id
+        })).unwrap();
+        
+        taskId = updatedTask.id;
+        enqueueSnackbar('Görev başarıyla güncellendi', { variant: 'success' });
+      } else {
+        // Yeni görev oluştur
+        const createdTask = await dispatch(createTask(taskPayload)).unwrap();
+        taskId = createdTask.id;
+        enqueueSnackbar('Görev başarıyla oluşturuldu', { variant: 'success' });
+      }
       
-      // Eğer dosya seçilmişse, oluşturulan task ID'si ile dosyayı yükle
-      if (selectedFile && createdTask.id) {
+      // Eğer dosya seçilmişse, task ID ile dosyayı yükle
+      if (selectedFile && taskId) {
         try {
-          await dispatch(fileUpload({ taskId: createdTask.id, file: selectedFile })).unwrap();
-          enqueueSnackbar('Görev ve dosya başarıyla kaydedildi', { variant: 'success' });
+          await dispatch(fileUpload({ taskId, file: selectedFile })).unwrap();
+          enqueueSnackbar('Dosya başarıyla yüklendi', { variant: 'success' });
         } catch (error) {
           console.error('Error uploading file:', error);
           enqueueSnackbar('Görev kaydedildi fakat dosya yüklenemedi', { variant: 'warning' });
         }
-      } else {
-        enqueueSnackbar('Görev başarıyla kaydedildi', { variant: 'success' });
       }
       
       onClose();
@@ -303,7 +317,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
       <div className="bg-white/90 backdrop-blur-sm rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Yeni Görev Oluştur</h2>
+          <h2 className="text-2xl font-bold text-gray-900">
+            {task ? 'Görevi Düzenle' : 'Yeni Görev Oluştur'}
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
