@@ -6,13 +6,23 @@ namespace JobTrackingAPI.Models
     public class MemberMetricsUpdateDto
     {
         /// <summary>
-        /// Görev sayısı
-        /// </summary>
-        public int TaskCount { get; set; }
-
-        /// <summary>
         /// Performans puanı (0-100 arası)
         /// </summary>
         public double PerformanceScore { get; set; }
+
+        /// <summary>
+        /// Tamamlanan görev sayısı
+        /// </summary>
+        public int CompletedTasks { get; set; }
+
+        /// <summary>
+        /// Gecikmiş görev sayısı
+        /// </summary>
+        public int OverdueTasks { get; set; }
+
+        /// <summary>
+        /// Toplam görev sayısı
+        /// </summary>
+        public int TotalTasks { get; set; }
     }
 }

@@ -259,9 +259,9 @@ export const getMemberPerformance = createAsyncThunk(
 
 export const updateMemberPerformance = createAsyncThunk(
     'Team/updateMemberPerformance',
-    async (userId: string, { rejectWithValue }) => {
+    async ({ memberId }: { memberId: string }, { rejectWithValue }) => {
         try {
-            const response = await axiosInstance.post(`/Team/members/${userId}/update-performance`);
+            const response = await axiosInstance.post(`/Team/members/${memberId}/update-performance`);
             return response.data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data?.message || 'Failed to update performance score');

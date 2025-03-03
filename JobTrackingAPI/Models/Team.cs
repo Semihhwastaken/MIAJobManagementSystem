@@ -100,6 +100,8 @@ public class TeamMember
     
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
     public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
+
+    public MemberMetricsUpdateDto Metrics { get; set; } = new MemberMetricsUpdateDto();
 }
 
 public class AvailabilitySchedule

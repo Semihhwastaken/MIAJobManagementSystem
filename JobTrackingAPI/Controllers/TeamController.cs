@@ -38,13 +38,26 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
+                // First check if user exists
+                var user = await _userService.GetUserById(userId);
+                if (user == null)
+                {
+                    return NotFound(new { message = "User not found" });
+                }
+
+                // Then check team membership
+                var teams = await _teamService.GetTeamsByUserId(userId);
+                if (!teams.Any())
+                {
+                    return BadRequest(new { message = "User does not belong to any teams" });
+                }
+
                 await _teamService.UpdateUserPerformance(userId);
-                var updatedScore = await _teamService.GetUserPerformance(userId);
-                return Ok(updatedScore);
+                return Ok(new { message = "Performance updated successfully" });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                return BadRequest(new { message = ex.Message });
             }
         }
 

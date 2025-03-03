@@ -92,34 +92,50 @@ namespace JobTrackingAPI.Controllers
             {
                 var task = await _tasksService.GetTask(id);
                 if (task == null)
-                    return NotFound();
+                    return NotFound(new { message = "Task not found" });
 
-                // Store old status to check if it's changing
+                if (task.Status == "completed")
+                    return BadRequest(new { message = "Task is already completed" });
+
+                if (string.IsNullOrEmpty(task.TeamId) || !MongoDB.Bson.ObjectId.TryParse(task.TeamId, out _))
+                    return BadRequest(new { message = "Invalid team ID format" });
+
                 var oldStatus = task.Status;
-                
                 task.Status = "completed";
                 task.CompletedDate = DateTime.UtcNow;
                 
-                // Update task - file deletion is handled inside the TasksService.UpdateTask method
+                // Update task first
                 await _tasksService.UpdateTask(id, task);
-                
-                // Calculate and update performance scores for assigned users
-                foreach (var user in task.AssignedUsers)
-                {
-                    var userTasks = await _tasksService.GetTasksByUserId(user.Id);
-                    var performanceScore = PerformanceCalculator.CalculateUserPerformance(userTasks);
-                    
-                    // Update the user's performance score in their team
-                    var team = await _teamsService.GetTeamByMemberId(user.Id);
-                    if (team != null)
+
+                try {
+                    // Update performance score for each assigned user
+                    if (task.AssignedUsers != null)
                     {
-                        var member = team.Members.FirstOrDefault(m => m.Id == user.Id);
-                        if (member != null)
+                        foreach (var user in task.AssignedUsers)
                         {
-                            member.PerformanceScore = performanceScore;
-                            await _teamsService.UpdateTeam(team.Id, team);
+                            try
+                            {
+                                var assignedTeams = await _teamsService.GetTeamsByUserId(user.Id);
+                                if (!assignedTeams.Any())
+                                {
+                                    Console.WriteLine($"Skipping performance update for user {user.Id} - no team membership found");
+                                    continue;
+                                }
+                                
+                                await _teamsService.UpdateUserPerformance(user.Id);
+                            }
+                            catch (Exception userEx)
+                            {
+                                Console.WriteLine($"Error updating performance for user {user.Id}: {userEx.Message}");
+                                // Continue with other users even if one fails
+                            }
                         }
                     }
+                }
+                catch (Exception perfEx)
+                {
+                    Console.WriteLine($"Error updating performance scores: {perfEx.Message}");
+                    // Return success even if performance update fails, since the task was completed
                 }
 
                 return Ok(new { message = "Task completed successfully" });
@@ -240,27 +256,25 @@ namespace JobTrackingAPI.Controllers
                 {
                     task.CompletedDate = DateTime.UtcNow;
                     
-                    // Calculate performance scores for all assigned users
+                    // Görev tamamlandığında, atanan tüm kullanıcıların performans skorlarını güncelle
                     foreach (var user in task.AssignedUsers)
                     {
+                        // Her kullanıcı için görev listesini getir
                         var userTasks = await _tasksService.GetTasksByUserId(user.Id);
-                        var performanceScore = PerformanceCalculator.CalculateUserPerformance(userTasks);
                         
-                        // Update the user's performance score in their team
-                        var team = await _teamsService.GetTeamByMemberId(user.Id);
-                        if (team != null)
+                        // Doğru ekip için performans skorunu güncelle
+                        if (!string.IsNullOrEmpty(task.TeamId))
                         {
-                            var member = team.Members.FirstOrDefault(m => m.Id == user.Id);
-                            if (member != null)
+                            var team = await _teamsService.GetTeamById(task.TeamId);
+                            if (team != null)
                             {
-                                member.PerformanceScore = performanceScore;
-                                await _teamsService.UpdateTeam(team.Id, team);
+                                // Sadece görevin ait olduğu ekipteki performans skorunu güncelle
+                                await _teamsService.UpdateUserPerformance(user.Id);
                             }
                         }
                     }
                 }
                 
-                // UpdateTask in the service now handles file deletion if status changes to completed or overdue
                 await _tasksService.UpdateTask(id, task);
                 return Ok(new { message = "Task status updated successfully" });
             }
