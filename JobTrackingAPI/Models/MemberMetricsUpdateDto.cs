@@ -6,6 +6,11 @@ namespace JobTrackingAPI.Models
     public class MemberMetricsUpdateDto
     {
         /// <summary>
+        /// Üyenin ait olduğu takımın ID'si
+        /// </summary>
+        public string TeamId { get; set; } = string.Empty;
+
+        /// <summary>
         /// Performans puanı (0-100 arası)
         /// </summary>
         public double PerformanceScore { get; set; }

@@ -7,6 +7,8 @@ using MongoDB.Driver;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Security.Claims;
+using Microsoft.Extensions.Logging;
+using JobTrackingAPI.Enums;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -18,6 +20,22 @@ namespace JobTrackingAPI.Controllers
         private readonly TeamService _teamService;
         private readonly UserService _userService;
         private readonly IMongoDatabase _database;
+        private readonly INotificationService _notificationService;
+        private readonly ILogger<TeamController> _logger;
+
+        public TeamController(
+            TeamService teamService, 
+            UserService userService, 
+            IMongoDatabase database,
+            INotificationService notificationService,
+            ILogger<TeamController> logger)
+        {
+            _teamService = teamService;
+            _userService = userService;
+            _database = database;
+            _notificationService = notificationService;
+            _logger = logger;
+        }
 
         [HttpGet("members/{userId}/performance")]
         public async Task<IActionResult> GetMemberPerformance(string userId)
@@ -59,13 +77,6 @@ namespace JobTrackingAPI.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
-        }
-
-        public TeamController(TeamService teamService, UserService userService, IMongoDatabase database)
-        {
-            _teamService = teamService;
-            _userService = userService;
-            _database = database;
         }
 
         /// <summary>
@@ -271,10 +282,21 @@ namespace JobTrackingAPI.Controllers
                 };
 
                 var createdTeam = await _teamService.CreateAsync(team);
+
+                // Send notification to team creator
+                await _notificationService.SendNotificationAsync(
+                    userId: userId,
+                    title: "Yeni Ekip Oluşturuldu",
+                    message: $"{request.Name} ekibi başarıyla oluşturuldu.",
+                    notificationType: NotificationType.TeamCreated,
+                    relatedJobId: createdTeam.Id
+                );
+
                 return Ok(createdTeam);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error creating team: {@TeamRequest}", request);
                 return BadRequest(new { message = ex.Message });
             }
         }
@@ -370,13 +392,28 @@ namespace JobTrackingAPI.Controllers
                     return BadRequest("Zaten bu takımın üyesisiniz");
 
                 var result = await _teamService.JoinTeamWithInviteCode(inviteCode, userId);
-                if (!result)
-                    return BadRequest("Ekibe katılırken bir hata oluştu");
+                if (result)
+                {
+                    // Notify team owner
+                    var teamOwner = team.Members.FirstOrDefault(m => m.Role == "Owner");
+                    if (teamOwner != null)
+                    {
+                        await _notificationService.SendNotificationAsync(
+                            userId: teamOwner.Id,
+                            title: "Yeni Ekip Üyesi",
+                            message: $"Yeni bir kullanıcı {team.Name} ekibine katıldı.",
+                            notificationType: NotificationType.TeamMemberAdded,
+                            relatedJobId: team.Id
+                        );
+                    }
 
-                return Ok(new { message = "Ekibe başarıyla katıldınız", teamName = team.Name });
+                    return Ok(new { message = "Ekibe başarıyla katıldınız", teamName = team.Name });
+                }
+                return BadRequest("Ekibe katılırken bir hata oluştu");
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error joining team with invite code: {InviteCode}", inviteCode);
                 return BadRequest(new { message = ex.Message });
             }
         }
@@ -396,12 +433,22 @@ namespace JobTrackingAPI.Controllers
                 var result = await _teamService.AssignOwnerRoleAsync(teamId, currentUserId, targetUserId);
                 if (result)
                 {
+                    // Notify new owner
+                    await _notificationService.SendNotificationAsync(
+                        userId: targetUserId,
+                        title: "Ekip Sahipliği",
+                        message: "Bir ekibin yeni sahibi oldunuz.",
+                        notificationType: NotificationType.TeamMemberRoleChanged,
+                        relatedJobId: teamId
+                    );
+
                     return Ok(new { message = "Owner rolü başarıyla atandı." });
                 }
                 return BadRequest("Owner rolü atanamadı.");
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error assigning owner role. TeamId: {TeamId}, TargetUserId: {TargetUserId}", teamId, targetUserId);
                 return BadRequest(ex.Message);
             }
         }
@@ -418,18 +465,28 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 var result = await _teamService.RemoveTeamMemberAsync(teamId, memberId, userId);
-                if (!result.success)
+                if (result.success)
                 {
-                    return BadRequest(new { message = result.message });
-                }
+                    // Notify removed member
+                    await _notificationService.SendNotificationAsync(
+                        userId: memberId,
+                        title: "Ekipten Çıkarıldınız",
+                        message: $"Bir ekipten çıkarıldınız.",
+                        notificationType: NotificationType.TeamMemberRemoved,
+                        relatedJobId: teamId
+                    );
 
-                return Ok(new { message = result.message });
+                    return Ok(new { message = result.message });
+                }
+                return BadRequest(new { message = result.message });
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error removing team member. TeamId: {TeamId}, MemberId: {MemberId}", teamId, memberId);
                 return BadRequest(new { message = ex.Message });
             }
         }
+
         [HttpGet("invite-link/{teamId}/get")]
         public async Task<IActionResult> GetInviteLink(string teamId)
         {

@@ -132,8 +132,7 @@ namespace NotificationAPI.Controllers
         {
             try
             {
-                _logger.LogInformation("Bildirim alındı. UserId: {UserId}, Title: {Title}, Type: {Type}", 
-                    notification.UserId, notification.Title, notification.Type);
+                
                 
                 if (string.IsNullOrEmpty(notification.UserId) || string.IsNullOrEmpty(notification.Title))
                 {
@@ -142,7 +141,7 @@ namespace NotificationAPI.Controllers
                 
                 var createdNotification = await _notificationService.CreateNotificationAsync(notification);
                 
-                _logger.LogInformation("Bildirim başarıyla oluşturuldu. Id: {Id}", createdNotification.Id);
+              
                 
                 return CreatedAtAction(nameof(GetUserNotifications), 
                     new { userId = notification.UserId }, createdNotification);

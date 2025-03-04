@@ -39,7 +39,8 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
     startTime: '09:00',
     endTime: '10:00',
     priority: 'Medium' as 'High' | 'Medium' | 'Low',
-    participants: []
+    participants: [],
+    category: initialData?.category || 'task',
   });
 
   useEffect(() => {
@@ -72,7 +73,8 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
         startTime: '09:00',
         endTime: '10:00',
         priority: 'Medium',
-        participants: []
+        participants: [],
+        category: 'task',
       });
     }
   }, [initialData]);
@@ -131,7 +133,8 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
         startTime: '09:00',
         endTime: '10:00',
         priority: 'Medium',
-        participants: []
+        participants: [],
+        category: 'task',
       });
     }
   };
@@ -373,6 +376,44 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Priority
+                    </label>
+                    <select
+                      name="priority"
+                      value={formData.priority}
+                      onChange={(e) => setFormData({ ...formData, priority: e.target.value as 'High' | 'Medium' | 'Low' })}
+                      className={`mt-1 block w-full rounded-md border p-2 
+                        ${isDarkMode 
+                          ? 'bg-gray-700 border-gray-600 text-white' 
+                          : 'bg-white border-gray-300 text-gray-900'}`}
+                    >
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Category
+                    </label>
+                    <select
+                      name="category"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value as 'meeting' | 'task' | 'deadline' })}
+                      className={`mt-1 block w-full rounded-md border p-2 
+                        ${isDarkMode 
+                          ? 'bg-gray-700 border-gray-600 text-white' 
+                          : 'bg-white border-gray-300 text-gray-900'}`}
+                    >
+                      <option value="task">Task</option>
+                      <option value="meeting">Meeting</option>
+                      <option value="deadline">Deadline</option>
+                    </select>
                   </div>
 
                   <div className="mt-6 flex justify-end space-x-3">

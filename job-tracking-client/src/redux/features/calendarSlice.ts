@@ -13,6 +13,7 @@ export interface CalendarEvent {
   createdBy?: string;
   createdAt?: string;
   updatedAt?: string;
+  category: 'meeting' | 'task' | 'deadline';  // Add this line
 }
 
 interface CalendarState {
