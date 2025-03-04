@@ -1,45 +1,79 @@
 export interface User {
-    id?: string;
+  id: string;
+  username?: string;
+  fullName?: string;
+  email?: string;
+}
+
+export interface AssignedUser {
+    id: string;
     username: string;
     email: string;
-    fullName?: string;
-    department?: string;
+    fullName: string;
+    department: string;
     title?: string;
     position?: string;
     profileImage?: string;
 }
 
-export interface SubTask {
-    id?: string;
-    title: string;
-    completed: boolean;
-}
-
-export interface Attachment {
-    id?: string;
+export interface TaskAttachment {
+    id: string;
     fileName: string;
     fileUrl: string;
     fileType: string;
     uploadDate: string;
 }
 
-export interface Task {
-    id?: string;
+export interface SubTask {
+    id: string;
     title: string;
-    description: string;
-    status: 'todo' | 'in-progress' | 'completed' | 'overdue';
-    priority: 'low' | 'medium' | 'high';
-    category: string;
-    dueDate: string;
-    isLocked?: boolean;
-    teamId?: string;
-    assignedUsers: User[];
-    subTasks: SubTask[];
-    dependencies: string[]; // Bağımlı olduğu task ID'leri
-    attachments: Attachment[];
-    createdAt: string;
-    updatedAt: string;
-    completedDate?: Date | null;
+    completed: boolean;
+    completedDate?: string;
+    assignedUserId?: string;
 }
 
-export type NewTask = Omit<Task, 'id' | 'createdAt' | 'updatedAt'>;
+export interface UserReference {
+    id: string;
+    username: string;
+    fullName: string;
+    profileImage?: string;
+}
+
+export interface Task {
+    id: string;
+    title: string;
+    description: string;
+    status: string;
+    priority: string;
+    category: string;
+    dueDate: string;
+    completedDate?: string;
+    teamId: string;
+    attachments: TaskAttachment[];
+    assignedUsers: AssignedUser[];
+    subTasks: SubTask[];
+    dependencies: string[];
+    isLocked: boolean;
+    createdAt: string;
+    updatedAt: string;
+    createdBy?: UserReference;
+}
+
+export interface TaskComment {
+    id: string;
+    taskId: string;
+    content: string;
+    createdAt: string;
+    user: UserReference;
+}
+
+export interface TaskHistoryDto {
+    id: string;
+    title: string;
+    description: string;
+    status: string;
+    priority: string;
+    category: string;
+    dueDate: string;
+    assignedUsers: { id: string; fullName: string }[];
+}

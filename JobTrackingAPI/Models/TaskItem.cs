@@ -19,6 +19,14 @@ namespace JobTrackingAPI.Models
         [BsonElement("completed")]
         [JsonPropertyName("completed")]
         public bool Completed { get; set; }
+
+        [BsonElement("completedDate")]
+        [JsonPropertyName("completedDate")]
+        public DateTime? CompletedDate { get; set; }
+
+        [BsonElement("assignedUserId")]
+        [JsonPropertyName("assignedUserId")]
+        public string AssignedUserId { get; set; } = string.Empty;
     }
 
     public class TaskAttachment
@@ -148,5 +156,27 @@ namespace JobTrackingAPI.Models
         [JsonPropertyName("completedDate")]
         public DateTime? CompletedDate { get; set; }
 
+        [BsonElement("createdBy")]
+        [JsonPropertyName("createdBy")]
+        public UserReference CreatedBy { get; set; } = new UserReference();
+    }
+
+    public class UserReference
+    {
+        [BsonElement("id")]
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = string.Empty;
+
+        [BsonElement("username")]
+        [JsonPropertyName("username")]
+        public string Username { get; set; } = string.Empty;
+
+        [BsonElement("fullName")]
+        [JsonPropertyName("fullName")]
+        public string FullName { get; set; } = string.Empty;
+
+        [BsonElement("profileImage")]
+        [JsonPropertyName("profileImage")]
+        public string ProfileImage { get; set; } = string.Empty;
     }
 }

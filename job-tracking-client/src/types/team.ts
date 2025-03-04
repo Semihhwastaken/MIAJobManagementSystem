@@ -4,21 +4,14 @@ export interface TeamMember {
     email: string;
     fullName: string;
     department: string;
-    role: 'Owner' | 'Master' | 'Member';
-    assignedJobs: string[];
-    // Yeni eklenecek alanlar
+    title?: string;
+    position?: string;
     profileImage?: string;
-    expertise: string[];
-    phone?: string;
-    status: 'available' | 'busy' | 'away' | 'offline';
-    completedTasksCount: number;
-    performanceScore: number;
-    onlineStatus: 'online' | 'offline';
-    availabilitySchedule?: {
-        startTime: string;
-        endTime: string;
-    };
-    joinedAt: string;
+    role: string;
+    status: string;
+    onlineStatus: string;
+    assignedJobs: string[];
+    experties?: string[];
 }
 
 export interface TeamState {
@@ -69,8 +62,26 @@ export interface DepartmentStats {
 export interface Team {
     id: string;
     name: string;
-    createdBy: string;
-    inviteLink?: string;
-    members: TeamMember[];
+    description: string;
+    createdById: string;
     createdAt: string;
+    updatedAt: string;
+    departments: DepartmentStats[];
+    members: TeamMember[];
+    inviteLink?: string;
+    inviteCode?: string;
+}
+
+export interface PerformanceScore {
+    id: string;
+    userId: string;
+    teamId: string;
+    taskCompletion: number;
+    taskDeadlineMet: number;
+    taskQuality: number;
+    collaborationScore: number;
+    overallScore: number;
+    lastUpdated: string;
+    completedTasks: number;
+    ongoingTasks: number;
 }

@@ -4,6 +4,7 @@ import teamReducer from './features/teamSlice';
 import calendarReducer from './features/calendarSlice';
 import authReducer from './features/authSlice';
 import themeReducer from './features/themeSlice';
+import userCacheReducer from './features/userCacheSlice';
 
 export const store = configureStore({
     reducer: {
@@ -11,7 +12,8 @@ export const store = configureStore({
         team: teamReducer,
         calendar: calendarReducer,
         auth: authReducer,
-        theme: themeReducer
+        theme: themeReducer,
+        userCache: userCacheReducer
     }
 });
 

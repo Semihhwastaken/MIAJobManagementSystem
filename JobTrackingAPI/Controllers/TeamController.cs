@@ -11,6 +11,8 @@ using System.Linq;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using System;
+using Microsoft.AspNetCore.SignalR;
+using JobTrackingAPI.Hubs;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -24,6 +26,7 @@ namespace JobTrackingAPI.Controllers
         private readonly IMongoDatabase _database;
         private readonly IMemoryCache _cache;
         private readonly ILogger<TeamController> _logger;
+        private readonly IHubContext<NotificationHub> _notificationHubContext;
         private static readonly SemaphoreSlim _updateStatusSemaphore = new SemaphoreSlim(1, 1);
         private static DateTime _lastStatusUpdate = DateTime.MinValue;
 
@@ -32,13 +35,15 @@ namespace JobTrackingAPI.Controllers
             UserService userService, 
             IMongoDatabase database, 
             IMemoryCache memoryCache,
-            ILogger<TeamController> logger)
+            ILogger<TeamController> logger,
+            IHubContext<NotificationHub> notificationHubContext)
         {
             _teamService = teamService;
             _userService = userService;
             _database = database;
             _cache = memoryCache;
             _logger = logger;
+            _notificationHubContext = notificationHubContext;
         }
 
         [HttpGet("members/{userId}/performance")]
@@ -115,7 +120,7 @@ namespace JobTrackingAPI.Controllers
                 
                 var cacheKey = $"teams_{userId}";
                 
-                // Check if teams are cached
+                // Check if teams are cached with longer expiration
                 if (_cache.TryGetValue(cacheKey, out List<Team> cachedTeams))
                 {
                     return Ok(cachedTeams);
@@ -123,8 +128,8 @@ namespace JobTrackingAPI.Controllers
 
                 var teams = await _teamService.GetTeamsByUserId(userId);
                 
-                // Cache teams for 2 minutes
-                _cache.Set(cacheKey, teams, TimeSpan.FromMinutes(2));
+                // Cache teams for 5 minutes instead of 2
+                _cache.Set(cacheKey, teams, TimeSpan.FromMinutes(5));
                 
                 return Ok(teams);
             }
@@ -338,11 +343,39 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized("Kullanıcı kimliği doğrulanamadı.");
                 }
 
-                // Kullanıcı bilgilerini al
-                var user = await _userService.GetUserById(userId);
-                if (user == null)
+                // Use claims data instead of fetching user from database
+                var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+                var email = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
+                var fullName = User.FindFirst("FullName")?.Value ?? "";
+                var title = User.FindFirst("Title")?.Value ?? "";
+                var position = User.FindFirst("Position")?.Value ?? "";
+                var profileImage = "";  // Profile image not typically in claims
+
+                // If we're missing critical data from claims, then fall back to DB
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(email))
                 {
-                    return NotFound("Kullanıcı bulunamadı.");
+                    var cacheKey = $"user_{userId}";
+                    User user = null;
+                    
+                    // Try to get from cache first
+                    if (!_cache.TryGetValue(cacheKey, out user))
+                    {
+                        user = await _userService.GetUserById(userId);
+                        if (user == null)
+                        {
+                            return NotFound("Kullanıcı bulunamadı.");
+                        }
+                        
+                        // Cache the user for future use
+                        _cache.Set(cacheKey, user, TimeSpan.FromMinutes(10));
+                    }
+                    
+                    username = user.Username;
+                    email = user.Email;
+                    fullName = user.FullName;
+                    title = user.Title ?? "";
+                    position = user.Position ?? "";
+                    profileImage = user.ProfileImage ?? "";
                 }
 
                 var team = new Team
@@ -366,13 +399,13 @@ namespace JobTrackingAPI.Controllers
                         new TeamMember
                         {
                             Id = userId,
-                            Username = user.Username,
-                            Email = user.Email,
-                            FullName = user.FullName,
+                            Username = username,
+                            Email = email,
+                            FullName = fullName,
                             Department = request.Department,
-                            ProfileImage = user.ProfileImage,
-                            Title = user.Title,
-                            Position = user.Position,
+                            ProfileImage = profileImage,
+                            Title = title,
+                            Position = position,
                             Role = "Owner",
                             AssignedJobs = new List<string>(),
                             Status = "available",
@@ -552,15 +585,36 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized(new { message = "Kullanıcı girişi yapılmamış" });
                 }
 
+                // First check if we have the team in cache
+                var teamCacheKey = $"team_{teamId}";
+                Team team = null;
+                
+                if (_cache.TryGetValue(teamCacheKey, out team))
+                {
+                    // Check if user has permission from cached data
+                    var member = team.Members.FirstOrDefault(m => m.Id == userId);
+                    if (member == null || (member.Role != "Owner" && userId != memberId))
+                    {
+                        return Forbid("Bu işlemi sadece takım sahibi veya üyenin kendisi yapabilir");
+                    }
+                }
+
                 var result = await _teamService.RemoveTeamMemberAsync(teamId, memberId, userId);
                 if (!result.success)
                 {
                     return BadRequest(new { message = result.message });
                 }
                 
-                // Clear caches
+                // Clear caches with optimized invalidation strategy
                 ClearTeamRelatedCaches(teamId);
                 ClearMemberRelatedCaches(memberId);
+                
+                // Also clear the team member's own teams cache
+                _cache.Remove($"teams_{memberId}");
+                _cache.Remove($"myTeams_{memberId}");
+                
+                // Notify all team members + the removed member about the change
+                await _notificationHubContext.Clients.All.SendAsync("TeamMembershipChanged", teamId);
 
                 return Ok(new { message = result.message });
             }

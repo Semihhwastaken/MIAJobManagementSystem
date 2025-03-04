@@ -12,6 +12,8 @@ using Microsoft.AspNetCore.SignalR;
 using JobTrackingAPI.Models.Requests;
 using CreateTeamRequest = JobTrackingAPI.Models.Requests.CreateTeamRequest;
 using MongoDB.Bson;
+using Microsoft.Extensions.Logging;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace JobTrackingAPI.Services;
 
@@ -26,6 +28,7 @@ public class TeamService : ITeamService
     private readonly IMongoCollection<TaskItem> _tasks;
     private readonly IMongoCollection<PerformanceScore> _performanceScores;
     private readonly IHubContext<NotificationHub> _notificationHubContext;
+    private readonly ILogger<TeamService> _logger;
     
     // Cache for commonly accessed team members
     private readonly Dictionary<string, List<Team>> _userTeamsCache = new();
@@ -36,7 +39,8 @@ public class TeamService : ITeamService
         IOptions<MongoDbSettings> settings, 
         IUserService userService,
         IMongoDatabase database,
-        IHubContext<NotificationHub> notificationHubContext) // Constructor güncellendi
+        IHubContext<NotificationHub> notificationHubContext,
+        ILogger<TeamService> logger) // Added logger parameter
     {
         var client = new MongoClient(settings.Value.ConnectionString);
         var db = client.GetDatabase(settings.Value.DatabaseName);
@@ -46,6 +50,7 @@ public class TeamService : ITeamService
         _userService = userService;
         _settings = settings;
         _notificationHubContext = notificationHubContext;
+        _logger = logger; // Initialize logger
         
         // Create indexes for better query performance
         CreateIndexes();
@@ -110,8 +115,8 @@ public class TeamService : ITeamService
     
     private void CheckCacheExpiry()
     {
-        // Clear cache every 5 minutes
-        if ((DateTime.UtcNow - _lastCacheCleanup).TotalMinutes > 5)
+        // Clear cache every 15 minutes
+        if ((DateTime.UtcNow - _lastCacheCleanup).TotalMinutes > 15)
         {
             _userTeamsCache.Clear();
             _teamCache.Clear();
@@ -670,8 +675,8 @@ public class TeamService : ITeamService
 
         CheckCacheExpiry();
         
-        // Check if teams are in cache
-        if (_userTeamsCache.TryGetValue(userId, out var cachedTeams))
+        // Check if teams are in cache - increased from local cache to 15 min
+        if (_userTeamsCache.TryGetValue(userId, out var cachedTeams) && cachedTeams.Count > 0)
         {
             return cachedTeams;
         }
@@ -685,18 +690,26 @@ public class TeamService : ITeamService
             var projection = Builders<Team>.Projection
                 .Include(t => t.Id)
                 .Include(t => t.Name)
-                .Include(t => t.Members);
-                
-            var teams = await _teams.Find(filter).Project<Team>(projection).ToListAsync();
+                .Include(t => t.Description)
+                .Include(t => t.CreatedById)
+                .Include(t => t.Departments)
+                .Include(t => t.Members)
+                .Include(t => t.CreatedAt)
+                .Include(t => t.UpdatedAt);
+                    
+            var teams = await _teams
+                .Find(filter)
+                .Project<Team>(projection)
+                .ToListAsync();
             
-            // Cache the result
+            // Cache the result for longer - 15 minutes 
             _userTeamsCache[userId] = teams;
             
             return teams;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in GetTeamsByUserId: {ex.Message}");
+            _logger.LogError(ex, "Error in GetTeamsByUserId for userId: {UserId}", userId);
             return new List<Team>();
         }
     }
@@ -960,14 +973,37 @@ public class TeamService : ITeamService
     /// </summary>
     public async Task<List<TeamMember>> GetTeamMembers(string teamId)
     {
-        var team = await GetTeamById(teamId);
-        if (team == null)
+        if (string.IsNullOrEmpty(teamId))
+            throw new ArgumentNullException(nameof(teamId));
+            
+        try
         {
-            return new List<TeamMember>();
+                        // We only need to project the members field to reduce data transfer
+            var projection = Builders<Team>.Projection.Include(t => t.Members);
+            var team = await _teams.Find(t => t.Id == teamId)
+                                  .Project<TeamMembersOnly>(projection)
+                                  .FirstOrDefaultAsync();
+            
+            return team?.Members ?? new List<TeamMember>();
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting team members for team {TeamId}", teamId);
+            throw;
+        }
+    }
 
-        // Takım üyelerini doğrudan döndür
-        return team.Members;
+    // Modify the helper class for projection to correctly handle _id
+    private class TeamMembersOnly
+    {
+        [BsonId]
+        [BsonRepresentation(BsonType.ObjectId)]
+        [BsonElement("_id")]
+        public string Id { get; set; }
+        
+        // Fix: Change the BsonElement name to match the exact case in MongoDB
+        [BsonElement("Members")]
+        public List<TeamMember> Members { get; set; } = new List<TeamMember>();
     }
 
     // Yardımcı metodlar

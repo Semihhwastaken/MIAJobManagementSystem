@@ -23,22 +23,47 @@ export interface Task {
 
 interface TaskState {
     items: Task[];
+    assignedTasks: Task[];
+    historyItems: Task[];
     loading: boolean;
     error: string | null;
+    lastFetchTime: number;
+    lastHistoryFetchTime: number;
 }
 
 const initialState: TaskState = {
     items: [],
+    assignedTasks: [],
+    historyItems: [],
     loading: false,
-    error: null
+    error: null,
+    lastFetchTime: 0,
+    lastHistoryFetchTime: 0
+};
+
+// Cache timeout in milliseconds (5 minutes)
+const CACHE_TIMEOUT = 5 * 60 * 1000;
+
+// Check if cache is valid
+const isCacheValid = (lastFetchTime: number): boolean => {
+    return lastFetchTime > 0 && (Date.now() - lastFetchTime < CACHE_TIMEOUT);
 };
 
 export const fetchTasks = createAsyncThunk(
     'tasks/fetchTasks',
-    async (_, { rejectWithValue }) => {
+    async (_, { getState, rejectWithValue }) => {
         try {
+            const state = getState() as { tasks: TaskState };
+            
+            // Use cached data if valid and available
+            if (state.tasks.items.length > 0 && isCacheValid(state.tasks.lastFetchTime)) {
+                return state.tasks.items;
+            }
+            
+            // Log that we're making a request
+            console.log('Fetching tasks from API...');
             const response = await axiosInstance.get('/Tasks');
-            // Remove console.log to prevent flooding the console with messages
+            
             if (!response.data) {
                 throw new Error('No data received from the server');
             }
@@ -46,6 +71,29 @@ export const fetchTasks = createAsyncThunk(
         } catch (error: any) {
             console.error('Error fetching tasks:', error);
             return rejectWithValue(error.response?.data?.message || 'Görevler yüklenirken bir hata oluştu');
+        }
+    }
+);
+
+export const fetchAssignedTasks = createAsyncThunk(
+    'tasks/fetchAssignedTasks',
+    async (_, { getState, rejectWithValue }) => {
+        try {
+            const state = getState() as { tasks: TaskState };
+            
+            // Use cached data if valid and available
+            if (state.tasks.assignedTasks.length > 0 && isCacheValid(state.tasks.lastFetchTime)) {
+                return state.tasks.assignedTasks;
+            }
+            
+            const response = await axiosInstance.get('/Tasks/assigned-to-me');
+            
+            if (!response.data) {
+                throw new Error('No data received from the server');
+            }
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Atanan görevler yüklenirken bir hata oluştu');
         }
     }
 );
@@ -74,7 +122,6 @@ export const updateTask = createAsyncThunk(
 
             const response = await axiosInstance.put(`/Tasks/${task.id}`, {
                 ...task,
-                // Ensure subtasks have all required fields
                 subTasks: task.subTasks.map(st => ({
                     id: st.id,
                     title: st.title,
@@ -285,10 +332,43 @@ export const completeTask = createAsyncThunk(
         }
     }
 );
+
+export const fetchTaskHistory = createAsyncThunk(
+    'tasks/fetchTaskHistory',
+    async (_, { getState, rejectWithValue }) => {
+        try {
+            const state = getState() as { tasks: TaskState };
+            
+            // Use cached data if valid and available
+            if (state.tasks.historyItems.length > 0 && isCacheValid(state.tasks.lastHistoryFetchTime)) {
+                return state.tasks.historyItems;
+            }
+            
+            console.log('Fetching task history from API...');
+            const response = await axiosInstance.get('/Tasks/history');
+            
+            if (!response.data) {
+                throw new Error('No history data received from the server');
+            }
+            return response.data;
+        } catch (error: any) {
+            console.error('Error fetching task history:', error);
+            return rejectWithValue(error.response?.data?.message || 'Görev geçmişi yüklenirken bir hata oluştu');
+        }
+    }
+);
+
 const taskSlice = createSlice({
     name: 'tasks',
     initialState,
-    reducers: {},
+    reducers: {
+        invalidateTasksCache: (state) => {
+            state.lastFetchTime = 0;
+        },
+        invalidateHistoryCache: (state) => {
+            state.lastHistoryFetchTime = 0;
+        }
+    },
     extraReducers: (builder) => {
         builder
             .addCase(fetchTasks.pending, (state) => {
@@ -298,8 +378,24 @@ const taskSlice = createSlice({
             .addCase(fetchTasks.fulfilled, (state, action) => {
                 state.loading = false;
                 state.items = action.payload;
+                state.lastFetchTime = Date.now();
             })
             .addCase(fetchTasks.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+            .addCase(fetchAssignedTasks.pending, (state) => {
+                if (state.assignedTasks.length === 0) {
+                    state.loading = true;
+                }
+                state.error = null;
+            })
+            .addCase(fetchAssignedTasks.fulfilled, (state, action) => {
+                state.loading = false;
+                state.assignedTasks = action.payload;
+                // Don't update lastFetchTime as it's for all tasks
+            })
+            .addCase(fetchAssignedTasks.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
             })
@@ -310,6 +406,14 @@ const taskSlice = createSlice({
             .addCase(createTask.fulfilled, (state, action) => {
                 state.loading = false;
                 state.items.push(action.payload);
+                // Also update assigned tasks if it belongs to current user
+                if (action.payload.assignedUsers?.some(u => u.id === (action.meta as any).userId)) {
+                    state.assignedTasks.push(action.payload);
+                }
+                // Reset lastFetchTime to force refresh on next fetch
+                state.lastFetchTime = 0;
+                // Reset history cache
+                state.lastHistoryFetchTime = 0;
             })
             .addCase(createTask.rejected, (state, action) => {
                 state.loading = false;
@@ -340,6 +444,17 @@ const taskSlice = createSlice({
                 if (index !== -1) {
                     state.items[index] = action.payload;
                 }
+                
+                // Also update in assignedTasks if present
+                const assignedIndex = state.assignedTasks.findIndex(task => task.id === action.payload.id);
+                if (assignedIndex !== -1) {
+                    state.assignedTasks[assignedIndex] = action.payload;
+                }
+                
+                // Reset lastFetchTime to force refresh on next fetch
+                state.lastFetchTime = 0;
+                // Reset history cache
+                state.lastHistoryFetchTime = 0;
             })
             .addCase(updateTask.rejected, (state, action) => {
                 state.loading = false;
@@ -352,6 +467,11 @@ const taskSlice = createSlice({
             .addCase(deleteTask.fulfilled, (state, action) => {
                 state.loading = false;
                 state.items = state.items.filter(task => task.id !== action.payload);
+                state.assignedTasks = state.assignedTasks.filter(task => task.id !== action.payload);
+                // Reset lastFetchTime to force refresh on next fetch
+                state.lastFetchTime = 0;
+                // Reset history cache
+                state.lastHistoryFetchTime = 0;
             })
             .addCase(deleteTask.rejected, (state, action) => {
                 state.loading = false;
@@ -388,12 +508,30 @@ const taskSlice = createSlice({
                         status: action.payload.status
                     };
                 }
+                // Reset history cache
+                state.lastHistoryFetchTime = 0;
             })
             .addCase(completeTask.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+            .addCase(fetchTaskHistory.pending, (state) => {
+                if (state.historyItems.length === 0) {
+                    state.loading = true;
+                }
+                state.error = null;
+            })
+            .addCase(fetchTaskHistory.fulfilled, (state, action) => {
+                state.loading = false;
+                state.historyItems = action.payload;
+                state.lastHistoryFetchTime = Date.now();
+            })
+            .addCase(fetchTaskHistory.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
             });
     }
 });
 
+export const { invalidateTasksCache, invalidateHistoryCache } = taskSlice.actions;
 export default taskSlice.reducer;

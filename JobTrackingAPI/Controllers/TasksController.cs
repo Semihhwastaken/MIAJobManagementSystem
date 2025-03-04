@@ -12,6 +12,7 @@ using JobTrackingAPI.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using JobTrackingAPI.DTOs;
 using JobTrackingAPI.Enums;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -26,13 +27,17 @@ namespace JobTrackingAPI.Controllers
         private readonly IMongoCollection<User> _usersCollection;
         private readonly IMongoCollection<TaskItem> _tasksCollection;
         private readonly IMongoCollection<Team> _teamsCollection;
+        private readonly IMemoryCache _cache;
+        private readonly ILogger<TasksController> _logger;
     
         public TasksController(
             ITasksService tasksService,
             IMongoClient mongoClient, 
             IOptions<MongoDbSettings> settings,
             NotificationService notificationService,
-            ITeamService teamsService)
+            ITeamService teamsService,
+            IMemoryCache memoryCache,
+            ILogger<TasksController> logger)
         {
             var database = mongoClient.GetDatabase(settings.Value.DatabaseName);
             _tasksService = tasksService;
@@ -41,6 +46,8 @@ namespace JobTrackingAPI.Controllers
             _tasksCollection = database.GetCollection<TaskItem>("Tasks");
             _teamsCollection = database.GetCollection<Team>("Teams");
             _teamsService = teamsService;
+            _cache = memoryCache;
+            _logger = logger;
         }
     
         [HttpPost]
@@ -60,11 +67,42 @@ namespace JobTrackingAPI.Controllers
                 task.Dependencies ??= new List<string>();
                 task.SubTasks ??= new List<SubTask>();
 
-                // Set initial status and dates
-                
-                // Atanan kullanıcıları doğrula ve bilgilerini güncelle
+                // Get current user ID from claims
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized(new { message = "User not authenticated" });
+
+                // Set creator information from claims - avoid DB query
+                task.CreatedBy = new UserReference
+                {
+                    Id = userId,
+                    Username = User.FindFirst(ClaimTypes.Name)?.Value ?? "",
+                    FullName = User.FindFirst("FullName")?.Value ?? ""
+                };
+
+                // Optimize assigned users verification
                 if (task.AssignedUsers != null && task.AssignedUsers.Any())
                 {
+                    // Create a set of user IDs for faster lookup
+                    var userIdSet = new HashSet<string>(task.AssignedUsers.Select(u => u.Id));
+                    
+                    // Fetch all users in one database query instead of multiple
+                    var userFilter = Builders<User>.Filter.In(u => u.Id, userIdSet);
+                    var users = await _usersCollection.Find(userFilter)
+                        .Project<User>(Builders<User>.Projection
+                            .Include(u => u.Id)
+                            .Include(u => u.Username)
+                            .Include(u => u.Email)
+                            .Include(u => u.FullName)
+                            .Include(u => u.Department)
+                            .Include(u => u.Title)
+                            .Include(u => u.Position)
+                            .Include(u => u.ProfileImage))
+                        .ToListAsync();
+                        
+                    // Map to dictionary for O(1) lookups
+                    var userDict = users.ToDictionary(u => u.Id);
+                    
                     var updatedAssignedUsers = new List<AssignedUser>();
                     foreach (var assignedUser in task.AssignedUsers)
                     {
@@ -72,11 +110,12 @@ namespace JobTrackingAPI.Controllers
                         {
                             return BadRequest($"Atanan kullanıcı ID'si boş olamaz.");
                         }
-                        var user = await _usersCollection.Find(u => u.Id == assignedUser.Id).FirstOrDefaultAsync();
-                        if (user == null)
+                        
+                        if (!userDict.TryGetValue(assignedUser.Id, out var user))
                         {
                             return BadRequest($"ID'si {assignedUser.Id} olan kullanıcı bulunamadı.");
                         }
+                        
                         updatedAssignedUsers.Add(new AssignedUser
                         {
                             Id = user.Id,
@@ -88,6 +127,7 @@ namespace JobTrackingAPI.Controllers
                             Position = user.Position,
                             ProfileImage = user.ProfileImage
                         });
+                        
                         // Send notification to assigned user
                         await _notificationService.SendNotificationAsync(new NotificationDto
                         {
@@ -101,7 +141,7 @@ namespace JobTrackingAPI.Controllers
                     task.AssignedUsers = updatedAssignedUsers;
                 }
 
-                // Tarihleri ayarla
+                // Set dates
                 task.CreatedAt = DateTime.UtcNow;
                 task.UpdatedAt = DateTime.UtcNow;
                 
@@ -118,6 +158,9 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 var createdTask = await _tasksService.CreateTask(task);
+
+                // Clear related caches
+                ClearTaskRelatedCaches(userId);
 
                 return CreatedAtAction(nameof(GetTask), new { id = createdTask.Id }, createdTask);
             }
@@ -194,9 +237,22 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
-                var existingTask = await _tasksService.GetTask(id);
-                if (existingTask == null)
-                    return NotFound();
+                // Get task from cache if available
+                var cacheKey = $"task_{id}";
+                TaskItem existingTask = null;
+                
+                if (!_cache.TryGetValue(cacheKey, out existingTask))
+                {
+                    existingTask = await _tasksService.GetTask(id);
+                    if (existingTask == null)
+                        return NotFound();
+                        
+                    // Cache the task for future use - short expiry is fine for task details
+                    _cache.Set(cacheKey, existingTask, TimeSpan.FromMinutes(2));
+                }
+
+                // Preserve the creator information
+                updatedTask.CreatedBy = existingTask.CreatedBy;
 
                 // Check if task became overdue
                 if (existingTask.Status != "completed" && 
@@ -209,11 +265,16 @@ namespace JobTrackingAPI.Controllers
                 // UpdateTask in the service now handles file deletion if status changes to completed or overdue
                 await _tasksService.UpdateTask(id, updatedTask);
                 
-                // Send notifications to all assigned users about the task update
+                // Invalidate cache for this task
+                _cache.Remove(cacheKey);
+                
+                // Invalidate user task caches for all assigned users
                 if (updatedTask.AssignedUsers != null)
                 {
                     foreach (var user in updatedTask.AssignedUsers)
                     {
+                        _cache.Remove($"user_tasks_{user.Id}");
+                        
                         await _notificationService.SendNotificationAsync(new NotificationDto
                         {
                             UserId = user.Id,
@@ -222,6 +283,21 @@ namespace JobTrackingAPI.Controllers
                             Type = NotificationType.TaskUpdated,
                             RelatedJobId = updatedTask.Id
                         });
+                    }
+                }
+
+                // Clear related caches
+                ClearTaskRelatedCaches(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+                
+                // Also clear caches for all users assigned to this task
+                if (updatedTask.AssignedUsers != null)
+                {
+                    foreach (var user in updatedTask.AssignedUsers)
+                    {
+                        if (!string.IsNullOrEmpty(user.Id) && user.Id != User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+                        {
+                            ClearTaskRelatedCaches(user.Id);
+                        }
                     }
                 }
                 
@@ -241,9 +317,32 @@ namespace JobTrackingAPI.Controllers
             {
                 return BadRequest(new { message = "User not authenticated" });
             }
-            var tasks = await _tasksService.GetTasksByUserId(userId);
-            var activeTasks = tasks.Where(t => t.Status != "completed").ToList();
-            return Ok(activeTasks);
+
+            try
+            {
+                // Use a cache key specific to the user
+                var cacheKey = $"all_tasks_{userId}";
+                
+                // Check if tasks are already in cache
+                if (_cache.TryGetValue(cacheKey, out List<TaskItem> cachedTasks))
+                {
+                    _logger.LogInformation("Returning tasks from cache for user {UserId}", userId);
+                    return Ok(cachedTasks);
+                }
+                
+                _logger.LogInformation("Fetching tasks from database for user {UserId}", userId);
+                var tasks = await _tasksService.GetTasksOptimized(userId);
+                
+                // Cache tasks for 5 minutes
+                _cache.Set(cacheKey, tasks, TimeSpan.FromMinutes(5));
+                
+                return Ok(tasks);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting tasks for user {UserId}", userId);
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
+            }
         }
         
         [HttpGet("user/{userId}/active-tasks")]
@@ -257,11 +356,32 @@ namespace JobTrackingAPI.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<TaskItem>> GetTask(string id)
         {
-            var task = await _tasksService.GetTask(id);
-            if (task == null)
-                return NotFound();
-
-            return Ok(task);
+            try
+            {
+                var cacheKey = $"task_{id}";
+                
+                // Check if the task is already in cache
+                if (_cache.TryGetValue(cacheKey, out TaskItem cachedTask))
+                {
+                    return cachedTask;
+                }
+                
+                var task = await _tasksService.GetTask(id);
+                
+                if (task == null)
+                {
+                    return NotFound(new { message = "Task not found" });
+                }
+                
+                // Cache the task for 5 minutes
+                _cache.Set(cacheKey, task, TimeSpan.FromMinutes(5));
+                
+                return task;
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
+            }
         }
 
         [HttpGet("user/{userId}")]
@@ -292,6 +412,10 @@ namespace JobTrackingAPI.Controllers
             {
                 // DeleteTask in the service now handles file deletion
                 await _tasksService.DeleteTask(id);
+
+                // Clear related caches
+                ClearTaskRelatedCaches(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+
                 return Ok(new { message = "Task deleted successfully" });
             }
             catch (Exception ex)
@@ -461,23 +585,89 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+        [HttpGet("assigned-to-me")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetTasksAssignedToCurrentUser()
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { message = "Kullanıcı kimliği doğrulanamadı." });
+                }
+                
+                var cacheKey = $"user_tasks_{userId}";
+                
+                // Try to get from cache first with longer expiration
+                if (_cache.TryGetValue(cacheKey, out List<TaskItem> cachedTasks))
+                {
+                    return Ok(cachedTasks);
+                }
+                
+                // Otherwise fetch from DB
+                var tasks = await _tasksService.GetTasksAssignedToUserAsync(userId);
+                
+                // Cache the result for 5 minutes instead of 2
+                _cache.Set(cacheKey, tasks, TimeSpan.FromMinutes(5));
+                
+                return Ok(tasks);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting tasks for current user");
+                return StatusCode(500, new { message = "Görevler getirilirken bir hata oluştu: " + ex.Message });
+            }
+        }
+
 
         [HttpGet("history")]
         public async Task<ActionResult<IEnumerable<TaskHistoryDto>>> GetTaskHistory()
         {
             try
             {
-                var tasks = await _tasksService.GetTasks();
-                var historicalTasks = tasks.Where(t => t.Status == "completed" || t.Status == "overdue")
-                                         .OrderByDescending(t => t.UpdatedAt)
-                                         .ToList();
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
 
-                return Ok(historicalTasks);
+                // Use a cache key specific to the user's history
+                var cacheKey = $"task_history_{userId}";
+                
+                // Check if history is already in cache
+                if (_cache.TryGetValue(cacheKey, out List<TaskHistoryDto> cachedHistory))
+                {
+                    _logger.LogInformation("Returning task history from cache for user {UserId}", userId);
+                    return Ok(cachedHistory);
+                }
+                
+                _logger.LogInformation("Fetching task history from database for user {UserId}", userId);
+                var history = await _tasksService.GetUserTaskHistory(userId);
+                
+                // Cache history for 5 minutes
+                _cache.Set(cacheKey, history, TimeSpan.FromMinutes(5));
+                
+                return Ok(history);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error getting task history");
                 return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
             }
+        }
+
+        // Helper method to clear task-related caches for a user
+        private void ClearTaskRelatedCaches(string userId)
+        {
+            _cache.Remove($"all_tasks_{userId}");
+            _cache.Remove($"assigned_tasks_{userId}");
+            
+            // Optionally clear task history and any other related caches
+            _cache.Remove($"task_history_{userId}");
         }
     }
 }

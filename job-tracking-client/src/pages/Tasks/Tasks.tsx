@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import * as echarts from 'echarts';
 import TaskDetail from '../../components/TaskDetailModal/TaskDetail';
 import TaskForm from '../../components/TaskForm/TaskForm';
 import TaskHistory from '../../components/TaskHistory/TaskHistory';
 import { Task } from '../../types/task';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchTasks, createTask, updateTask, deleteTask } from '../../redux/features/tasksSlice';
+import { fetchTasks, fetchAssignedTasks, createTask, updateTask, deleteTask } from '../../redux/features/tasksSlice';
 import { RootState, AppDispatch } from '../../redux/store';
 import Footer from '../../components/Footer/Footer';
 import { getTeamMembersByTeamId } from '../../redux/features/teamSlice';
+// Imports for userCacheSlice
+import { fetchCurrentUser, fetchUserTeams, fetchUserTasks } from '../../redux/features/userCacheSlice';
 
 interface GroupedTask extends Task {
   isLinked?: boolean;
@@ -18,12 +19,24 @@ import { useTheme } from '../../context/ThemeContext';
 
 const Tasks: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { items: tasks, status, error } = useSelector((state: RootState) => state.tasks);
+  const { items: tasks, assignedTasks, status, error, lastFetchTime } = useSelector((state: RootState) => state.tasks);
   const currentUser = useSelector((state: RootState) => state.auth.user);
+  // Selectors for cached user data
+  const cachedUser = useSelector((state: RootState) => state.userCache.currentUser);
+  const cachedTeams = useSelector((state: RootState) => state.userCache.userTeams);
+  const cachedTasks = useSelector((state: RootState) => state.userCache.userTasks);
+  const cacheLoading = useSelector((state: RootState) => 
+    state.userCache.loading.user || 
+    state.userCache.loading.teams || 
+    state.userCache.loading.tasks
+  );
+  
   const [taskOwnerStatus, setTaskOwnerStatus] = useState<{[key: string]: boolean}>({});
   const [isValidationLoading, setIsValidationLoading] = useState(true);
   const { isDarkMode } = useTheme();
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
+  // Other state variables
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Cases');
@@ -42,32 +55,62 @@ const Tasks: React.FC = () => {
     'low': 1
   };
 
-  // Optimize task owner validation
-  const checkOwnerStatus = useCallback(async (tasks: Task[]) => {
+  // Optimize task owner validation by using cached teams data
+  const checkOwnerStatus = useCallback(async (taskList: Task[]) => {
     setIsValidationLoading(true);
     const ownerStatusMap: {[key: string]: boolean} = {};
     const processedTeams = new Set<string>();
 
     try {
-      for (const task of tasks) {
-        if (task.teamId && task.status !== "completed" && task.status !== "overdue") {
-          if (!processedTeams.has(task.teamId)) {
-            processedTeams.add(task.teamId);
-            try {
-              const teamMembersResult = await dispatch(getTeamMembersByTeamId(task.teamId));
-              const isOwner = teamMembersResult.payload.some(
-                teamMember => teamMember.id === currentUser?.id && teamMember.role === "Owner"
-              );
+      // First check if we have teams data in cache
+      if (cachedTeams.length > 0) {
+        // Use cached teams data to determine ownership
+        taskList.forEach(task => {
+          if (task.teamId && task.status !== "completed" && task.status !== "overdue") {
+            if (!processedTeams.has(task.teamId)) {
+              processedTeams.add(task.teamId);
               
-              if (isOwner) {
-                tasks
-                  .filter(t => t.teamId === task.teamId)
-                  .forEach(t => {
-                    if (t.id) ownerStatusMap[t.id] = true;
-                  });
+              // Find team in cached teams
+              const team = cachedTeams.find(t => t.id === task.teamId);
+              if (team) {
+                // Check if current user is an owner in this team
+                const isOwner = team.members.some(
+                  member => member.id === currentUser?.id && member.role === "Owner"
+                );
+                
+                if (isOwner) {
+                  taskList
+                    .filter(t => t.teamId === task.teamId)
+                    .forEach(t => {
+                      if (t.id) ownerStatusMap[t.id] = true;
+                    });
+                }
               }
-            } catch (error) {
-              console.error('Error checking team ownership:', error);
+            }
+          }
+        });
+      } else {
+        // Fall back to API calls if cached data is not available
+        for (const task of taskList) {
+          if (task.teamId && task.status !== "completed" && task.status !== "overdue") {
+            if (!processedTeams.has(task.teamId)) {
+              processedTeams.add(task.teamId);
+              try {
+                const teamMembersResult = await dispatch(getTeamMembersByTeamId(task.teamId));
+                const isOwner = teamMembersResult.payload.some(
+                  teamMember => teamMember.id === currentUser?.id && teamMember.role === "Owner"
+                );
+                
+                if (isOwner) {
+                  taskList
+                    .filter(t => t.teamId === task.teamId)
+                    .forEach(t => {
+                      if (t.id) ownerStatusMap[t.id] = true;
+                    });
+                }
+              } catch (error) {
+                console.error('Error checking team ownership:', error);
+              }
             }
           }
         }
@@ -76,31 +119,72 @@ const Tasks: React.FC = () => {
     } finally {
       setIsValidationLoading(false);
     }
-  }, [dispatch, currentUser?.id]);
+  }, [dispatch, currentUser?.id, cachedTeams]);
 
-  // Initial tasks fetch
+  // Optimized data loading strategy with progressive loading
   useEffect(() => {
-    if (!tasks.length) {
-      dispatch(fetchTasks()).catch((error) => {
-        console.error('Error fetching tasks:', error);
-      });
+    // Always fetch user data if not available
+    if (!cachedUser) {
+      dispatch(fetchCurrentUser());
     }
-  }, [dispatch, tasks.length]);
+    
+    // Phase 1: Load cached user teams (lightweight)
+    if (cachedTeams.length === 0) {
+      dispatch(fetchUserTeams());
+    }
+    
+    // Phase 2: Progressive task loading
+    const loadTasks = async () => {
+      try {
+        // First try to get assigned tasks (smaller subset)
+        if (assignedTasks.length === 0) {
+          await dispatch(fetchAssignedTasks()).unwrap();
+          setIsInitialLoad(false);
+        }
+        
+        // Then fetch all tasks (can be larger)
+        // Only fetch if cache is invalid or no tasks are loaded
+        if (tasks.length === 0 || lastFetchTime === 0) {
+          await dispatch(fetchTasks()).unwrap();
+        }
+      } catch (error) {
+        console.error('Error loading tasks:', error);
+      } finally {
+        setIsInitialLoad(false);
+      }
+    };
+    
+    loadTasks();
+  }, [
+    dispatch, 
+    cachedUser, 
+    cachedTeams.length, 
+    assignedTasks.length, 
+    tasks.length, 
+    lastFetchTime
+  ]);
 
   // Check owner status when tasks or user changes
   useEffect(() => {
-    if (tasks.length > 0 && currentUser?.id) {
-      checkOwnerStatus(tasks);
+    if ((tasks.length > 0 || assignedTasks.length > 0) && 
+        currentUser?.id && 
+        !cacheLoading && 
+        !isInitialLoad) {
+      // Use assignedTasks first if available for faster initial load
+      const taskList = tasks.length > 0 ? tasks : assignedTasks;
+      checkOwnerStatus(taskList);
     }
-  }, [tasks.length, currentUser?.id, checkOwnerStatus]);
+  }, [tasks.length, assignedTasks.length, currentUser?.id, checkOwnerStatus, cacheLoading, isInitialLoad]);
 
-  // Memoize filtered and processed tasks
+  // Memoize filtered and processed tasks to avoid recomputation
   const processedTasks = useMemo(() => {
-    return tasks.map(task => {
+    const tasksToProcess = tasks.length > 0 ? tasks : assignedTasks;
+    
+    return tasksToProcess.map(task => {
       const dueDate = new Date(task.dueDate);
       const now = new Date();
       
-      const linkedTasks = tasks.filter(t => 
+      const linkedTasks = tasksToProcess.filter(t => 
           task.dependencies?.includes(t.id!)
       );
       
@@ -111,7 +195,7 @@ const Tasks: React.FC = () => {
           linkedTasks: linkedTasks.length > 0 ? linkedTasks : undefined
       };
     });
-  }, [tasks]);
+  }, [tasks, assignedTasks]);
 
   const filteredTasks = useMemo(() => {
     return processedTasks
@@ -288,18 +372,33 @@ const Tasks: React.FC = () => {
     );
   }, []);
 
-  if (status === 'loading' || isValidationLoading) {
+  // Show progressive loading indicators
+  if (isInitialLoad) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
         <div className="flex flex-col items-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
           <p className="text-gray-600">Yükleniyor...</p>
+          <p className="text-sm text-gray-400">Görevleriniz hazırlanıyor...</p>
         </div>
       </div>
     );
   }
 
-  if (status === 'failed') {
+  // Show loading for subsequent requests
+  if (status === 'loading' && tasks.length === 0 && assignedTasks.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-50">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          <p className="text-gray-600">Görevler yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (status === 'failed' && !isInitialLoad && tasks.length === 0 && assignedTasks.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="p-4 rounded-lg bg-red-50 border border-red-200">
@@ -311,7 +410,8 @@ const Tasks: React.FC = () => {
       </div>
     );
   }
-  
+
+  // Render partial data even while validation is still loading
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       {/* Main Content */}
@@ -322,6 +422,14 @@ const Tasks: React.FC = () => {
             <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>My Tasks</h1>
             <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Track and manage your tasks efficiently</p>
           </div>
+          
+          {/* Show a loading indicator when validation is in progress */}
+          {isValidationLoading && (
+            <div className="flex items-center">
+              <div className="animate-spin h-4 w-4 border-b-2 border-indigo-600 mr-2"></div>
+              <span className="text-sm text-gray-500">Veriler yükleniyor...</span>
+            </div>
+          )}
         </div>
 
         {/* Task Management Tools */}

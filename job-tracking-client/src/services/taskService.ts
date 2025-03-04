@@ -68,6 +68,17 @@ const taskService = {
             console.error('Overdue durum kontrolü sırasında hata:', error);
             throw error;
         }
+    },
+
+    // Get tasks assigned to the current user
+    getUserTasks: async (): Promise<TaskItem[]> => {
+        try {
+            const response = await axiosInstance.get<TaskItem[]>('/tasks/assigned-to-me');
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching user tasks:', error);
+            throw error;
+        }
     }
 };
 
