@@ -30,22 +30,6 @@ export const NotificationCenter: React.FC = () => {
       isAuthenticated
     });
 
-    const initializeSignalR = async () => {
-      try {
-        if (user?.id) {
-          await signalRService.startConnection(user.id);
-          signalRService.onReceiveNotification((notification: Notification) => {
-            setNotifications(prev => [notification, ...prev]);
-            setUnreadCount(prev => prev + 1);
-            console.log('Notification receivedssss:', notification);
-            showNotificationToast(notification);
-          });
-        }
-      } catch (error) {
-        console.error('SignalR connection error:', error);
-      }
-    };
-
     const fetchNotifications = async () => {
       if (!user?.id) {
         console.warn('Cannot fetch notifications: User ID not found');
@@ -75,6 +59,41 @@ export const NotificationCenter: React.FC = () => {
       }
     };
 
+    const initializeSignalR = async () => {
+      try {
+        if (user?.id) {
+          console.log("SignalR bağlantısı başlatılıyor...");
+          await signalRService.startConnection(user.id);
+          
+          signalRService.onReceiveNotification((notification: Notification) => {
+            console.log('NotificationCenter: Yeni bildirim alındı ->', {
+              id: notification.id,
+              title: notification.title,
+              message: notification.message,
+              type: notification.type
+            });
+            
+            setNotifications(prev => {
+              if (prev.some(n => n.id === notification.id)) {
+                console.log('Bu bildirim zaten mevcut, atlanıyor:', notification.id);
+                return prev;
+              }
+              console.log('Yeni bildirim listeye ekleniyor:', notification.id);
+              return [notification, ...prev];
+            });
+            
+            setUnreadCount(prev => prev + 1);
+            
+            
+            showNotificationToast(notification);
+          });
+          
+          console.log("SignalR bildirim dinleyicisi başarıyla eklendi");
+        }
+      } catch (error) { 
+        console.error('SignalR bağlantı hatası:', error);
+      }
+    };
 
     const showNotificationToast = (notification: Notification) => {
       const toast = document.createElement('div');

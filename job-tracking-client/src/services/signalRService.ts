@@ -23,7 +23,7 @@ class SignalRService {
                 accessTokenFactory: () => localStorage.getItem('token') || ''
             })
             .withAutomaticReconnect()
-            .configureLogging(signalR.LogLevel.Warning) // Changed from Information to Warning
+            .configureLogging(signalR.LogLevel.Information) // Changed from Information to Warning
             .build();
 
         // Notification Hub bağlantısı
@@ -32,7 +32,7 @@ class SignalRService {
                 accessTokenFactory: () => localStorage.getItem('token') || ''
             })
             .withAutomaticReconnect()
-            .configureLogging(signalR.LogLevel.Warning) // Changed from Information to Warning
+            .configureLogging(signalR.LogLevel.Information) // Changed from Information to Warning
             .build();
 
         // Chat event listeners
@@ -187,7 +187,14 @@ class SignalRService {
 
     // Notification Methods
     onReceiveNotification(callback: (notification: Notification) => void): void {
-        this.notificationHubConnection.on("ReceiveNotification", callback);
+        console.log("SignalR: Bildirim dinleyicisi eklendi");
+        console.log("SignalR bağlantı durumu:", this.notificationHubConnection.state);
+
+        
+        this.notificationHubConnection.on("ReceiveNotification", (notification) => {
+            console.log("SignalR: Yeni bildirim alındı ->", notification);
+            callback(notification);
+        });
     }
 
     async sendTestNotification(): Promise<void> {

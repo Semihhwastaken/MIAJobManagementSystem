@@ -243,12 +243,38 @@ app.MapControllers();
 app.MapHub<ChatHub>("/chatHub");
 app.MapHub<NotificationHub>("/notificationHub");
 
-// Configure static file serving
+// wwwroot ve uploads klasörlerini oluştur
+var wwwrootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+var uploadsPath = Path.Combine(wwwrootPath, "uploads");
+
+try 
+{
+    if (!Directory.Exists(wwwrootPath))
+    {
+        Directory.CreateDirectory(wwwrootPath);
+    }
+
+    if (!Directory.Exists(uploadsPath))
+    {
+        Directory.CreateDirectory(uploadsPath);
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Klasör oluşturma hatası: {ex.Message}");
+}
+
 app.UseStaticFiles(new StaticFileOptions
 {
-    FileProvider = new PhysicalFileProvider(
-        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")),
+    FileProvider = new PhysicalFileProvider(wwwrootPath),
     RequestPath = ""
+});
+
+// uploads klasörü için özel konfigürasyon
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads"
 });
 
 // Configure URL rewriting for uploaded files
