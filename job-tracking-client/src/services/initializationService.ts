@@ -1,7 +1,7 @@
 import { store } from '../redux/store';
 import { fetchCurrentUser, fetchUserTeams, fetchUserTasks } from '../redux/features/userCacheSlice';
+import { invalidateTasksCache } from '../redux/features/tasksSlice';
 import SignalRService from './signalRService';
-import axiosInstance from './axiosInstance';
 
 class InitializationService {
   private static instance: InitializationService | null = null;
@@ -9,7 +9,10 @@ class InitializationService {
   private refreshInterval: NodeJS.Timeout | null = null;
   private initializationInProgress: boolean = false;
   private lastInitializationTime: number = 0;
+  private readonly CACHE_TIMEOUT = 30000; // 30 seconds cache timeout
   private readonly DEBOUNCE_INTERVAL = 5000; // 5 seconds
+  private lastRoute: string = '';
+  private routeChangeCount: number = 0;
   
   private constructor() {}
   
@@ -84,44 +87,27 @@ class InitializationService {
    */
   public async loadAllUserDataOptimized(): Promise<void> {
     try {
-      console.log('Loading user data with optimized endpoint...');
-      
-      // Call the new unified endpoint
-      const response = await axiosInstance.get('/UserData/initialize');
-      const { user, teams, tasks } = response.data;
-      
-      // Dispatch all data to Redux store
-      const { dispatch } = store;
-      
-      // Update the store with all received data
-      if (user) {
-        dispatch({ 
-          type: 'userCache/fetchCurrentUser/fulfilled', 
-          payload: user 
-        });
+      // First invalidate all caches to ensure fresh data
+      store.dispatch(invalidateTasksCache());
+      store.dispatch({ type: 'userCache/invalidateCache', payload: 'all' });
+      store.dispatch({ type: 'team/invalidateCache', payload: 'all' });
+
+      // Then load all data in parallel
+      const results = await Promise.all([
+        store.dispatch(fetchCurrentUser()),
+        store.dispatch(fetchUserTeams()),
+        store.dispatch(fetchUserTasks())
+      ]);
+
+      // Update last initialization time only if all requests succeeded
+      if (results.every(r => !r.error)) {
+        this.lastInitializationTime = Date.now();
       }
       
-      if (teams) {
-        dispatch({ 
-          type: 'userCache/fetchUserTeams/fulfilled', 
-          payload: teams 
-        });
-      }
-      
-      if (tasks) {
-        dispatch({ 
-          type: 'userCache/fetchUserTasks/fulfilled', 
-          payload: tasks 
-        });
-      }
-      
-      console.log('All user data loaded successfully via optimized endpoint');
+      console.log('All user data loaded successfully');
     } catch (error) {
-      console.error('Error loading user data with optimized endpoint:', error);
-      
-      // Fallback to individual requests if the optimized endpoint fails
-      console.log('Falling back to individual data requests...');
-      await this.loadAllUserData();
+      console.error('Error loading user data:', error);
+      throw error;
     }
   }
   
@@ -166,16 +152,15 @@ class InitializationService {
     }
     
     this.refreshInterval = setInterval(() => {
-      // Only refresh if not in the middle of another initialization
-      if (!this.initializationInProgress) {
-        console.log('Performing periodic data refresh...');
+      if (!this.initializationInProgress && 
+          Date.now() - this.lastInitializationTime > this.CACHE_TIMEOUT) {
         this.loadAllUserDataOptimized().catch(err => 
           console.error('Error during periodic refresh:', err)
         );
       }
-    }, 5 * 60 * 1000); // 5 minutes
+    }, this.CACHE_TIMEOUT);
     
-    console.log('Periodic refresh scheduled every 5 minutes');
+    console.log(`Periodic refresh scheduled every ${this.CACHE_TIMEOUT/1000} seconds`);
   }
   
   /**
@@ -193,6 +178,54 @@ class InitializationService {
     signalRService.stopConnection();
     
     this.isInitialized = false;
+    this.lastInitializationTime = 0;
+    this.routeChangeCount = 0;
+    this.lastRoute = '';
+  }
+
+  /**
+   * Handle route changes to refresh data if necessary
+   * @param newRoute The new route
+   */
+  public async handleRouteChange(newRoute: string): Promise<void> {
+    // Reset route change counter if it's been more than CACHE_TIMEOUT since last change
+    if (Date.now() - this.lastInitializationTime > this.CACHE_TIMEOUT) {
+      this.routeChangeCount = 0;
+    }
+
+    // If route actually changed
+    if (this.lastRoute !== newRoute) {
+      this.lastRoute = newRoute;
+      this.routeChangeCount++;
+
+      // Force refresh data if we've changed routes multiple times
+      if (this.routeChangeCount > 1) {
+        await this.forceRefreshData();
+      }
+    }
+  }
+
+  /**
+   * Force refresh user data
+   */
+  public async forceRefreshData(): Promise<void> {
+    try {
+      store.dispatch(invalidateTasksCache());
+      store.dispatch({ type: 'userCache/invalidateCache', payload: 'all' });
+      store.dispatch({ type: 'team/invalidateCache', payload: 'all' });
+
+      await Promise.all([
+        store.dispatch(fetchCurrentUser()),
+        store.dispatch(fetchUserTeams()),
+        store.dispatch(fetchUserTasks())
+      ]);
+
+      // Reset counters
+      this.routeChangeCount = 0;
+      this.lastInitializationTime = Date.now();
+    } catch (error) {
+      console.error('Error during force refresh:', error);
+    }
   }
 }
 

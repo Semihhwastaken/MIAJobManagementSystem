@@ -11,20 +11,29 @@ import { getTeamMembersByTeamId } from '../../redux/features/teamSlice';
 // Imports for userCacheSlice
 import { fetchCurrentUser, fetchUserTeams, fetchUserTasks } from '../../redux/features/userCacheSlice';
 
+// Add cache validation function
+const CACHE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+const isCacheValid = (lastFetchTime: number): boolean => {
+  return lastFetchTime > 0 && (Date.now() - lastFetchTime < CACHE_TIMEOUT);
+};
+
 interface GroupedTask extends Task {
   isLinked?: boolean;
   linkedTasks?: Task[];
 }
 import { useTheme } from '../../context/ThemeContext';
+import { enqueueSnackbar } from 'notistack';
+
+interface TeamMember {
+  id: string;
+  role: string;
+}
 
 const Tasks: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { items: tasks, assignedTasks, status, error, lastFetchTime } = useSelector((state: RootState) => state.tasks);
   const currentUser = useSelector((state: RootState) => state.auth.user);
-  // Selectors for cached user data
-  const cachedUser = useSelector((state: RootState) => state.userCache.currentUser);
   const cachedTeams = useSelector((state: RootState) => state.userCache.userTeams);
-  const cachedTasks = useSelector((state: RootState) => state.userCache.userTasks);
   const cacheLoading = useSelector((state: RootState) => 
     state.userCache.loading.user || 
     state.userCache.loading.teams || 
@@ -75,7 +84,8 @@ const Tasks: React.FC = () => {
               if (team) {
                 // Check if current user is an owner in this team
                 const isOwner = team.members.some(
-                  member => member.id === currentUser?.id && member.role === "Owner"
+                  (teamMember: TeamMember) => 
+                    teamMember.id === currentUser?.id && teamMember.role === "Owner"
                 );
                 
                 if (isOwner) {
@@ -123,46 +133,48 @@ const Tasks: React.FC = () => {
 
   // Optimized data loading strategy with progressive loading
   useEffect(() => {
-    // Always fetch user data if not available
-    if (!cachedUser) {
-      dispatch(fetchCurrentUser());
-    }
-    
-    // Phase 1: Load cached user teams (lightweight)
-    if (cachedTeams.length === 0) {
-      dispatch(fetchUserTeams());
-    }
-    
-    // Phase 2: Progressive task loading
+    let isLoading = false;
+    const controller = new AbortController();
+
     const loadTasks = async () => {
+      if (isLoading) return;
+      isLoading = true;
+      
       try {
-        // First try to get assigned tasks (smaller subset)
-        if (assignedTasks.length === 0) {
+        // Force fetch if cache is invalid
+        if (!isCacheValid(lastFetchTime)) {
           await dispatch(fetchAssignedTasks()).unwrap();
-          setIsInitialLoad(false);
-        }
-        
-        // Then fetch all tasks (can be larger)
-        // Only fetch if cache is invalid or no tasks are loaded
-        if (tasks.length === 0 || lastFetchTime === 0) {
           await dispatch(fetchTasks()).unwrap();
         }
-      } catch (error) {
-        console.error('Error loading tasks:', error);
-      } finally {
+
         setIsInitialLoad(false);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error('Error loading tasks:', error);
+          setIsInitialLoad(false);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          isLoading = false;
+        }
       }
     };
     
     loadTasks();
-  }, [
-    dispatch, 
-    cachedUser, 
-    cachedTeams.length, 
-    assignedTasks.length, 
-    tasks.length, 
-    lastFetchTime
-  ]);
+    
+    // Setup periodic refresh
+    const refreshInterval = setInterval(() => {
+      if (!isLoading) {
+        loadTasks();
+      }
+    }, 60000); // Refresh every minute
+
+    return () => {
+      controller.abort();
+      clearInterval(refreshInterval);
+      isLoading = false;
+    };
+  }, [dispatch, lastFetchTime]);
 
   // Check owner status when tasks or user changes
   useEffect(() => {
@@ -277,17 +289,32 @@ const Tasks: React.FC = () => {
           id: selectedTask.id
         };
         await dispatch(updateTask(updatedTask));
-        setIsEditModalOpen(false);
+
+        // Force invalidate all related caches
+        dispatch({ type: 'userCache/invalidateCache', payload: 'all' });
+        dispatch({ type: 'team/invalidateCache', payload: 'all' });
+        dispatch({ type: 'tasks/invalidateTasksCache' });
+
+        // Refresh all data
+        await Promise.all([
+            dispatch(fetchCurrentUser()),
+            dispatch(fetchUserTeams()),
+            dispatch(fetchUserTasks()),
+            dispatch(fetchTasks()),
+            dispatch(fetchAssignedTasks())
+        ]);
         
+        setIsEditModalOpen(false);
         // Add a slight delay to improve UX
         setTimeout(() => {
           setSelectedTask(null);
         }, 300);
       } catch (error) {
         console.error('Görev güncellenirken hata oluştu:', error);
+        enqueueSnackbar('Görev güncellenirken bir hata oluştu', { variant: 'error' });
       }
     }
-  }, [dispatch, selectedTask]);
+  }, [dispatch, selectedTask, enqueueSnackbar]);
 
   const handleDeleteTask = useCallback(async (taskId: string | undefined, e?: React.MouseEvent) => {
     if (e) {
@@ -311,66 +338,30 @@ const Tasks: React.FC = () => {
   const handleCreateTask = useCallback(async (newTask: Omit<Task, 'id'>) => {
     try {
       await dispatch(createTask(newTask));
+      
+      // Force invalidate all related caches
+      dispatch({ type: 'userCache/invalidateCache', payload: 'all' });
+      dispatch({ type: 'team/invalidateCache', payload: 'all' });
+      dispatch({ type: 'tasks/invalidateTasksCache' });
+      
+      // Refresh all data
+      await Promise.all([
+          dispatch(fetchCurrentUser()),
+          dispatch(fetchUserTeams()),
+          dispatch(fetchUserTasks()),
+          dispatch(fetchTasks()),
+          dispatch(fetchAssignedTasks())
+      ]);
+
       setIsNewTaskModalOpen(false);
+      enqueueSnackbar('Görev başarıyla oluşturuldu', { variant: 'success' });
     } catch (error) {
       console.error('Görev oluşturulurken hata oluştu:', error);
+      enqueueSnackbar('Görev oluşturulurken bir hata oluştu', { variant: 'error' });
     }
-  }, [dispatch]);
+  }, [dispatch, enqueueSnackbar]);
 
   const categories = ['All Cases', 'Bug', 'Development', 'Documentation', 'Testing', 'Maintenance'];
-
-  // Memoize TaskGroup and TaskRow components
-  const TaskGroup = useCallback<React.FC<{ task: GroupedTask }>>(({ task }) => {
-    if (!task.isLinked) {
-      return <TaskRow task={task} />;
-    }
-
-    return (
-      <div className="border-2 border-blue-400 rounded-lg p-4 mb-4">
-        <TaskRow task={task} isMainTask />
-        <div className="space-y-2 mt-3">
-          {task.linkedTasks?.map(linkedTask => (
-            <div key={linkedTask.id} className="ml-4">
-              <TaskRow task={linkedTask as GroupedTask} />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }, []);
-
-  const TaskRow = useCallback<React.FC<{ task: GroupedTask; isMainTask?: boolean }>>(({ task, isMainTask }) => {
-    return (
-      <div 
-        className={`bg-white rounded-lg p-4 ${
-          isMainTask ? 'border-b-2 border-blue-200' : 'hover:bg-blue-50'
-        }`}
-      >
-        <div className="flex justify-between items-center">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">{task.title}</h3>
-            <p className="text-gray-600 mt-1">{task.description}</p>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              task.priority === 'high' ? 'bg-red-100 text-red-800' :
-              task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-              'bg-green-100 text-green-800'
-            }`}>
-              {task.priority}
-            </span>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              task.status === 'todo' ? 'bg-gray-100 text-gray-800' :
-              task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-              'bg-green-100 text-green-800'
-            }`}>
-              {task.status}
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  }, []);
 
   // Show progressive loading indicators
   if (isInitialLoad) {
@@ -385,7 +376,7 @@ const Tasks: React.FC = () => {
     );
   }
 
-  // Show loading for subsequent requests
+  // Improved show loading for subsequent requests
   if (status === 'loading' && tasks.length === 0 && assignedTasks.length === 0) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
@@ -397,14 +388,49 @@ const Tasks: React.FC = () => {
     );
   }
 
-  // Show error state
+  // Enhanced error handling with retry option
   if (status === 'failed' && !isInitialLoad && tasks.length === 0 && assignedTasks.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="p-4 rounded-lg bg-red-50 border border-red-200">
-          <div className="flex items-center">
-            <i className="fas fa-exclamation-circle text-red-600 mr-2"></i>
-            <p className="text-red-600">Hata: {error || 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.'}</p>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
+        <div className="p-6 rounded-lg bg-red-50 border border-red-200 max-w-md w-full text-center">
+          <div className="flex flex-col items-center gap-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h3 className="text-lg font-medium text-red-800">Veri Bulunamadı</h3>
+            <p className="text-red-600 mb-4">{error || 'Görev verilerine erişilemiyor.'}</p>
+            <button 
+              onClick={() => {
+                setIsInitialLoad(true);
+                dispatch(fetchTasks());
+              }}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            >
+              Yeniden Dene
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty state when there's no data but the request was successful
+  if (!isInitialLoad && status === 'succeeded' && tasks.length === 0 && assignedTasks.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
+        <div className="p-6 rounded-lg bg-white border border-gray-200 max-w-md w-full text-center shadow-sm">
+          <div className="flex flex-col items-center gap-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <h3 className="text-lg font-medium text-gray-800">Görev Bulunamadı</h3>
+            <p className="text-gray-600 mb-4">Henüz hiç görev oluşturulmadı.</p>
+            <button 
+              onClick={() => setIsNewTaskModalOpen(true)}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+            >
+              Yeni Görev Oluştur
+            </button>
           </div>
         </div>
       </div>
@@ -704,6 +730,7 @@ const Tasks: React.FC = () => {
           onSave={handleUpdateTask}
           existingTasks={tasks}
           task={selectedTask}
+          isDarkMode={isDarkMode}
         />
       )}
 

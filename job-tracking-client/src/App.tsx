@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material';
-import { useDispatch } from 'react-redux';
-import { setUser,setToken } from './redux/features/authSlice';
+import { useDispatch, useSelector } from 'react-redux';
+import { setUser, setToken } from './redux/features/authSlice';
 import { getCurrentUser } from './services/api';
 import { CssBaseline } from '@mui/material';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { Toaster } from 'react-hot-toast';
 import Auth from './pages/Auth/Auth';
@@ -23,8 +23,12 @@ import Main from './pages/Main/Main';
 import { createBrowserRouter } from 'react-router-dom';
 import { SnackbarProvider } from 'notistack';
 import InitializationService from './services/initializationService';
+import { RootState } from './redux/store';
+import { debounce } from 'lodash';
 
 const AppContent: React.FC = () => {
+  const location = useLocation();
+  const { user } = useSelector((state: RootState) => state.auth);
   const { isDarkMode } = useTheme();
   const dispatch = useDispatch();
   const [isAuthenticated, setIsAuthenticated] = useState(
@@ -102,6 +106,178 @@ const AppContent: React.FC = () => {
     loadUserData();
   }, [dispatch]);
 
+  // Add debounced route change handler
+  const handleRouteChange = useMemo(
+    () =>
+      debounce((pathname: string) => {
+        if (user?.id) {
+          const initService = InitializationService.getInstance();
+          initService.handleRouteChange(pathname);
+        }
+      }, 300),
+    [user?.id]
+  );
+
+  useEffect(() => {
+    handleRouteChange(location.pathname);
+    return () => {
+      handleRouteChange.cancel();
+    };
+  }, [location.pathname, handleRouteChange]);
+
+  return (
+    <div className={`min-h-screen w-screen transition-colors duration-200 ${isDarkMode ? 'dark bg-gray-900' : 'bg-white'}`}>
+      <AuthContext.Provider value={{ isAuthenticated, setIsAuthenticated }}>
+        <Layout>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                isAuthenticated ? (
+                  <Home />
+                ) : (
+                  <Navigate to="/auth" replace />
+                )
+              }
+            />
+            <Route
+              path="/auth"
+              element={
+                !isAuthenticated ? (
+                  <Main />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+            <Route
+              path="/login"
+              element={
+                !isAuthenticated ? (
+                  <Auth />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+            <Route
+
+              path="/profile"
+              element={
+                isAuthenticated ? (
+                  <Profile />
+                ) : (
+                  <Navigate to="/auth" replace />
+                )
+              }
+            />
+            <Route
+
+              path="/dashboard"
+              element={
+                isAuthenticated ? (
+                  <Dashboard />
+                ) : (
+                  <Navigate to="/auth" replace />
+                )
+              }
+            />
+            <Route
+              path="/"
+              element={
+                isAuthenticated ? (
+                  <Home />
+                ) : (
+                  <Navigate to="/auth" replace />
+                )
+              }
+            />
+            <Route
+              path="/tasks"
+              element={
+                isAuthenticated ? (
+                  <Tasks />
+                ) : (
+                  <Navigate to="/auth" replace />
+                )
+              }
+            />
+            <Route
+              path="/teams"
+              element={
+                isAuthenticated ? (
+                  <Team />
+                ) : (
+                  <Navigate to="/auth" replace />
+                )
+              }
+            />
+            <Route
+              path="/team/join-with-code/:inviteCode"
+              element={
+                isAuthenticated ? (
+                  <TeamInvite />
+                ) : (
+                  <Navigate to="/auth" replace />
+                )
+              }
+            />
+            <Route
+              path="/team"
+              element={
+                isAuthenticated ? (
+                  <Team />
+                ) : (
+                  <Navigate to="/auth" replace />
+                )
+              }
+            />
+            <Route
+              path="/calendar"
+              element={
+                isAuthenticated ? (
+                  <Calendar />
+                ) : (
+                  <Navigate to="/auth" replace />
+                )
+              }
+            />
+            <Route
+              path="/chat"
+              element={
+                isAuthenticated ? (
+                  <Chat />
+                ) : (
+                  <Navigate to="/auth" replace />
+                )
+              }
+            />
+            <Route
+              path="/analytics"
+              element={<div>Raporlar Sayfası (Yapım aşamasında)</div>}
+            />
+            <Route
+              path="/team-invite"
+              element={
+                isAuthenticated ? (
+                  <TeamInvite />
+                ) : (
+                  <Navigate to="/auth" replace />
+                )
+              }
+            />
+          </Routes>
+        </Layout>
+      </AuthContext.Provider>
+      <Toaster position="top-right" />
+    </div>
+  );
+};
+
+const App: React.FC = () => {
+  const dispatch = useDispatch();
+  const { isDarkMode } = useTheme();
+
   const theme = useMemo(
     () =>
       createTheme({
@@ -125,169 +301,6 @@ const AppContent: React.FC = () => {
       }),
     [isDarkMode]
   );
-
-  /**
-   * Ana uygulama bileşeni
-   * Routing ve genel uygulama yapısını içerir
-   */
-  return (
-    <MuiThemeProvider theme={theme}>
-      <CssBaseline />
-      <div className={`min-h-screen w-screen transition-colors duration-200 ${isDarkMode ? 'dark bg-gray-900' : 'bg-white'}`}>
-        <AuthContext.Provider value={{ isAuthenticated, setIsAuthenticated }}>
-          <Router>
-            <Layout>
-              <Routes>
-                <Route
-                  path="/"
-                  element={
-                    isAuthenticated ? (
-                      <Home />
-                    ) : (
-                      <Navigate to="/auth" replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/auth"
-                  element={
-                    !isAuthenticated ? (
-                      <Layout>
-                        <Main />
-                      </Layout>
-                    ) : (
-                      <Navigate to="/" replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/login"
-                  element={
-                    !isAuthenticated ? (
-                      <Auth />
-                    ) : (
-                      <Navigate to="/" replace />
-                    )
-                  }
-                />
-                <Route
-
-                  path="/profile"
-                  element={
-                    isAuthenticated ? (
-                      <Profile />
-                    ) : (
-                      <Navigate to="/auth" replace />
-                    )
-                  }
-                />
-                <Route
-
-                  path="/dashboard"
-                  element={
-                    isAuthenticated ? (
-                      <Dashboard />
-                    ) : (
-                      <Navigate to="/auth" replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/"
-                  element={
-                    isAuthenticated ? (
-                      <Home />
-                    ) : (
-                      <Navigate to="/auth" replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/tasks"
-                  element={
-                    isAuthenticated ? (
-                      <Tasks />
-                    ) : (
-                      <Navigate to="/auth" replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/teams"
-                  element={
-                    !isAuthenticated ? (
-                      <Team />
-                    ) : (
-                      <Navigate to="/auth" replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/team/join-with-code/:inviteCode"
-                  element={
-                    isAuthenticated ? (
-                      <TeamInvite />
-                    ) : (
-                      <Navigate to="/auth" replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/team"
-                  element={
-                    isAuthenticated ? (
-                      <Team />
-                    ) : (
-                      <Navigate to="/auth" replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/calendar"
-                  element={
-                    isAuthenticated ? (
-                      <Calendar />
-                    ) : (
-                      <Navigate to="/auth" replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/chat"
-                  element={
-                    isAuthenticated ? (
-                      <Chat />
-                    ) : (
-                      <Navigate to="/auth" replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/analytics"
-                  element={<div>Raporlar Sayfası (Yapım aşamasında)</div>}
-                />
-                <Route
-                  path="/team-invite"
-                  element={
-                    isAuthenticated ? (
-                      <TeamInvite />
-                    ) : (
-                      <Navigate to="/auth" replace />
-                    )
-                  }
-                />
-              </Routes>
-            </Layout>
-          </Router>
-        </AuthContext.Provider>
-      </div>
-      <Toaster position="top-right" />
-    </MuiThemeProvider>
-  );
-};
-
-const App: React.FC = () => {
-  const dispatch = useDispatch();
 
   useEffect(() => {
     // Initialize auth state from localStorage
@@ -316,15 +329,20 @@ const App: React.FC = () => {
   return (
     <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID">
       <ThemeProvider>
-        <SnackbarProvider 
-          maxSnack={3} 
-          anchorOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
-        >
-          <AppContent />
-        </SnackbarProvider>
+        <MuiThemeProvider theme={theme}>
+          <CssBaseline />
+          <Router>
+            <SnackbarProvider 
+              maxSnack={3} 
+              anchorOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+            >
+              <AppContent />
+            </SnackbarProvider>
+          </Router>
+        </MuiThemeProvider>
       </ThemeProvider>
     </GoogleOAuthProvider>
   );

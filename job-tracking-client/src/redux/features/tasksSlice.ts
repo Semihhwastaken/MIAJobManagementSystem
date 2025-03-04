@@ -19,6 +19,7 @@ export interface Task {
     createdAt: string;
     updatedAt: string;
     completedDate: Date;
+    isLocked?: boolean;
 }
 
 interface TaskState {
@@ -29,6 +30,7 @@ interface TaskState {
     error: string | null;
     lastFetchTime: number;
     lastHistoryFetchTime: number;
+    status: 'idle' | 'loading' | 'succeeded' | 'failed';
 }
 
 const initialState: TaskState = {
@@ -38,11 +40,12 @@ const initialState: TaskState = {
     loading: false,
     error: null,
     lastFetchTime: 0,
-    lastHistoryFetchTime: 0
+    lastHistoryFetchTime: 0,
+    status: 'idle'
 };
 
-// Cache timeout in milliseconds (5 minutes)
-const CACHE_TIMEOUT = 5 * 60 * 1000;
+// Cache timeout in milliseconds (30 seconds)
+const CACHE_TIMEOUT = 30 * 1000;
 
 // Check if cache is valid
 const isCacheValid = (lastFetchTime: number): boolean => {
@@ -55,8 +58,8 @@ export const fetchTasks = createAsyncThunk(
         try {
             const state = getState() as { tasks: TaskState };
             
-            // Use cached data if valid and available
-            if (state.tasks.items.length > 0 && isCacheValid(state.tasks.lastFetchTime)) {
+            // Return cached data if valid, even if empty
+            if (isCacheValid(state.tasks.lastFetchTime)) {
                 return state.tasks.items;
             }
             
@@ -64,8 +67,9 @@ export const fetchTasks = createAsyncThunk(
             console.log('Fetching tasks from API...');
             const response = await axiosInstance.get('/Tasks');
             
-            if (!response.data) {
-                throw new Error('No data received from the server');
+            // Treat empty array as valid response
+            if (!response.data && !Array.isArray(response.data)) {
+                throw new Error('Invalid response from server');
             }
             return response.data;
         } catch (error: any) {
@@ -81,15 +85,16 @@ export const fetchAssignedTasks = createAsyncThunk(
         try {
             const state = getState() as { tasks: TaskState };
             
-            // Use cached data if valid and available
-            if (state.tasks.assignedTasks.length > 0 && isCacheValid(state.tasks.lastFetchTime)) {
+            // Return cached data if valid, even if empty
+            if (isCacheValid(state.tasks.lastFetchTime)) {
                 return state.tasks.assignedTasks;
             }
             
             const response = await axiosInstance.get('/Tasks/assigned-to-me');
             
-            if (!response.data) {
-                throw new Error('No data received from the server');
+            // Treat empty array as valid response
+            if (!response.data && !Array.isArray(response.data)) {
+                throw new Error('Invalid response from server');
             }
             return response.data;
         } catch (error: any) {
@@ -364,9 +369,19 @@ const taskSlice = createSlice({
     reducers: {
         invalidateTasksCache: (state) => {
             state.lastFetchTime = 0;
+            state.lastHistoryFetchTime = 0;
+            state.status = 'idle';
         },
         invalidateHistoryCache: (state) => {
             state.lastHistoryFetchTime = 0;
+        },
+        // Add new reducer for force refresh
+        forceRefresh: (state) => {
+            state.lastFetchTime = 0;
+            state.lastHistoryFetchTime = 0;
+            state.status = 'idle';
+            state.loading = false;
+            state.error = null;
         }
     },
     extraReducers: (builder) => {
@@ -379,6 +394,8 @@ const taskSlice = createSlice({
                 state.loading = false;
                 state.items = action.payload;
                 state.lastFetchTime = Date.now();
+                state.status = 'succeeded';
+                state.error = null;
             })
             .addCase(fetchTasks.rejected, (state, action) => {
                 state.loading = false;
@@ -393,6 +410,8 @@ const taskSlice = createSlice({
             .addCase(fetchAssignedTasks.fulfilled, (state, action) => {
                 state.loading = false;
                 state.assignedTasks = action.payload;
+                state.status = 'succeeded';
+                state.error = null;
                 // Don't update lastFetchTime as it's for all tasks
             })
             .addCase(fetchAssignedTasks.rejected, (state, action) => {
@@ -533,5 +552,5 @@ const taskSlice = createSlice({
     }
 });
 
-export const { invalidateTasksCache, invalidateHistoryCache } = taskSlice.actions;
+export const { invalidateTasksCache, invalidateHistoryCache, forceRefresh } = taskSlice.actions;
 export default taskSlice.reducer;

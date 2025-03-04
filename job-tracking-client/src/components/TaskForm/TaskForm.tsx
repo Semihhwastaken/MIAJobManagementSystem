@@ -267,11 +267,28 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         })).unwrap();
         
         taskId = updatedTask.id;
+        
+        // Force update of cached task data
+        dispatch({ type: 'userCache/invalidateTaskCache' });
+        
+        // Refresh tasks list
+        dispatch(fetchTasks());
+        
         enqueueSnackbar('Görev başarıyla güncellendi', { variant: 'success' });
       } else {
         // Yeni görev oluştur
         const createdTask = await dispatch(createTask(taskPayload)).unwrap();
         taskId = createdTask.id;
+        
+        // Force update of cached task data
+        dispatch({ type: 'userCache/invalidateTaskCache' });
+        
+        // Also refresh the tasks to get the latest data
+        dispatch(fetchTasks());
+        
+        // Also update user associated tasks if user cache is used
+        dispatch({ type: 'userCache/addUserTask', payload: createdTask });
+        
         enqueueSnackbar('Görev başarıyla oluşturuldu', { variant: 'success' });
       }
       
@@ -286,6 +303,11 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         }
       }
       
+      // After successful task creation, also update team-related data
+      if (selectedTeamId) {
+        dispatch({ type: 'team/invalidateCache', payload: 'all' });
+      }
+      
       onClose();
     } catch (error) {
       console.error('Error submitting form:', error);
@@ -293,7 +315,10 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     }
   };
 
-  const handleAddSubTask = () => {
+  const handleAddSubTask = (e?: React.KeyboardEvent) => {
+    // Only run if Enter was pressed or function was called from button click
+    if (e && e.key !== 'Enter') return;
+    
     if (newSubTask.trim()) {
       setFormData({
         ...formData,
@@ -537,22 +562,22 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
           </div>
 
           {/* Alt Görevler */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Alt Görevler
-            </label>
-            <div className="flex space-x-2 mb-2">
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Alt Görevler</label>
+            <div className="flex">
               <input
                 type="text"
                 value={newSubTask}
                 onChange={(e) => setNewSubTask(e.target.value)}
-                placeholder="Alt görev ekle..."
-                className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                // Only trigger add on Enter key, not any other keypress
+                onKeyDown={(e) => e.key === 'Enter' && handleAddSubTask(e)}
+                placeholder="Yeni alt görev ekle..."
+                className="flex-1 p-2 border rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
                 type="button"
-                onClick={handleAddSubTask}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                onClick={() => handleAddSubTask()}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 rounded-r-md flex items-center"
               >
                 Ekle
               </button>

@@ -1,8 +1,12 @@
 export interface User {
-  id: string;
-  username?: string;
-  fullName?: string;
-  email?: string;
+    id: string;
+    fullName?: string;
+    username?: string;
+    email?: string;
+    department?: string;
+    title?: string;
+    position?: string;
+    profileImage?: string;
 }
 
 export interface AssignedUser {
@@ -17,7 +21,6 @@ export interface AssignedUser {
 }
 
 export interface TaskAttachment {
-    id: string;
     fileName: string;
     fileUrl: string;
     fileType: string;
@@ -40,23 +43,22 @@ export interface UserReference {
 }
 
 export interface Task {
-    id: string;
+    id?: string;
     title: string;
     description: string;
-    status: string;
-    priority: string;
-    category: string;
     dueDate: string;
-    completedDate?: string;
-    teamId: string;
-    attachments: TaskAttachment[];
-    assignedUsers: AssignedUser[];
-    subTasks: SubTask[];
+    priority: 'low' | 'medium' | 'high';
+    status: 'todo' | 'in-progress' | 'completed' | 'overdue';
+    category: string;
+    assignedUsers: User[];
+    subTasks: { id?: string; title: string; completed: boolean }[];
     dependencies: string[];
-    isLocked: boolean;
+    attachments: { fileName: string; fileUrl: string; fileType: string; uploadDate: string }[];
+    teamId?: string;
     createdAt: string;
     updatedAt: string;
-    createdBy?: UserReference;
+    completedDate: Date;
+    isLocked?: boolean;
 }
 
 export interface TaskComment {

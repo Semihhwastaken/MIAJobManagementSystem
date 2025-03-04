@@ -170,25 +170,20 @@ export const updateMemberProfile = createAsyncThunk(
 );
 
 export const createTeam = createAsyncThunk(
-    'Team/createTeam',
-    async ({ name, description, department }: {
-        name: string;
-        description?: string;
-        department: string;
-    }, { rejectWithValue, dispatch }) => {
+    'team/createTeam',
+    async (teamData: { name: string; description?: string; department: string }, { dispatch }) => {
         try {
-            const response = await axiosInstance.post('/Team/create', {
-                name,
-                description,
-                department
-            });
-            
-            // Invalidate teams cache after creating a new team
-            dispatch(invalidateCache('teams'));
+            // Fix the endpoint URL to match backend TeamController route
+            const response = await axiosInstance.post('/Team/create', teamData);
+
+            // Force immediate refresh of all team-related data
+            dispatch(invalidateTeamCache());
+            dispatch(fetchTeams());
+            dispatch(fetchTeamMembers());
             
             return response.data;
         } catch (error: any) {
-            return rejectWithValue(error.response?.data || error.message);
+            throw error.response?.data?.message || 'Failed to create team';
         }
     }
 );
@@ -240,11 +235,14 @@ export const addExperties = createAsyncThunk(
     'Team/addExperties',
     async ({ memberId, experties }: { memberId: string; experties: string }) => {
         try {
-            const response = await axiosInstance.post(`/Team/members/${memberId}/experties`, { experties });
+            // Note the capital T in "Team" to match controller route
+            const response = await axiosInstance.post(`/Team/members/${memberId}/experties`, { 
+                Experties: [experties]  // Wrap single expertise in array to match API expectations
+            });
             return response.data;
         } catch (error: any) {
             console.error('Hata:', error.response?.data);
-            return error.response?.data || error.message;
+            throw error.response?.data?.message || error.message;
         }
     }
 );
@@ -508,6 +506,9 @@ const teamSlice = createSlice({
             if (member) {
                 member.onlineStatus = status;
             }
+        },
+        invalidateTeamCache: (state) => {
+            state.lastFetchTime = 0;
         }
     },
     extraReducers: (builder) => {
@@ -590,16 +591,17 @@ const teamSlice = createSlice({
             // Team creation
             .addCase(createTeam.pending, (state) => {
                 state.loading = true;
+                state.error = null;
             })
             .addCase(createTeam.fulfilled, (state, action) => {
                 state.loading = false;
                 state.teams.push(action.payload);
-                // Reset teams cache time to force re-fetch
-                state.lastCacheTimes.teams = 0;
+                // Reset cache time to force refresh on next fetch
+                state.lastFetchTime = 0;
             })
             .addCase(createTeam.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.payload as string;
+                state.error = action.error.message || 'Failed to create team';
             })
             // Team list
             .addCase(fetchTeams.pending, (state) => {
@@ -740,7 +742,8 @@ export const {
     setFilters,
     setSortBy,
     setSortOrder,
-    updateMemberOnlineStatus
+    updateMemberOnlineStatus,
+    invalidateTeamCache
 } = teamSlice.actions;
 
 export default teamSlice.reducer;
