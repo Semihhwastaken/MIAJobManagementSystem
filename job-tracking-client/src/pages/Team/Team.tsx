@@ -98,6 +98,7 @@ const Team: React.FC = () => {
         return () => clearInterval(interval);
     }, [dispatch]);
 
+
     const handleCreateTeam = async () => {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -120,6 +121,7 @@ const Team: React.FC = () => {
                 }) as any);
 
                 console.log('API Yanıtı:', result); // Debug için
+                window.location.reload();
 
                 if (result.error) {
                     const errorMessage = result.error.response?.data?.message || result.error.message || 'Ekip oluşturulurken bir hata oluştu';
@@ -227,6 +229,7 @@ const Team: React.FC = () => {
 
             // Ana sayfaya yönlendir
             navigate('/');
+            window.location.reload();
         } catch (error: any) {
             enqueueSnackbar(error.message || 'Takım silinirken bir hata oluştu', { variant: 'error' });
         }
