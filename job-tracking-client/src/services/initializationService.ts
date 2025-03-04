@@ -7,6 +7,9 @@ class InitializationService {
   private static instance: InitializationService | null = null;
   private isInitialized: boolean = false;
   private refreshInterval: NodeJS.Timeout | null = null;
+  private initializationInProgress: boolean = false;
+  private lastInitializationTime: number = 0;
+  private readonly DEBOUNCE_INTERVAL = 5000; // 5 seconds
   
   private constructor() {}
   
@@ -28,6 +31,29 @@ class InitializationService {
       return false;
     }
     
+    // Prevent duplicate initialization if one is already in progress
+    if (this.initializationInProgress) {
+      console.log('Initialization already in progress, skipping duplicate call');
+      return false;
+    }
+    
+    // Debounce initialization requests that come too quickly
+    const now = Date.now();
+    if (now - this.lastInitializationTime < this.DEBOUNCE_INTERVAL) {
+      console.log(`Initialization called again within ${this.DEBOUNCE_INTERVAL}ms, skipping`);
+      return false;
+    }
+    
+    // If already initialized, don't repeat the full initialization
+    if (this.isInitialized) {
+      console.log('User data already initialized, refreshing data only');
+      await this.loadAllUserDataOptimized();
+      return true;
+    }
+    
+    this.initializationInProgress = true;
+    this.lastInitializationTime = now;
+    
     try {
       // Initialize SignalR connections
       const signalRService = SignalRService.getInstance();
@@ -48,6 +74,8 @@ class InitializationService {
     } catch (error) {
       console.error('Failed to initialize user data:', error);
       return false;
+    } finally {
+      this.initializationInProgress = false;
     }
   }
   
@@ -128,18 +156,26 @@ class InitializationService {
   }
   
   /**
-   * Start periodic refresh of cached data
+   * Start periodic refresh of user data
+   * Modified to add a more robust check to prevent multiple intervals
    */
   private startPeriodicRefresh(): void {
-    // Clear any existing interval
+    // Clear any existing interval before setting a new one
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
     }
     
-    // Check for updates every 5 minutes using the optimized endpoint
     this.refreshInterval = setInterval(() => {
-      this.loadAllUserDataOptimized();
+      // Only refresh if not in the middle of another initialization
+      if (!this.initializationInProgress) {
+        console.log('Performing periodic data refresh...');
+        this.loadAllUserDataOptimized().catch(err => 
+          console.error('Error during periodic refresh:', err)
+        );
+      }
     }, 5 * 60 * 1000); // 5 minutes
+    
+    console.log('Periodic refresh scheduled every 5 minutes');
   }
   
   /**
