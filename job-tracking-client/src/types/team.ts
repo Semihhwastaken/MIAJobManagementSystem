@@ -50,6 +50,12 @@ export interface TeamState {
             isBusy: boolean;
         };
     };
+    performanceScores: Record<string, any>; // Add performanceScores property
+    lastCacheTimes: {
+        members: number;
+        teams: number;
+        departments: number;
+    };
 }
 
 export interface DepartmentStats {
