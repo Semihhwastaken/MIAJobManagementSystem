@@ -11,6 +11,9 @@ using JobTrackingAPI.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using JobTrackingAPI.Models.Requests;
 using CreateTeamRequest = JobTrackingAPI.Models.Requests.CreateTeamRequest;
+using MongoDB.Bson;
+using Microsoft.Extensions.Logging;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace JobTrackingAPI.Services;
 
@@ -25,12 +28,19 @@ public class TeamService : ITeamService
     private readonly IMongoCollection<TaskItem> _tasks;
     private readonly IMongoCollection<PerformanceScore> _performanceScores;
     private readonly IHubContext<NotificationHub> _notificationHubContext;
+    private readonly ILogger<TeamService> _logger;
+    
+    // Cache for commonly accessed team members
+    private readonly Dictionary<string, List<Team>> _userTeamsCache = new();
+    private readonly Dictionary<string, Team> _teamCache = new();
+    private DateTime _lastCacheCleanup = DateTime.UtcNow;
 
     public TeamService(
         IOptions<MongoDbSettings> settings, 
         IUserService userService,
         IMongoDatabase database,
-        IHubContext<NotificationHub> notificationHubContext) // Constructor güncellendi
+        IHubContext<NotificationHub> notificationHubContext,
+        ILogger<TeamService> logger) // Added logger parameter
     {
         var client = new MongoClient(settings.Value.ConnectionString);
         var db = client.GetDatabase(settings.Value.DatabaseName);
@@ -40,6 +50,78 @@ public class TeamService : ITeamService
         _userService = userService;
         _settings = settings;
         _notificationHubContext = notificationHubContext;
+        _logger = logger; // Initialize logger
+        
+        // Create indexes for better query performance
+        CreateIndexes();
+    }
+    
+    private void CreateIndexes()
+    {
+        try
+        {
+            // Check existing indexes first
+            var existingIndexes = _teams.Indexes.List().ToList();
+            var tasksIndexes = _tasks.Indexes.List().ToList();
+            var performanceIndexes = _performanceScores.Indexes.List().ToList();
+
+            // Create indexes only if they don't exist
+            if (!existingIndexes.Any(i => i["name"] == "MemberId_Index_1"))
+            {
+                var memberIdIndex = new CreateIndexModel<Team>(
+                    Builders<Team>.IndexKeys.Ascending("Members.Id"),
+                    new CreateIndexOptions { Name = "MemberId_Index_1", Background = true }
+                );
+                _teams.Indexes.CreateOne(memberIdIndex);
+            }
+
+            if (!performanceIndexes.Any(i => i["name"] == "UserTeam_Index_1"))
+            {
+                var performanceIndex = new CreateIndexModel<PerformanceScore>(
+                    Builders<PerformanceScore>.IndexKeys
+                        .Ascending(p => p.UserId)
+                        .Ascending(p => p.TeamId),
+                    new CreateIndexOptions { Name = "UserTeam_Index_1", Background = true }
+                );
+                _performanceScores.Indexes.CreateOne(performanceIndex);
+            }
+
+            if (!tasksIndexes.Any(i => i["name"] == "UserTasks_Index_1"))
+            {
+                var tasksUserIndex = new CreateIndexModel<TaskItem>(
+                    Builders<TaskItem>.IndexKeys
+                        .Ascending("AssignedUsers.Id")
+                        .Ascending("Status"),
+                    new CreateIndexOptions { Name = "UserTasks_Index_1", Background = true }
+                );
+                _tasks.Indexes.CreateOne(tasksUserIndex);
+            }
+
+            if (!tasksIndexes.Any(i => i["name"] == "TeamTasks_Index_1"))
+            {
+                var tasksTeamIndex = new CreateIndexModel<TaskItem>(
+                    Builders<TaskItem>.IndexKeys.Ascending("TeamId"),
+                    new CreateIndexOptions { Name = "TeamTasks_Index_1", Background = true }
+                );
+                _tasks.Indexes.CreateOne(tasksTeamIndex);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log error but continue - indexes are for performance optimization
+            Console.WriteLine($"Warning: Error managing indexes: {ex.Message}");
+        }
+    }
+    
+    private void CheckCacheExpiry()
+    {
+        // Clear cache every 15 minutes
+        if ((DateTime.UtcNow - _lastCacheCleanup).TotalMinutes > 15)
+        {
+            _userTeamsCache.Clear();
+            _teamCache.Clear();
+            _lastCacheCleanup = DateTime.UtcNow;
+        }
     }
 
     /// <summary>
@@ -47,7 +129,24 @@ public class TeamService : ITeamService
     /// </summary>
     public async Task<Team> GetTeamById(string id)
     {
-        return await _teams.Find(t => t.Id == id).FirstOrDefaultAsync();
+        CheckCacheExpiry();
+        
+        // Check if team exists in cache
+        if (_teamCache.TryGetValue(id, out var cachedTeam))
+        {
+            return cachedTeam;
+        }
+        
+        // Get from database if not in cache
+        var team = await _teams.Find(t => t.Id == id).FirstOrDefaultAsync();
+        
+        // Add to cache if found
+        if (team != null)
+        {
+            _teamCache[id] = team;
+        }
+        
+        return team;
     }
 
     /// <summary>
@@ -185,47 +284,58 @@ public class TeamService : ITeamService
 
         try
         {
-            // Kullanıcının tüm görevlerini getir
+            // Get all user tasks in a single query with projection
+            var tasksProjection = Builders<TaskItem>.Projection
+                .Include(t => t.Id)
+                .Include(t => t.TeamId)
+                .Include(t => t.Status)
+                .Include(t => t.Priority)
+                .Include(t => t.DueDate)
+                .Include(t => t.CreatedAt)
+                .Include(t => t.CompletedDate)
+                .Include(t => t.Category)
+                .Include(t => t.AssignedUsers);
+                
             var userTasks = await _tasks
                 .Find(t => t.AssignedUsers.Any(u => u.Id == userId))
+                .Project<TaskItem>(tasksProjection)
                 .ToListAsync();
 
-            // Kullanıcının üye olduğu tüm takımları bul
+            // Get user teams
             var userTeams = await GetTeamsByUserId(userId);
 
-            // If user doesn't belong to any teams, log it and return without error
             if (!userTeams.Any())
             {
-                Console.WriteLine($"User {userId} does not belong to any teams. Skipping performance update.");
                 return;
             }
+
+            // Batch update performance scores
+            var bulkOps = new List<WriteModel<PerformanceScore>>();
 
             foreach (var team in userTeams)
             {
                 try
                 {
-                    // Validate team ID
+                    // Skip invalid team IDs
                     if (string.IsNullOrEmpty(team.Id) || !MongoDB.Bson.ObjectId.TryParse(team.Id, out _))
                     {
-                        Console.WriteLine($"Invalid team ID format for team: {team.Id}");
                         continue;
                     }
 
-                    // Her takım için ayrı performans skoru hesapla
+                    var teamTasks = userTasks.Where(t => t.TeamId == team.Id).ToList();
+                    
+                    // Get existing performance score
                     var filter = Builders<PerformanceScore>.Filter.And(
                         Builders<PerformanceScore>.Filter.Eq(p => p.UserId, userId),
                         Builders<PerformanceScore>.Filter.Eq(p => p.TeamId, team.Id)
                     );
-
-                    var performanceScore = await _performanceScores
-                        .Find(filter)
-                        .FirstOrDefaultAsync();
-
-                    var oldScore = 100.0; // Varsayılan başlangıç skoru
-
+                    
+                    var performanceScore = await _performanceScores.Find(filter).FirstOrDefaultAsync();
+                    
+                    double oldScore = 100.0; // Default starting score
+                    
                     if (performanceScore == null)
                     {
-                        // Generate a new ObjectId for the performance score
                         performanceScore = new PerformanceScore
                         {
                             Id = MongoDB.Bson.ObjectId.GenerateNewId().ToString(),
@@ -240,21 +350,18 @@ public class TeamService : ITeamService
                     {
                         oldScore = performanceScore.Score;
                     }
-
-                    // Detaylı metrikleri hesapla
-                    performanceScore.Metrics = PerformanceCalculator.CalculateDetailedMetrics(userTasks, team.Id);
                     
-                    // Takıma özel performans skorunu hesapla
-                    performanceScore.Score = PerformanceCalculator.CalculateUserPerformance(userTasks, team.Id);
+                    // Calculate new metrics
+                    performanceScore.Metrics = PerformanceCalculator.CalculateDetailedMetrics(teamTasks, team.Id);
+                    performanceScore.Score = PerformanceCalculator.CalculateUserPerformance(teamTasks, team.Id);
                     
-                    // Tamamlanan ve geciken görev sayılarını güncelle
-                    var teamTasks = userTasks.Where(t => t.TeamId == team.Id).ToList();
+                    // Update task counts
                     performanceScore.CompletedTasksCount = teamTasks.Count(t => t.Status == "completed");
                     performanceScore.OverdueTasksCount = teamTasks.Count(t => t.Status == "overdue");
                     performanceScore.TotalTasksAssigned = teamTasks.Count;
                     performanceScore.LastUpdated = DateTime.UtcNow;
-
-                    // Skor geçmişini güncelle
+                    
+                    // Add history entry
                     performanceScore.History.Add(new ScoreHistory
                     {
                         Date = DateTime.UtcNow,
@@ -263,41 +370,38 @@ public class TeamService : ITeamService
                         TeamId = team.Id,
                         ActionType = "recalculation"
                     });
-
-                    // Performans skorunu kaydet
-                    await _performanceScores.ReplaceOneAsync(
-                        filter,
-                        performanceScore,
-                        new ReplaceOptions { IsUpsert = true }
-                    );
-
-                    // Takım üyesinin metriklerini güncelle
-                    var member = team.Members.FirstOrDefault(m => m.Id == userId);
-                    if (member != null)
+                    
+                    // Add update operation to bulk operations list
+                    bulkOps.Add(new ReplaceOneModel<PerformanceScore>(filter, performanceScore)
                     {
-                        await UpdateMemberMetrics(team.Id, userId, new MemberMetricsUpdateDto
-                        {
-                            PerformanceScore = performanceScore.Score,
-                            CompletedTasks = performanceScore.CompletedTasksCount,
-                            OverdueTasks = performanceScore.OverdueTasksCount,
-                            TotalTasks = performanceScore.TotalTasksAssigned
-                        });
-                    }
+                        IsUpsert = true
+                    });
+                    
+                    // Update team member metrics
+                    await UpdateMemberMetrics(team.Id, userId, new MemberMetricsUpdateDto
+                    {
+                        PerformanceScore = performanceScore.Score,
+                        CompletedTasks = performanceScore.CompletedTasksCount,
+                        OverdueTasks = performanceScore.OverdueTasksCount,
+                        TotalTasks = performanceScore.TotalTasksAssigned
+                    });
                 }
                 catch (Exception ex)
                 {
-                    // Log the error with more details
+                    // Log error but continue with other teams
                     Console.WriteLine($"Error updating performance for team {team.Id}: {ex.Message}");
-                    Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                    continue; // Continue with other teams even if one fails
                 }
+            }
+            
+            // Execute all performance score updates in a single batch operation
+            if (bulkOps.Count > 0)
+            {
+                await _performanceScores.BulkWriteAsync(bulkOps);
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error in UpdateUserPerformance: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            // Don't throw the exception, just log it to prevent task completion from failing
         }
     }
 
@@ -428,7 +532,9 @@ public class TeamService : ITeamService
     /// </summary>
     public async Task<List<TeamMember>> GetAllMembersAsync()
     {
-        var teams = await _teams.Find(_ => true).ToListAsync();
+        // Use projection to only get the members field
+        var projection = Builders<Team>.Projection.Include(t => t.Members);
+        var teams = await _teams.Find(_ => true).Project<Team>(projection).ToListAsync();
         return teams.SelectMany(t => t.Members).ToList();
     }
 
@@ -446,8 +552,11 @@ public class TeamService : ITeamService
     /// </summary>
     public async Task<List<TeamMember>> GetMembersByDepartmentAsync(string department)
     {
-        var teams = await _teams.Find(_ => true).ToListAsync();
-        return teams.SelectMany(t => t.Members).Where(m => m.Department == department).ToList();
+        // Use optimized query with filter
+        var filter = Builders<Team>.Filter.ElemMatch(t => t.Members, m => m.Department == department);
+        var projection = Builders<Team>.Projection.Include(t => t.Members);
+        var teams = await _teams.Find(filter).Project<Team>(projection).ToListAsync();
+        return teams.SelectMany(t => t.Members.Where(m => m.Department == department)).ToList();
     }
 
     /// <summary>
@@ -455,25 +564,26 @@ public class TeamService : ITeamService
     /// </summary>
     public async Task<TeamMember> UpdateMemberStatusAsync(string id, string status)
     {
-        var teams = await _teams.Find(t => t.Members.Any(m => m.Id == id)).ToListAsync();
-        foreach (var team in teams)
+        // Clear member cache when updating status
+        _userTeamsCache.Clear();
+        
+        var filter = Builders<Team>.Filter.ElemMatch(t => t.Members, m => m.Id == id);
+        var update = Builders<Team>.Update.Set("Members.$.Status", status);
+        
+        await _teams.UpdateOneAsync(filter, update);
+        
+        // Get updated member
+        var team = await _teams.Find(filter).FirstOrDefaultAsync();
+        var member = team?.Members.FirstOrDefault(m => m.Id == id);
+        
+        if (member != null)
         {
-            var member = team.Members.FirstOrDefault(m => m.Id == id);
-            if (member != null)
-            {
-                // Frontend'den gelen durum değişikliğini doğrudan uygula
-                member.Status = status;
-                
-                // Takımı güncelle
-                await _teams.ReplaceOneAsync(t => t.Id == team.Id, team);
-                
-                // Notify clients about the status change
-                await _notificationHubContext.Clients.All.SendAsync("MemberStatusUpdated", new { memberId = id, status = member.Status });
-                
-                return member;
-            }
+            // Notify clients about the status change
+            await _notificationHubContext.Clients.All.SendAsync("MemberStatusUpdated", 
+                new { memberId = id, status = member.Status });
         }
-        return null;
+        
+        return member;
     }
 
     /// <summary>
@@ -563,49 +673,43 @@ public class TeamService : ITeamService
         if (string.IsNullOrEmpty(userId))
             throw new ArgumentNullException(nameof(userId));
 
+        CheckCacheExpiry();
+        
+        // Check if teams are in cache - increased from local cache to 15 min
+        if (_userTeamsCache.TryGetValue(userId, out var cachedTeams) && cachedTeams.Count > 0)
+        {
+            return cachedTeams;
+        }
+        
         try
         {
-            // Get the user to ensure we're using the correct ID
-            var user = await _userService.GetUserById(userId);
-            if (user == null)
-            {
-                Console.WriteLine($"User not found with ID: {userId}");
-                return new List<Team>();
-            }
-
             // Using MongoDB filter to find teams where the user is a member
-            var filter = Builders<Team>.Filter.ElemMatch(t => t.Members, 
-                m => m.Id == user.Id);
+            var filter = Builders<Team>.Filter.ElemMatch(t => t.Members, m => m.Id == userId);
             
-            var teams = await _teams.Find(filter).ToListAsync();
-            
-            // Log for debugging purposes if no teams are found
-            if (!teams.Any())
-            {
-                Console.WriteLine($"No teams found for user {user.Id}");
-                var allTeams = await _teams.Find(_ => true).ToListAsync();
-                Console.WriteLine($"Total teams in database: {allTeams.Count}");
-                
-                foreach (var team in allTeams)
-                {
-                    Console.WriteLine($"Team {team.Id} has {team.Members?.Count ?? 0} members");
+            // Use projection to load only necessary fields initially
+            var projection = Builders<Team>.Projection
+                .Include(t => t.Id)
+                .Include(t => t.Name)
+                .Include(t => t.Description)
+                .Include(t => t.CreatedById)
+                .Include(t => t.Departments)
+                .Include(t => t.Members)
+                .Include(t => t.CreatedAt)
+                .Include(t => t.UpdatedAt);
                     
-                    if (team.Members != null && team.Members.Any())
-                    {
-                        foreach (var member in team.Members)
-                        {
-                            Console.WriteLine($"Member ID: {member.Id}, Comparing with userId: {user.Id}, Match: {member.Id == user.Id}");
-                        }
-                    }
-                }
-            }
-
+            var teams = await _teams
+                .Find(filter)
+                .Project<Team>(projection)
+                .ToListAsync();
+            
+            // Cache the result for longer - 15 minutes 
+            _userTeamsCache[userId] = teams;
+            
             return teams;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in GetTeamsByUserId: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            _logger.LogError(ex, "Error in GetTeamsByUserId for userId: {UserId}", userId);
             return new List<Team>();
         }
     }
@@ -869,14 +973,37 @@ public class TeamService : ITeamService
     /// </summary>
     public async Task<List<TeamMember>> GetTeamMembers(string teamId)
     {
-        var team = await GetTeamById(teamId);
-        if (team == null)
+        if (string.IsNullOrEmpty(teamId))
+            throw new ArgumentNullException(nameof(teamId));
+            
+        try
         {
-            return new List<TeamMember>();
+                        // We only need to project the members field to reduce data transfer
+            var projection = Builders<Team>.Projection.Include(t => t.Members);
+            var team = await _teams.Find(t => t.Id == teamId)
+                                  .Project<TeamMembersOnly>(projection)
+                                  .FirstOrDefaultAsync();
+            
+            return team?.Members ?? new List<TeamMember>();
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting team members for team {TeamId}", teamId);
+            throw;
+        }
+    }
 
-        // Takım üyelerini doğrudan döndür
-        return team.Members;
+    // Modify the helper class for projection to correctly handle _id
+    private class TeamMembersOnly
+    {
+        [BsonId]
+        [BsonRepresentation(BsonType.ObjectId)]
+        [BsonElement("_id")]
+        public string Id { get; set; }
+        
+        // Fix: Change the BsonElement name to match the exact case in MongoDB
+        [BsonElement("Members")]
+        public List<TeamMember> Members { get; set; } = new List<TeamMember>();
     }
 
     // Yardımcı metodlar
@@ -975,6 +1102,40 @@ public class TeamService : ITeamService
         catch (Exception ex)
         {
             throw new Exception($"Departmanlar güncellenirken bir hata oluştu: {ex.Message}");
+        }
+    }
+
+    public async Task UpdateMemberStatusesAsync(MemberMetricsUpdateDto updateData)
+    {
+        if (string.IsNullOrEmpty(updateData.TeamId))
+        {
+            throw new ArgumentException("TeamId is required");
+        }
+
+        var team = await GetTeamById(updateData.TeamId);
+        if (team == null)
+        {
+            throw new KeyNotFoundException("Team not found");
+        }
+
+        // Update metrics for all members in the team
+        var update = Builders<Team>.Update.Combine(
+            Builders<Team>.Update.Set("Members.$[].Metrics.PerformanceScore", updateData.PerformanceScore),
+            Builders<Team>.Update.Set("Members.$[].Metrics.CompletedTasks", updateData.CompletedTasks),
+            Builders<Team>.Update.Set("Members.$[].Metrics.OverdueTasks", updateData.OverdueTasks),
+            Builders<Team>.Update.Set("Members.$[].Metrics.TotalTasks", updateData.TotalTasks),
+            Builders<Team>.Update.Set("Members.$[].PerformanceScore", updateData.PerformanceScore),
+            Builders<Team>.Update.Set("Members.$[].CompletedTasksCount", updateData.CompletedTasks)
+        );
+
+        var result = await _teams.UpdateOneAsync(
+            Builders<Team>.Filter.Eq(t => t.Id, updateData.TeamId),
+            update
+        );
+
+        if (result.ModifiedCount == 0)
+        {
+            throw new Exception("Failed to update member statuses");
         }
     }
 }

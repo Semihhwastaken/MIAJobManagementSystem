@@ -13,6 +13,7 @@ using System.IO;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.SignalR;
 using JobTrackingAPI.Hubs;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -22,12 +23,20 @@ namespace JobTrackingAPI.Controllers
     {
         private readonly IUserService _userService;
         private readonly IHubContext<ChatHub> _hubContext;
+        private readonly IHubContext<NotificationHub> _notificationHubContext;
+        private readonly IMemoryCache _cache;
         private static readonly Dictionary<string, DateTime> _lastSeen = new();
 
-        public UsersController(IUserService userService, IHubContext<ChatHub> hubContext)
+        public UsersController(
+            IUserService userService, 
+            IHubContext<ChatHub> hubContext, 
+            IHubContext<NotificationHub> notificationHubContext,
+            IMemoryCache cache)
         {
             _userService = userService;
             _hubContext = hubContext;
+            _notificationHubContext = notificationHubContext;
+            _cache = cache;
         }
 
         [HttpGet]
@@ -171,6 +180,12 @@ namespace JobTrackingAPI.Controllers
                 user.UpdatedDate = DateTime.UtcNow;
 
                 await _userService.UpdateUser(userId, user);
+                
+                // Clear user cache
+                _cache.Remove($"user_{userId}");
+                
+                // Notify connected clients
+                await _notificationHubContext.Clients.All.SendAsync("UserProfileUpdated", userId);
 
                 return Ok(new { message = "Profil başarıyla güncellendi" });
             }

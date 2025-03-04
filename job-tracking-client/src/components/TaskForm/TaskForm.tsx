@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Task, User, SubTask, Attachment } from '../../types/task';
+import { Task, User, SubTask, TaskAttachment, AssignedUser } from '../../types/task';
 import { Team, TeamMember } from '../../types/team';
 import { fileUpload, Task as TaskType, fetchTasks, createTask, updateTask } from '../../redux/features/tasksSlice';
 import teamService from '../../services/teamService';
@@ -7,6 +7,9 @@ import { Listbox, Transition } from '@headlessui/react';
 import { CheckIcon, ChevronUpDownIcon, XCircleIcon, DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useSnackbar } from 'notistack';
 import { useAppDispatch, useAppSelector } from '../../redux/hooks';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState, AppDispatch } from '../../redux/store';
+import { fetchTeamMembers, fetchTeams } from '../../redux/features/teamSlice';
 
 interface TaskFormProps {
   isOpen: boolean;
@@ -18,12 +21,16 @@ interface TaskFormProps {
   isDarkMode: boolean;
   teamId?: string;
   teamName?: string;
+  preSelectedUserId?: string; // Add prop for pre-selected user
 }
 
-const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTasks = [], task, selectedUser, isDarkMode, teamId, teamName }) => {
+const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTasks = [], task, selectedUser, isDarkMode, teamId, teamName, preSelectedUserId }) => {
   const dispatch = useAppDispatch();
   const allTasks = useAppSelector(state => state.tasks.items);
   const { enqueueSnackbar } = useSnackbar();
+  const cachedTeams = useSelector((state: RootState) => state.userCache.userTeams);
+  const cachedTeamMembers = useSelector((state: RootState) => state.team.members);
+  const teamLoading = useSelector((state: RootState) => state.team.loading);
 
   const formatDateForInput = (dateString: string) => {
     const date = new Date(dateString);
@@ -41,7 +48,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     assignedUsers: task?.assignedUsers || [] as TeamMember[],
     subTasks: task?.subTasks || [] as SubTask[],
     dependencies: task?.dependencies || [] as string[],
-    attachments: task?.attachments || [] as Attachment[],
+    attachments: task?.attachments || [] as TaskAttachment[], // Changed from Attachment to TaskAttachment
     completedDate: null as Date | null,
   });
 
@@ -54,6 +61,10 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
   const [selectedTeamName, setSelectedTeamName] = useState<string | null>(teamName || null);
   const [dragActive, setDragActive] = useState<boolean>(false);
   const [fileError, setFileError] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<TeamMember[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [filteredMembers, setFilteredMembers] = useState<TeamMember[]>([]);
 
   // Fetch tasks if not provided as props
   useEffect(() => {
@@ -125,6 +136,98 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
 
     fetchTeamMembers();
   }, [selectedTeam]);
+
+  const fetchUsers = useCallback(async (query: string) => {
+    setLoadingUsers(true);
+    
+    try {
+      // First check if we have sufficient cached team members
+      if (cachedTeamMembers.length > 0) {
+        // Filter from cache based on the query
+        const filteredUsers = cachedTeamMembers.filter(member => 
+          member.fullName?.toLowerCase().includes(query.toLowerCase()) ||
+          member.username?.toLowerCase().includes(query.toLowerCase()) ||
+          member.email?.toLowerCase().includes(query.toLowerCase())
+        );
+        
+        if (filteredUsers.length > 0) {
+          setSearchResults(filteredUsers);
+          setLoadingUsers(false);
+          return;
+        }
+      }
+      
+      // If no results from cache or cache is empty, fetch team members
+      if (!teamLoading) {
+        await dispatch(fetchTeamMembers());
+        // After fetching, filter the results again
+        const newFilteredUsers = cachedTeamMembers.filter(member => 
+          member.fullName?.toLowerCase().includes(query.toLowerCase()) ||
+          member.username?.toLowerCase().includes(query.toLowerCase()) ||
+          member.email?.toLowerCase().includes(query.toLowerCase())
+        );
+        setSearchResults(newFilteredUsers);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setSearchResults([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  }, [dispatch, cachedTeamMembers, teamLoading]);
+  
+  // Use debounce to avoid excessive API calls
+  useEffect(() => {
+    if (searchTerm.trim().length >= 2) {
+      const handler = setTimeout(() => {
+        fetchUsers(searchTerm);
+      }, 300);
+      
+      return () => clearTimeout(handler);
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchTerm, fetchUsers]);
+  
+  // Pre-select user if provided
+  useEffect(() => {
+    if (preSelectedUserId && cachedTeamMembers.length > 0 && formData.assignedUsers.length === 0) {
+      const preSelectedUser = cachedTeamMembers.find(member => member.id === preSelectedUserId);
+      if (preSelectedUser) {
+        const assignedUser: AssignedUser = {
+          id: preSelectedUser.id,
+          username: preSelectedUser.username || '',
+          fullName: preSelectedUser.fullName || '',
+          email: preSelectedUser.email || '',
+          department: preSelectedUser.department || '',
+          title: preSelectedUser.title || '',
+          position: preSelectedUser.position || '',
+          profileImage: preSelectedUser.profileImage || ''
+        };
+        
+        setFormData(prevData => ({
+          ...prevData,
+          assignedUsers: [...prevData.assignedUsers, assignedUser]
+        }));
+      }
+    }
+  }, [preSelectedUserId, cachedTeamMembers, formData.assignedUsers]);
+
+  // Use cached teams instead of API call
+  useEffect(() => {
+    if (isOpen) {
+      if (cachedTeams.length === 0) {
+        dispatch(fetchTeams());
+      } else {
+        setTeams(cachedTeams);
+      }
+      
+      // Ensure we have team members data
+      if (cachedTeamMembers.length === 0) {
+        dispatch(fetchTeamMembers());
+      }
+    }
+  }, [dispatch, isOpen, cachedTeams.length, cachedTeamMembers.length]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -310,6 +413,25 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
       return existingTask.teamId === selectedTeamId;
     });
   };
+
+  const handleTeamChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedTeamId = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      teamId: selectedTeamId
+    }));
+    
+    // If we select a specific team, filter members only from that team
+    if (selectedTeamId && cachedTeams.length > 0) {
+      const selectedTeam = cachedTeams.find(team => team.id === selectedTeamId);
+      if (selectedTeam) {
+        setFilteredMembers(selectedTeam.members);
+      }
+    } else {
+      // Reset to all members
+      setFilteredMembers(cachedTeamMembers);
+    }
+  }, [cachedTeams, cachedTeamMembers]);
 
   if (!isOpen) return null;
 

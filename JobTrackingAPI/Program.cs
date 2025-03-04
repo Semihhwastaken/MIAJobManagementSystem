@@ -119,6 +119,7 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ITeamService, TeamService>();
 builder.Services.AddScoped<TeamService>();
 builder.Services.AddScoped<ITasksService, TasksService>();
+builder.Services.AddScoped<TasksService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IConnectionService, ConnectionService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
@@ -132,6 +133,9 @@ builder.Services.AddHostedService<OverdueTasksService>();
 builder.Services.AddHttpClient<NotificationService>();
 
 builder.Services.AddControllers();
+
+// Add Memory Cache
+builder.Services.AddMemoryCache();
 
 // Configure Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();

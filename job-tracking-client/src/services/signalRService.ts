@@ -1,6 +1,8 @@
 import * as signalR from "@microsoft/signalr";
 import { Message } from "../types/message";
 import { Notification } from "../types/notification";
+import { store } from '../redux/store';
+import { invalidateCache } from '../redux/features/userCacheSlice';
 
 class SignalRService {
     private hubConnection: signalR.HubConnection;
@@ -198,6 +200,45 @@ class SignalRService {
     async sendTestNotification(): Promise<void> {
         if (!this.userId) throw new Error("User not authenticated");
         await this.notificationHubConnection.invoke("SendTestNotification", this.userId);
+    }
+
+    // Task updated event handler
+    public onTaskUpdated(callback: () => void): void {
+        if (this.notificationHubConnection) {
+            this.notificationHubConnection.on('TaskUpdated', (taskId) => {
+                // Invalidate tasks cache
+                store.dispatch(invalidateCache('tasks'));
+                
+                // Run the callback if provided
+                if (callback) callback();
+            });
+        }
+    }
+
+    // Team membership changed event handler
+    public onTeamMembershipChanged(callback: () => void): void {
+        if (this.notificationHubConnection) {
+            this.notificationHubConnection.on('TeamMembershipChanged', (teamId) => {
+                // Invalidate teams cache
+                store.dispatch(invalidateCache('teams'));
+                
+                // Run the callback if provided
+                if (callback) callback();
+            });
+        }
+    }
+
+    // User profile updated event handler
+    public onUserProfileUpdated(callback: () => void): void {
+        if (this.notificationHubConnection) {
+            this.notificationHubConnection.on('UserProfileUpdated', () => {
+                // Invalidate user cache
+                store.dispatch(invalidateCache('user'));
+                
+                // Run the callback if provided
+                if (callback) callback();
+            });
+        }
     }
 }
 

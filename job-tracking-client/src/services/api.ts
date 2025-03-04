@@ -1,6 +1,9 @@
 import axios from 'axios';
 import { LoginRequest, AuthResponse } from '../types/auth';
 import axiosInstance from './axiosInstance';
+import InitializationService from './initializationService';
+import { store } from '../redux/store';
+import { clearCache } from '../redux/features/userCacheSlice';
 
 export interface InitiateRegistrationRequest {
     username: string;
@@ -104,7 +107,16 @@ export const getCurrentUser = async (): Promise<AuthResponse> => {
 };
 
 export const logout = () => {
+    // Clean up initialization service
+    const initService = InitializationService.getInstance();
+    initService.cleanup();
+    
+    // Clear Redux cache
+    store.dispatch(clearCache());
+    
+    // Clear authentication data
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     delete axiosInstance.defaults.headers.common['Authorization'];
 };
 

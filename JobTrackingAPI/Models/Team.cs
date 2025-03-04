@@ -73,6 +73,11 @@ public class Team
     /// Takım departmanları
     /// </summary>
     public List<DepartmentStats> Departments { get; set; } = new List<DepartmentStats>();
+
+    /// <summary>
+    /// Takıma ait yorumlar
+    /// </summary>
+    public List<TeamComment> Comments { get; set; } = new List<TeamComment>();
 }
 
 public class TeamMember
@@ -102,6 +107,21 @@ public class TeamMember
     public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
 
     public MemberMetricsUpdateDto Metrics { get; set; } = new MemberMetricsUpdateDto();
+}
+
+public class TeamComment
+{
+    [BsonId]
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
+
+    public string Content { get; set; } = string.Empty;
+    public string UserId { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string UserProfileImage { get; set; } = string.Empty;
+
+    [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public class AvailabilitySchedule

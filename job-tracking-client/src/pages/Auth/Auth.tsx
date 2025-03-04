@@ -34,7 +34,7 @@ import { useNotification } from '../../components/Notification/Notification';
 import { useDispatch } from 'react-redux';
 import { setUser, setToken } from '../../redux/features/authSlice';
 import SignalRService from '../../services/signalRService';
-
+import InitializationService from '../../services/initializationService';
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
     padding: theme.spacing(4),
@@ -356,7 +356,6 @@ const Auth: React.FC = () => {
                 if (response.ok) {
                     if (!data.token || !data.user) {
                         throw new Error('Invalid response format from server');
-
                     }
                     try {
                         // Store auth data
@@ -370,9 +369,9 @@ const Auth: React.FC = () => {
                         // Update authentication context
                         setIsAuthenticated(true);
 
-                        // Initialize SignalR connections
-                        const signalRService = SignalRService.getInstance();
-                        await signalRService.startConnection(data.user.id);
+                        // Initialize user data with optimized loading
+                        const initService = InitializationService.getInstance();
+                        await initService.initializeUserData(data.user.id);
 
                         // Only navigate if everything is successful
                         showSuccess('Başarıyla giriş yaptınız.');
@@ -436,6 +435,10 @@ const Auth: React.FC = () => {
 
                 // Initialize SignalR connections
                 await signalRService.startConnection(response.user.id);
+
+                // Initialize user data
+                const initService = InitializationService.getInstance();
+                await initService.initializeUserData(response.user.id);
 
                 // Navigate to home page
                 navigate('/');

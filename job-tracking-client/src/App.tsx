@@ -22,6 +22,7 @@ import TeamInvite from './pages/TeamInvite/TeamInvite';
 import Main from './pages/Main/Main';
 import { createBrowserRouter } from 'react-router-dom';
 import { SnackbarProvider } from 'notistack';
+import InitializationService from './services/initializationService';
 
 const AppContent: React.FC = () => {
   const { isDarkMode } = useTheme();
@@ -81,13 +82,23 @@ const AppContent: React.FC = () => {
           const response = await getCurrentUser();
           if (response.user) {
             dispatch(setUser(response.user));
+            
+            // Initialize user data with optimized loading
+            const initService = InitializationService.getInstance();
+            await initService.initializeUserData(response.user.id);
+            
+            // Set authenticated status
+            setIsAuthenticated(true);
           }
         } catch (error) {
           console.error('Kullanıcı bilgileri yüklenirken hata oluştu:', error);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setIsAuthenticated(false);
         }
       }
     };
-
+    
     loadUserData();
   }, [dispatch]);
 
