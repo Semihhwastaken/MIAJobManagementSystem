@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using Microsoft.AspNetCore.SignalR;
 using JobTrackingAPI.Hubs;
+using JobTrackingAPI.Enums;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -27,6 +28,7 @@ namespace JobTrackingAPI.Controllers
         private readonly IMemoryCache _cache;
         private readonly ILogger<TeamController> _logger;
         private readonly IHubContext<NotificationHub> _notificationHubContext;
+        private readonly INotificationService _notificationService;
         private static readonly SemaphoreSlim _updateStatusSemaphore = new SemaphoreSlim(1, 1);
         private static DateTime _lastStatusUpdate = DateTime.MinValue;
 
@@ -36,7 +38,8 @@ namespace JobTrackingAPI.Controllers
             IMongoDatabase database, 
             IMemoryCache memoryCache,
             ILogger<TeamController> logger,
-            IHubContext<NotificationHub> notificationHubContext)
+            IHubContext<NotificationHub> notificationHubContext,
+            INotificationService notificationService)
         {
             _teamService = teamService;
             _userService = userService;
@@ -44,6 +47,7 @@ namespace JobTrackingAPI.Controllers
             _cache = memoryCache;
             _logger = logger;
             _notificationHubContext = notificationHubContext;
+            _notificationService = notificationService;
         }
 
         [HttpGet("members/{userId}/performance")]
@@ -555,16 +559,15 @@ namespace JobTrackingAPI.Controllers
                             relatedJobId: team.Id
                         );
                     }
-                if (!result)
-                    return BadRequest("Ekibe katılırken bir hata oluştu");
-                
-                // Clear caches
-                _cache.Remove($"teams_{userId}");
-                ClearTeamRelatedCaches(team.Id);
-                _cache.Remove("all_members");
+                    
+                    // Clear caches
+                    _cache.Remove($"teams_{userId}");
+                    ClearTeamRelatedCaches(team.Id);
+                    _cache.Remove("all_members");
 
                     return Ok(new { message = "Ekibe başarıyla katıldınız", teamName = team.Name });
                 }
+                
                 return BadRequest("Ekibe katılırken bir hata oluştu");
             }
             catch (Exception ex)
@@ -638,18 +641,19 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 var result = await _teamService.RemoveTeamMemberAsync(teamId, memberId, userId);
-                if (result.success)
+                if (!result.success)
                 {
-                    // Notify removed member
-                    await _notificationService.SendNotificationAsync(
-                        userId: memberId,
-                        title: "Ekipten Çıkarıldınız",
-                        message: $"Bir ekipten çıkarıldınız.",
-                        notificationType: NotificationType.TeamMemberRemoved,
-                        relatedJobId: teamId
-                    );
                     return BadRequest(new { message = result.message });
                 }
+                
+                // Başarılı durumda bildirim gönder
+                await _notificationService.SendNotificationAsync(
+                    userId: memberId,
+                    title: "Ekipten Çıkarıldınız",
+                    message: $"Bir ekipten çıkarıldınız.",
+                    notificationType: NotificationType.TeamMemberRemoved,
+                    relatedJobId: teamId
+                );
                 
                 // Clear caches with optimized invalidation strategy
                 ClearTeamRelatedCaches(teamId);
@@ -662,9 +666,7 @@ namespace JobTrackingAPI.Controllers
                 // Notify all team members + the removed member about the change
                 await _notificationHubContext.Clients.All.SendAsync("TeamMembershipChanged", teamId);
 
-                    return Ok(new { message = result.message });
-                }
-                return BadRequest(new { message = result.message });
+                return Ok(new { message = result.message });
             }
             catch (Exception ex)
             {

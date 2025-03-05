@@ -7,10 +7,9 @@ class InitializationService {
   private static instance: InitializationService | null = null;
   private isInitialized: boolean = false;
   private refreshInterval: NodeJS.Timeout | null = null;
-  private initializationInProgress: boolean = false;
   private lastInitializationTime: number = 0;
   private readonly CACHE_TIMEOUT = 30000; // 30 seconds cache timeout
-  private readonly DEBOUNCE_INTERVAL = 5000; // 5 seconds
+  private readonly DEBOUNCE_INTERVAL = 1000; // Reduced from 5000ms to 1000ms
   private lastRoute: string = '';
   private routeChangeCount: number = 0;
   
@@ -34,27 +33,22 @@ class InitializationService {
       return false;
     }
     
-    // Prevent duplicate initialization if one is already in progress
-    if (this.initializationInProgress) {
-      console.log('Initialization already in progress, skipping duplicate call');
-      return false;
-    }
+    // Removed initialization in progress check to allow refresh operations to happen immediately
     
-    // Debounce initialization requests that come too quickly
+    // Reduced debounce interval to allow more frequent updates
     const now = Date.now();
     if (now - this.lastInitializationTime < this.DEBOUNCE_INTERVAL) {
-      console.log(`Initialization called again within ${this.DEBOUNCE_INTERVAL}ms, skipping`);
-      return false;
+      console.log(`Recently initialized, but proceeding anyway to ensure data freshness`);
+      // Continue execution instead of returning false
     }
     
-    // If already initialized, don't repeat the full initialization
+    // If already initialized, refresh the data
     if (this.isInitialized) {
-      console.log('User data already initialized, refreshing data only');
+      console.log('User data already initialized, refreshing data');
       await this.loadAllUserDataOptimized();
       return true;
     }
     
-    this.initializationInProgress = true;
     this.lastInitializationTime = now;
     
     try {
@@ -77,8 +71,6 @@ class InitializationService {
     } catch (error) {
       console.error('Failed to initialize user data:', error);
       return false;
-    } finally {
-      this.initializationInProgress = false;
     }
   }
   
@@ -152,8 +144,9 @@ class InitializationService {
     }
     
     this.refreshInterval = setInterval(() => {
-      if (!this.initializationInProgress && 
-          Date.now() - this.lastInitializationTime > this.CACHE_TIMEOUT) {
+      // Removed the initialization in progress check to allow concurrent refreshes
+      // Only check if the cache has expired
+      if (Date.now() - this.lastInitializationTime > this.CACHE_TIMEOUT) {
         this.loadAllUserDataOptimized().catch(err => 
           console.error('Error during periodic refresh:', err)
         );
@@ -198,27 +191,31 @@ class InitializationService {
       this.lastRoute = newRoute;
       this.routeChangeCount++;
 
-      // Force refresh data if we've changed routes multiple times
-      if (this.routeChangeCount > 1) {
+      // Always refresh data on a route change that includes the team route
+      if (newRoute.includes('/team') || this.routeChangeCount > 1) {
         await this.forceRefreshData();
       }
     }
   }
 
   /**
-   * Force refresh user data
+   * Force refresh user data - Enhanced to always refresh team data
    */
   public async forceRefreshData(): Promise<void> {
     try {
       store.dispatch(invalidateTasksCache());
       store.dispatch({ type: 'userCache/invalidateCache', payload: 'all' });
       store.dispatch({ type: 'team/invalidateCache', payload: 'all' });
+      store.dispatch({ type: 'team/invalidateAllCaches' }); // Added explicit team cache invalidation
 
       await Promise.all([
         store.dispatch(fetchCurrentUser()),
         store.dispatch(fetchUserTeams()),
         store.dispatch(fetchUserTasks())
       ]);
+
+      // Also directly fetch teams from the teamSlice
+      await store.dispatch({ type: 'Team/fetchTeams' });
 
       // Reset counters
       this.routeChangeCount = 0;

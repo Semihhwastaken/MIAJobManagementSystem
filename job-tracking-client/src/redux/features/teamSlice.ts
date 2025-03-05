@@ -68,6 +68,9 @@ const isCacheValid = (lastCacheTime: number): boolean => {
 // Action to manually invalidate caches when needed
 export const invalidateCache = createAction<string>('team/invalidateCache');
 
+// Action to completely invalidate all team caches
+export const invalidateAllCaches = createAction('team/invalidateAllCaches');
+
 export const fetchTeamMembers = createAsyncThunk(
     'Team/fetchTeamMembers',
     async (_, { getState, rejectWithValue }) => {
@@ -176,10 +179,9 @@ export const createTeam = createAsyncThunk(
             // Fix the endpoint URL to match backend TeamController route
             const response = await axiosInstance.post('/Team/create', teamData);
 
-            // Force immediate refresh of all team-related data
-            dispatch(invalidateTeamCache());
-            dispatch(fetchTeams());
-            dispatch(fetchTeamMembers());
+            // Force immediate refresh of all team-related data instead of just invalidating cache
+            // This ensures the UI gets updated immediately with the new team data
+            await dispatch(fetchTeams());
             
             return response.data;
         } catch (error: any) {
@@ -259,26 +261,30 @@ export const joinTeamWithInviteLink = createAsyncThunk(
 
 export const fetchTeams = createAsyncThunk(
     'Team/fetchTeams',
-    async (_, { getState, rejectWithValue }) => {
+    async (forceRefresh = false, { getState, rejectWithValue }) => {
         const state = getState() as { team: TeamState };
         
-        // Use cached data if available and not expired
-        if (isCacheValid(state.team.lastCacheTimes.teams) && state.team.teams.length > 0) {
-            return state.team.teams;
-        }
-
         try {
             // Create a request key
             const requestKey = 'fetchTeams';
-            if (pendingRequests[requestKey]) {
+            
+            // If there's a pending request and we're not forcing refresh, return current state
+            if (pendingRequests[requestKey] && !forceRefresh) {
                 return state.team.teams;
             }
             
+            // Clear any previous pending request for this key before making a new one
             pendingRequests[requestKey] = true;
+            
+            // Always get fresh data from the API, no matter what
             const response = await axiosInstance.get('/Team');
+            
+            // Request complete, clear pending flag
             pendingRequests[requestKey] = false;
+            
             return response.data;
         } catch (error: any) {
+            // Make sure to clear the pending flag on error as well
             pendingRequests['fetchTeams'] = false;
             return rejectWithValue(error.response?.data?.message || 'Takımlar alınırken bir hata oluştu');
         }
@@ -287,13 +293,9 @@ export const fetchTeams = createAsyncThunk(
 
 export const deleteTeam = createAsyncThunk<DeleteTeamResponse, string>(
     'Team/deleteTeam',
-    async (teamId: string, { rejectWithValue, dispatch }) => {
+    async (teamId: string, { rejectWithValue }) => {
         try {
             const response = await axiosInstance.delete(`/Team/${teamId}`);
-            
-            // Invalidate teams cache after deletion
-            dispatch(invalidateCache('teams'));
-            
             return { teamId, ...response.data };
         } catch (error: any) {
             return rejectWithValue(error.response?.data || error.message);
@@ -508,7 +510,18 @@ const teamSlice = createSlice({
             }
         },
         invalidateTeamCache: (state) => {
-            state.lastFetchTime = 0;
+            // Reset all cache times to ensure fresh data is fetched
+            state.lastCacheTimes = {
+                members: 0,
+                teams: 0,
+                departments: 0
+            };
+        },
+        // Add a new action to force refresh teams
+        forceRefreshTeams: (state) => {
+            // This is a signal action that will be handled in the component
+            // It doesn't actually change the state, just triggers a re-fetch
+            state.lastCacheTimes.teams = 0;
         }
     },
     extraReducers: (builder) => {
@@ -525,6 +538,14 @@ const teamSlice = createSlice({
                 if (cacheType === 'departments' || cacheType === 'all') {
                     state.lastCacheTimes.departments = 0;
                 }
+            })
+            .addCase(invalidateAllCaches, (state) => {
+                // Reset all cache times
+                state.lastCacheTimes = {
+                    members: 0,
+                    teams: 0,
+                    departments: 0
+                };
             })
             // Team members
             .addCase(fetchTeamMembers.pending, (state) => {
@@ -595,9 +616,12 @@ const teamSlice = createSlice({
             })
             .addCase(createTeam.fulfilled, (state, action) => {
                 state.loading = false;
-                state.teams.push(action.payload);
+                // Add the new team directly to the state to avoid needing a page refresh
+                if (action.payload && !state.teams.some(team => team.id === action.payload.id)) {
+                    state.teams.push(action.payload);
+                }
                 // Reset cache time to force refresh on next fetch
-                state.lastFetchTime = 0;
+                state.lastCacheTimes.teams = Date.now(); // Update the timestamp to indicate we have fresh data
             })
             .addCase(createTeam.rejected, (state, action) => {
                 state.loading = false;
@@ -610,12 +634,22 @@ const teamSlice = createSlice({
             })
             .addCase(fetchTeams.fulfilled, (state, action) => {
                 state.loading = false;
+                
+                // Always update the teams with the fetched data
                 state.teams = action.payload;
+                
+                // Update the cache timestamp
                 state.lastCacheTimes.teams = Date.now();
+                
+                // Log for debugging
+                console.log('Teams fetched successfully:', action.payload.length, 'teams');
             })
             .addCase(fetchTeams.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
+                
+                // Log the error for debugging
+                console.error('Failed to fetch teams:', action.payload);
             })
             // Team deletion
             .addCase(deleteTeam.pending, (state) => {
@@ -624,10 +658,10 @@ const teamSlice = createSlice({
             })
             .addCase(deleteTeam.fulfilled, (state, action) => {
                 state.loading = false;
-                // Takımı listeden çıkar
+                // Remove the team from the state immediately
                 state.teams = state.teams.filter(team => team.id !== action.payload.teamId);
-                // Reset teams cache time
-                state.lastCacheTimes.teams = 0;
+                // Update last cache time to indicate we have fresh data
+                state.lastCacheTimes.teams = Date.now();
             })
             .addCase(deleteTeam.rejected, (state, action) => {
                 state.loading = false;
@@ -743,7 +777,8 @@ export const {
     setSortBy,
     setSortOrder,
     updateMemberOnlineStatus,
-    invalidateTeamCache
+    invalidateTeamCache,
+    forceRefreshTeams
 } = teamSlice.actions;
 
 export default teamSlice.reducer;

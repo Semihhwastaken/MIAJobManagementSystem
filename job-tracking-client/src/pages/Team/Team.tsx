@@ -16,7 +16,9 @@ import {
     getTeamInviteLink,
     setTeamInviteLink,
     addExperties,
-    fetchMemberActiveTasks
+    fetchMemberActiveTasks,
+    invalidateCache,
+    invalidateAllCaches
 } from '../../redux/features/teamSlice';
 import { useTheme } from '../../context/ThemeContext';
 import { TeamMember } from '../../types/team';
@@ -45,7 +47,8 @@ const Team: React.FC = () => {
         searchQuery,
         filters,
         sortBy,
-        sortOrder
+        sortOrder,
+        loading
     } = useSelector((state: RootState) => state.team);
     const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
     const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
@@ -69,6 +72,8 @@ const Team: React.FC = () => {
     const [showTaskForm, setShowTaskForm] = useState(false);
     const [selectedMemberForTask, setSelectedMemberForTask] = useState<TeamMember | null>(null);
     const [selectedTeamForTask, setSelectedTeamForTask] = useState<{ id: string; name: string } | null>(null);
+    // Track if we need to refresh teams after modal operations
+    const [refreshNeeded, setRefreshNeeded] = useState<boolean>(false);
 
     useEffect(() => {
         // Kullanıcı girişi kontrolü
@@ -82,6 +87,17 @@ const Team: React.FC = () => {
         dispatch(fetchDepartments());
         dispatch(fetchTeams());
     }, [dispatch, navigate]);
+
+    // Effect to handle refresh after modal operations
+    useEffect(() => {
+        if (refreshNeeded) {
+            // Force a refresh by invalidating the cache and fetching teams again
+            dispatch(invalidateCache('teams'));
+            dispatch(fetchTeams()).unwrap()
+                .then(() => setRefreshNeeded(false))
+                .catch((error) => console.error("Error refreshing teams:", error));
+        }
+    }, [refreshNeeded, dispatch]);
 
     // Teams listesini periyodik olarak güncelle
     useEffect(() => {
@@ -98,6 +114,27 @@ const Team: React.FC = () => {
         return () => clearInterval(interval);
     }, [dispatch]);
 
+    // Function to force refresh teams list
+    const forceRefreshTeams = async () => {
+        try {
+            // First invalidate all caches to ensure we get fresh data
+            dispatch(invalidateAllCaches());
+
+            // Set loading state to show user something is happening
+            setRefreshNeeded(true);
+            
+            // Pass true to forceRefresh parameter to bypass any caching logic in the thunk
+            await dispatch(fetchTeams(true)).unwrap();
+
+            // Show success message and reset refresh needed state
+            enqueueSnackbar('Takım listesi başarıyla yenilendi', { variant: 'success' });
+            setRefreshNeeded(false);
+        } catch (error) {
+            console.error("Error refreshing teams:", error);
+            enqueueSnackbar('Takım listesi yenilenirken bir hata oluştu', { variant: 'error' });
+            setRefreshNeeded(false);
+        }
+    };
 
     const handleCreateTeam = async () => {
         const token = localStorage.getItem('token');
@@ -114,50 +151,46 @@ const Team: React.FC = () => {
                     department: newTeamDepartment
                 });
 
+                // Close modal first for better UX
+                setShowCreateTeamModal(false);
+                
+                // Create the team
                 const result = await dispatch(createTeam({
                     name: newTeamName,
                     description: newTeamDescription.trim() || undefined,
                     department: newTeamDepartment
-                }) as any);
+                }) as any).unwrap();
 
-                console.log('API Yanıtı:', result); // Debug için
-                window.location.reload();
+                console.log('API Yanıtı:', result); 
 
-                if (result.error) {
-                    const errorMessage = result.error.response?.data?.message || result.error.message || 'Ekip oluşturulurken bir hata oluştu';
-                    console.error('Hata detayı:', result.error); // Debug için
-                    enqueueSnackbar(errorMessage, { variant: 'error' });
-                    return;
-                }
-
-                if (result.payload) {
-                    try {
-                        const linkResult = await dispatch(generateTeamInviteLink(result.payload.id) as any);
-                        if (linkResult.error) {
-                            // 401 hatası için özel kontrol
-                            if (linkResult.error.response?.status === 401) {
-                                navigate('/auth');
-                                return;
-                            }
-                            throw new Error(linkResult.error.message || 'Davet linki oluşturulurken bir hata oluştu');
+                // Clear form fields
+                setNewTeamName('');
+                setNewTeamDescription('');
+                setNewTeamDepartment('');
+                
+                // Now force refresh the teams list to show the newly created team
+                await dispatch(fetchTeams(true)).unwrap();
+                
+                try {
+                    const linkResult = await dispatch(generateTeamInviteLink(result.id) as any);
+                    if (linkResult.error) {
+                        if (linkResult.error.response?.status === 401) {
+                            navigate('/auth');
+                            return;
                         }
-
-                        if (linkResult.payload) {
-                            setInviteLink(linkResult.payload.inviteLink);
-                            enqueueSnackbar('Ekip başarıyla oluşturuldu!', { variant: 'success' });
-                            setShowCreateTeamModal(false);
-                            setNewTeamName('');
-                            setNewTeamDescription('');
-                            setNewTeamDepartment('');
-                            dispatch(fetchTeams());
-                        }
-                    } catch (error: any) {
-                        enqueueSnackbar(error.message, { variant: 'error' });
+                        throw new Error(linkResult.error.message || 'Davet linki oluşturulurken bir hata oluştu');
                     }
+
+                    if (linkResult.payload) {
+                        setInviteLink(linkResult.payload.inviteLink);
+                        enqueueSnackbar('Ekip başarıyla oluşturuldu!', { variant: 'success' });
+                    }
+                } catch (error: any) {
+                    enqueueSnackbar(error.message, { variant: 'error' });
                 }
             } catch (error: any) {
-                enqueueSnackbar(error.message, { variant: 'error' });
                 setShowCreateTeamModal(true);
+                enqueueSnackbar(error.message || 'Takım oluşturulurken bir hata oluştu', { variant: 'error' });
             }
         } else {
             enqueueSnackbar('Takım adı ve departman seçimi zorunludur', { variant: 'error' });
@@ -227,9 +260,8 @@ const Team: React.FC = () => {
             setShowDeleteConfirmModal(false);
             setTeamToDelete('');
 
-            // Ana sayfaya yönlendir
-            navigate('/');
-            window.location.reload();
+            // Force refresh with the forceRefresh parameter set to true
+            await dispatch(fetchTeams(true)).unwrap();
         } catch (error: any) {
             enqueueSnackbar(error.message || 'Takım silinirken bir hata oluştu', { variant: 'error' });
         }
@@ -253,8 +285,8 @@ const Team: React.FC = () => {
             setShowRemoveMemberModal(false);
             setMemberToRemove(null);
 
-            // Takım listesini yenile
-            dispatch(fetchTeams());
+            // Force refresh with the forceRefresh parameter set to true
+            await dispatch(fetchTeams(true)).unwrap();
         } catch (error: any) {
             enqueueSnackbar(error.message || 'Üye çıkartılırken bir hata oluştu', { variant: 'error' });
         }
@@ -569,14 +601,51 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                         <PlusIcon className="h-5 w-5 mr-2" />
                         Yeni Ekip
                     </button>
+
+                    {/* Add refresh button */}
+                    <button
+                        onClick={forceRefreshTeams}
+                        disabled={refreshNeeded || loading}
+                        className={`flex items-center px-3 py-2 rounded-lg transition-colors duration-200 ${
+                            refreshNeeded || loading
+                                ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                                : isDarkMode
+                                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                        }`}
+                        title="Takım listesini yenile"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" 
+                            className={`h-5 w-5 ${refreshNeeded || loading ? 'animate-spin' : ''}`}
+                            viewBox="0 0 20 20" 
+                            fill="currentColor">
+                            <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                        </svg>
+                        <span className="ml-1">Yenile</span>
+                    </button>
                 </div>
             </div>
 
-            {teams.map((team) => (
-                <div key={team.id}>
-                    {renderTeamMembers(team.members, team.name, team.id)}
+            {/* Loading indicator */}
+            {loading && (
+                <div className="flex justify-center items-center my-8">
+                    <div className={`animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 ${isDarkMode ? 'border-blue-400' : 'border-blue-600'}`}></div>
                 </div>
-            ))}
+            )}
+
+            {/* Display teams or message when no teams */}
+            {!loading && teams.length === 0 ? (
+                <div className={`text-center py-10 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    <p className="text-xl font-medium mb-4">Henüz hiçbir takım bulunmamaktadır.</p>
+                    <p>Yeni bir takım oluşturmak için "Yeni Ekip" butonuna tıklayın.</p>
+                </div>
+            ) : (
+                teams.map((team) => (
+                    <div key={team.id}>
+                        {renderTeamMembers(team.members, team.name, team.id)}
+                    </div>
+                ))
+            )}
 
             {/* Create Team Modal */}
             {showCreateTeamModal && (
