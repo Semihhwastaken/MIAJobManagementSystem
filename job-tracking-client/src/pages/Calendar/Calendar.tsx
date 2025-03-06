@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
 import CreateEventModal from '../../components/Calendar/CreateEventModal';
 import Footer from "../../components/Footer/Footer";
 import { calendarService } from '../../services/calendarService';
+import { useSnackbar } from 'notistack';
 import {
   addEvent,
   updateEvent,
@@ -21,19 +23,16 @@ type EventFormData = Omit<CalendarEvent, 'id'>;
 const Calendar: React.FC = () => {
   const dispatch = useDispatch();
   const { isDarkMode } = useTheme();
+  const { enqueueSnackbar } = useSnackbar();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showEventModal, setShowEventModal] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [deleteConfirmation, setDeleteConfirmation] = useState<{ isOpen: boolean; eventId: string | null }>({
-    isOpen: false,
-    eventId: null
-  });
-
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ isOpen: boolean; eventId: string | null }>({isOpen: false, eventId: null});
   const events = useSelector((state: RootState) => state.calendar.events);
   const loading = useSelector((state: RootState) => state.calendar.loading);
   const selectedDate = useSelector((state: RootState) => state.calendar.selectedDate);
-
+  const currentUser = useSelector((state: RootState) => state.auth.user);
   const daysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
   };
@@ -103,8 +102,14 @@ const Calendar: React.FC = () => {
       dispatch(updateEvent(updatedEvent));
       setIsEditModalOpen(false);
       setSelectedEvent(null);
-    } catch {
+      enqueueSnackbar('Event updated successfully', { variant: 'success' });
+    } catch (error: any) {
       dispatch(setError('Failed to update event'));
+      if (error.response?.status === 403) {
+        enqueueSnackbar('Bunu güncellemek için izniniz yok!!', { variant: 'error' });
+      } else {
+        enqueueSnackbar('Olay güncellemesi başarısız!!', { variant: 'error' });
+      }
     } finally {
       dispatch(setLoading(false));
     }
@@ -261,8 +266,12 @@ const Calendar: React.FC = () => {
                             key={event.id}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedEvent(event);
-                              setIsEditModalOpen(true);
+                              if (event.createdBy === currentUser?.id) {
+                                setSelectedEvent(event);
+                                setIsEditModalOpen(true);
+                              } else {
+                                enqueueSnackbar('Bu eylemi gerçekleştirmek için izniniz yok !!', { variant: 'error',autoHideDuration: 2400 });
+                              }
                             }}
                             className={`${getEventColor(event.priority)} text-white text-xs p-1 rounded truncate`}
                           >
@@ -322,12 +331,14 @@ const Calendar: React.FC = () => {
                           <span className={`${getEventColor(event.priority)} text-white text-xs px-2 py-1 rounded`}>
                             {event.category}
                           </span>
-                          <button
-                            onClick={() => setDeleteConfirmation({ isOpen: true, eventId: event.id })}
-                            className="text-gray-400 hover:text-red-500"
-                          >
-                            <i className="fas fa-trash-alt"></i>
-                          </button>
+                          {event.createdBy === currentUser?.id && (
+                            <button
+                              onClick={() => setDeleteConfirmation({ isOpen: true, eventId: event.id })}
+                              className="text-gray-400 hover:text-red-500"
+                            >
+                              <i className="fas fa-trash-alt"></i>
+                            </button>
+                          )}
                         </div>
                       </div>
                       <h4 className="font-medium mb-2">{event.title}</h4>

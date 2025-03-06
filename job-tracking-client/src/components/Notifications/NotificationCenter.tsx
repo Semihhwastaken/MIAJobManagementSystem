@@ -167,6 +167,7 @@ export const NotificationCenter: React.FC = () => {
   return () => {
     signalRService.onReceiveNotification(() => {}); // Cleanup SignalR subscription
   };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, isAuthenticated, token, user?.username, handleNewNotification]);
   const handleMarkAsRead = async (id: string) => {
     try {
