@@ -51,18 +51,22 @@ namespace JobTrackingAPI.Controllers
                 // Try to get performance from cache
                 if (_cache.TryGetValue(cacheKey, out PerformanceScore cachedPerformance))
                 {
+                    _logger.LogInformation("Retrieved cached performance for user {UserId}", userId);
                     return Ok(cachedPerformance);
                 }
                 
+                _logger.LogInformation("Getting performance for user {UserId} from database", userId);
                 var performanceScore = await _teamService.GetUserPerformance(userId);
                 
                 // Cache performance data for 5 minutes
                 _cache.Set(cacheKey, performanceScore, TimeSpan.FromMinutes(5));
+                _logger.LogInformation("Added performance data for user {UserId} to cache", userId);
                 
                 return Ok(performanceScore);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error retrieving performance for user {UserId}", userId);
                 return StatusCode(500, new { message = ex.Message });
             }
         }
@@ -72,10 +76,12 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
+                _logger.LogInformation("Updating performance for user {UserId}", userId);
                 // First check if user exists
                 var user = await _userService.GetUserById(userId);
                 if (user == null)
                 {
+                    _logger.LogWarning("User {UserId} not found", userId);
                     return NotFound(new { message = "User not found" });
                 }
 
@@ -83,6 +89,7 @@ namespace JobTrackingAPI.Controllers
                 var teams = await _teamService.GetTeamsByUserId(userId);
                 if (!teams.Any())
                 {
+                    _logger.LogWarning("User {UserId} does not belong to any teams", userId);
                     return BadRequest(new { message = "User does not belong to any teams" });
                 }
 
@@ -90,11 +97,13 @@ namespace JobTrackingAPI.Controllers
                 
                 // Clear the cache
                 _cache.Remove($"performance_{userId}");
+                _logger.LogInformation("Cleared performance cache for user {UserId}", userId);
                 
                 return Ok(new { message = "Performance updated successfully" });
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error updating performance for user {UserId}", userId);
                 return BadRequest(new { message = ex.Message });
             }
         }
@@ -110,26 +119,32 @@ namespace JobTrackingAPI.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                 {
+                    _logger.LogWarning("Unauthorized access attempt to GetTeams");
                     return Unauthorized();
                 }
                 
                 var cacheKey = $"teams_{userId}";
+                _logger.LogInformation("Getting teams for user {UserId}", userId);
                 
                 // Check if teams are cached
                 if (_cache.TryGetValue(cacheKey, out List<Team> cachedTeams))
                 {
+                    _logger.LogInformation("Retrieved {Count} cached teams for user {UserId}", cachedTeams.Count, userId);
                     return Ok(cachedTeams);
                 }
 
                 var teams = await _teamService.GetTeamsByUserId(userId);
+                _logger.LogInformation("Retrieved {Count} teams for user {UserId} from database", teams.Count, userId);
                 
                 // Cache teams for 2 minutes
                 _cache.Set(cacheKey, teams, TimeSpan.FromMinutes(2));
+                _logger.LogInformation("Added {Count} teams for user {UserId} to cache", teams.Count, userId);
                 
                 return Ok(teams);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error retrieving teams");
                 return StatusCode(500, new { message = ex.Message });
             }
         }
@@ -145,26 +160,32 @@ namespace JobTrackingAPI.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                 {
+                    _logger.LogWarning("Unauthorized access attempt to GetMyTeams");
                     return Unauthorized();
                 }
                 
                 var cacheKey = $"myTeams_{userId}";
+                _logger.LogInformation("Getting owned teams for user {UserId}", userId);
                 
                 // Check if teams are cached
                 if (_cache.TryGetValue(cacheKey, out List<Team> cachedTeams))
                 {
+                    _logger.LogInformation("Retrieved {Count} cached owned teams for user {UserId}", cachedTeams.Count, userId);
                     return Ok(cachedTeams);
                 }
 
                 var teams = await _teamService.GetTeamsByOwnerId(userId);
+                _logger.LogInformation("Retrieved {Count} owned teams for user {UserId} from database", teams.Count, userId);
                 
                 // Cache teams for 2 minutes
                 _cache.Set(cacheKey, teams, TimeSpan.FromMinutes(2));
+                _logger.LogInformation("Added {Count} owned teams for user {UserId} to cache", teams.Count, userId);
                 
                 return Ok(teams);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error retrieving owned teams");
                 return StatusCode(500, new { message = ex.Message });
             }
         }
@@ -175,22 +196,27 @@ namespace JobTrackingAPI.Controllers
             try
             {
                 var cacheKey = "all_members";
+                _logger.LogInformation("Getting all team members");
                 
                 // Try to get from cache first
                 if (_cache.TryGetValue(cacheKey, out List<TeamMember> cachedMembers))
                 {
+                    _logger.LogInformation("Retrieved {Count} cached team members", cachedMembers.Count);
                     return Ok(cachedMembers);
                 }
                 
                 var members = await _teamService.GetAllMembersAsync();
+                _logger.LogInformation("Retrieved {Count} team members from database", members.Count);
                 
                 // Cache for 2 minutes
                 _cache.Set(cacheKey, members, TimeSpan.FromMinutes(2));
+                _logger.LogInformation("Added {Count} team members to cache", members.Count);
                 
                 return Ok(members);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error retrieving all members");
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
@@ -201,22 +227,27 @@ namespace JobTrackingAPI.Controllers
             try
             {
                 var cacheKey = "departments";
+                _logger.LogInformation("Getting all departments");
                 
                 // Try to get from cache first
                 if (_cache.TryGetValue(cacheKey, out List<string> cachedDepartments))
                 {
+                    _logger.LogInformation("Retrieved {Count} cached departments", cachedDepartments.Count);
                     return Ok(cachedDepartments);
                 }
                 
                 var departments = await _teamService.GetDepartmentsAsync();
+                _logger.LogInformation("Retrieved {Count} departments from database", departments.Count);
                 
                 // Cache for 30 minutes (departments change rarely)
                 _cache.Set(cacheKey, departments, TimeSpan.FromMinutes(30));
+                _logger.LogInformation("Added {Count} departments to cache", departments.Count);
                 
                 return Ok(departments);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error retrieving departments");
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
@@ -227,22 +258,30 @@ namespace JobTrackingAPI.Controllers
             try
             {
                 var cacheKey = $"members_dept_{department}";
+                _logger.LogInformation("Getting team members for department {Department}", department);
                 
                 // Try to get from cache first
                 if (_cache.TryGetValue(cacheKey, out List<TeamMember> cachedMembers))
                 {
+                    _logger.LogInformation("Retrieved {Count} cached team members for department {Department}", 
+                        cachedMembers.Count, department);
                     return Ok(cachedMembers);
                 }
                 
                 var members = await _teamService.GetMembersByDepartmentAsync(department);
+                _logger.LogInformation("Retrieved {Count} team members for department {Department} from database", 
+                    members.Count, department);
                 
                 // Cache for 2 minutes
                 _cache.Set(cacheKey, members, TimeSpan.FromMinutes(2));
+                _logger.LogInformation("Added {Count} team members for department {Department} to cache", 
+                    members.Count, department);
                 
                 return Ok(members);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error retrieving members for department {Department}", department);
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
@@ -255,33 +294,43 @@ namespace JobTrackingAPI.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                 {
+                    _logger.LogWarning("Unauthorized access attempt to GetTeamMembers for team {TeamId}", teamId);
                     return Unauthorized();
                 }
 
+                _logger.LogInformation("Getting team members for team {TeamId}", teamId);
+                
                 // Kullanıcının bu takıma erişim yetkisi var mı kontrol et
                 var team = await _teamService.GetTeamById(teamId);
                 if (team == null || (team.CreatedById != userId && !team.Members.Any(m => m.Id == userId)))
                 {
+                    _logger.LogWarning("Access forbidden for user {UserId} to team {TeamId}", userId, teamId);
                     return Forbid();
                 }
 
-                var cacheKey = $"team_members_{teamId}";
+                // Unique cache key that combines the team ID and ensures we don't mix data
+                var cacheKey = $"team_members_{teamId}_{DateTime.UtcNow.ToString("yyyyMMdd")}";
                 
                 // Try to get from cache first
                 if (_cache.TryGetValue(cacheKey, out List<TeamMember> cachedMembers))
                 {
+                    _logger.LogInformation("Retrieved {Count} cached members for team {TeamId}", cachedMembers.Count, teamId);
                     return Ok(cachedMembers);
                 }
                 
+                // Always get fresh data from the database if not in cache
                 var members = await _teamService.GetTeamMembers(teamId);
+                _logger.LogInformation("Retrieved {Count} members for team {TeamId} from database", members.Count, teamId);
                 
-                // Cache for 2 minutes
-                _cache.Set(cacheKey, members, TimeSpan.FromMinutes(2));
+                // Cache for a shorter time (1 minute) to ensure data freshness
+                _cache.Set(cacheKey, members, TimeSpan.FromMinutes(1));
+                _logger.LogInformation("Added {Count} members for team {TeamId} to cache", members.Count, teamId);
                 
                 return Ok(members);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error retrieving team members for team {TeamId}", teamId);
                 return StatusCode(500, new { message = ex.Message });
             }
         }
@@ -291,17 +340,23 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
+                _logger.LogInformation("Updating status for member {MemberId} to {Status}", id, status.Status);
                 var updatedMember = await _teamService.UpdateMemberStatusAsync(id, status.Status);
                 if (updatedMember == null)
+                {
+                    _logger.LogWarning("Member {MemberId} not found", id);
                     return NotFound($"Member with ID {id} not found");
+                }
                 
                 // Clear caches related to this member
                 ClearMemberRelatedCaches(id);
+                _logger.LogInformation("Cleared caches for member {MemberId} after status update", id);
                 
                 return Ok(updatedMember);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error updating status for member {MemberId}", id);
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
@@ -734,7 +789,13 @@ namespace JobTrackingAPI.Controllers
         
         private void ClearTeamRelatedCaches(string teamId)
         {
-            _cache.Remove($"team_members_{teamId}");
+            _logger.LogInformation("Clearing caches for team {TeamId}", teamId);
+            // Clear all possible date-based cache keys for this team
+            for (int i = 0; i < 3; i++) // Clear for today and next 2 days in case date changes
+            {
+                var date = DateTime.UtcNow.AddDays(i).ToString("yyyyMMdd");
+                _cache.Remove($"team_members_{teamId}_{date}");
+            }
             _cache.Remove($"team_{teamId}");
             
             // Clear all-members cache as it may contain team members
@@ -743,6 +804,7 @@ namespace JobTrackingAPI.Controllers
         
         private void ClearMemberRelatedCaches(string memberId)
         {
+            _logger.LogInformation("Clearing caches for member {MemberId}", memberId);
             _cache.Remove($"performance_{memberId}");
             _cache.Remove($"teams_{memberId}");
             

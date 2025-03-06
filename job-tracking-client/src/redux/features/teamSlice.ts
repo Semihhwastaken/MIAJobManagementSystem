@@ -690,10 +690,15 @@ const teamSlice = createSlice({
             })
             .addCase(getTeamMembersByTeamId.fulfilled, (state, action) => {
                 state.loading = false;
+                
+                // action.meta.arg içinde teamId bulunur (ilk parametredir)
+                const teamId = action.meta.arg;
+                
                 if (action.payload && action.payload.length > 0) {
-                    // Find the team by checking if any team has a member with the same ID as first member in payload
-                    const team = state.teams.find(t => t.members.some(m => m.id === action.payload[0]?.id));
+                    // teamId'yi kullanarak doğru takımı bul
+                    const team = state.teams.find(t => t.id === teamId);
                     if (team) {
+                        // Takımın üyelerini API yanıtıyla güncelle
                         team.members = action.payload;
                     }
                 }

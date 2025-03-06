@@ -309,6 +309,19 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
     };
 
     const renderTeamMembers = (teamMembers: TeamMember[], teamName: string, teamId: string) => {
+        // First check if there are any members to render
+        if (!teamMembers || teamMembers.length === 0) {
+            return (
+                <div className="mb-8">
+                    <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{teamName}</h2>
+                    <div className={`shadow-lg rounded-lg overflow-hidden p-6 text-center ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-white text-gray-600'}`}>
+                        No members found in this team.
+                    </div>
+                </div>
+            );
+        }
+
+        // Filter and sort members with cached performance data
         const filteredAndSortedMembers = teamMembers
             .filter(member => {
                 const matchesSearch = member.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -321,15 +334,15 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
             })
             .sort((a, b) => {
                 if (sortBy === 'performance') {
+                    // Use cached performance data if available
                     const aScore = typeof a.performanceScore === 'number' ? a.performanceScore : 0;
                     const bScore = typeof b.performanceScore === 'number' ? b.performanceScore : 0;
                     return sortOrder === 'asc' ? aScore - bScore : bScore - aScore;
                 }
-                // ...existing sorting logic...
                 return 0;
             });
 
-        // İşlemi yapan kullanıcının bu takımın owner'ı olup olmadığını kontrol et
+        // Check if the current user is this team's owner
         const isTeamOwner = teamMembers.some(member => 
             member.id === currentUser?.id && member.role === 'Owner'
         );
@@ -392,112 +405,122 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                                 </tr>
                             </thead>
                             <tbody className={`${isDarkMode ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'}`}>
-                                {filteredAndSortedMembers.map((member) => (
-                                    <tr key={member.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
-                                        {/* TABLE ÜYE */}
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <div className="flex-shrink-0 h-10 w-10 relative">
-                                                    {member.profileImage ? (
-                                                        <img className="h-10 w-10 rounded-full" src={member.profileImage} alt="" />
-                                                    ) : (
-                                                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}>
-                                                            <span className={`text-xl ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                                                                {member.fullName.charAt(0).toUpperCase()}
-                                                            </span>
+                                {filteredAndSortedMembers.length > 0 ? (
+                                    filteredAndSortedMembers.map((member) => (
+                                        <tr key={member.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
+                                            {/* TABLE ÜYE */}
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div className="flex-shrink-0 h-10 w-10 relative">
+                                                        {member.profileImage ? (
+                                                            <img className="h-10 w-10 rounded-full" src={member.profileImage} alt="" />
+                                                        ) : (
+                                                            <div className={`h-10 w-10 rounded-full flex items-center justify-center ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}>
+                                                                <span className={`text-xl ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                                    {member.fullName.charAt(0).toUpperCase()}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        <span className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white ${getOnlineStatusColor(member.onlineStatus)}`}></span>
+                                                    </div>
+                                                    <div className="ml-4">
+                                                        <div className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                            {member.fullName}
                                                         </div>
-                                                    )}
-                                                    <span className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white ${getOnlineStatusColor(member.onlineStatus)}`}></span>
-                                                </div>
-                                                <div className="ml-4">
-                                                    <div className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                        {member.fullName}
-                                                    </div>
-                                                    <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                        {member.email}
+                                                        <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                            {member.email}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        {/* TABLE DEPARTMAN */}
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{member.department}</div>
-                                        </td>
-                                        {/* TABLE PERFORMANCE */}
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <div className="flex-1 h-2 bg-gray-200 rounded-full">
-                                                    <div
-                                                        className="h-2 bg-blue-500 rounded-full"
-                                                        style={{ width: `${Math.round(member.performanceScore)}%` }}
-                                                    ></div>
+                                            </td>
+                                            {/* TABLE DEPARTMAN */}
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{member.department}</div>
+                                            </td>
+                                            {/* TABLE PERFORMANCE */}
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div className="flex-1 h-2 bg-gray-200 rounded-full">
+                                                        <div
+                                                            className="h-2 bg-blue-500 rounded-full"
+                                                            style={{ width: `${Math.round(member.performanceScore)}%` }}
+                                                        ></div>
+                                                    </div>
+                                                    <span className={`ml-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                        {Math.round(member.performanceScore)}%
+                                                    </span>
                                                 </div>
-                                                <span className={`ml-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                    {Math.round(member.performanceScore)}%
+                                            </td>
+                                            {/* TABLE DURUM */}
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(member.status)}`}>
+                                                    {member.status}
                                                 </span>
-                                            </div>
-                                        </td>
-                                        {/* TABLE DURUM */}
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(member.status)}`}>
-                                                {member.status}
+                                            </td>
+                                            {/* TABLE UZMANLIK */}
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {member.expertise === null || member.expertise.length === 0 ? (
+                                                        <span 
+                                                        className={`group px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition-all duration-200 ease-in-out cursor-pointer 
+                                                            ${isDarkMode 
+                                                              ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                                                              : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                                                              onClick={() => handleAddExpertiseClick(member.id)}>
+                                                                Uzmanlık Yok 
+                                                                <IoIosAddCircleOutline
+                                                                    className="w-5 h-5 ml-1 transition-transform duration-200 ease-in-out group-hover:scale-110"
+                                                                    
+                                                                />
+                                                            </span>
+                                                    ) : (
+                                                        member.expertise.map((expertise, index) => (
+                                                            <span key={index} className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
+                                                                {expertise}
+                                                            </span>
+                                                        ))
+                                                    )}
+                                                        
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                {teamMembers.some(member => member.role === 'Owner' && member.id === currentUser?.id) && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleCommentClick(member.id)}
+                                                            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-4"
+                                                        >
+                                                            <ChatBubbleLeftIcon className="h-5 w-5" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleOpenTaskForm(member, teamId, teamName)}
+                                                            className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-4"
+                                                        >
+                                                            <ClipboardDocumentListIcon className="h-5 w-5" />
+                                                        </button>
+                                                        {isTeamOwner && member.id !== currentUser?.id && member.role !== 'Owner' && (
+                                                            <button
+                                                                onClick={() => handleRemoveMemberClick(teamId, member.id)}
+                                                                className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900"
+                                                                title="Üyeyi Çıkart"
+                                                            >
+                                                                <UserMinusIcon className="h-5 w-5" />
+                                                            </button>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-4 text-center">
+                                            <span className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>
+                                                Filtrelere uygun üye bulunamadı.
                                             </span>
                                         </td>
-                                        {/* TABLE UZMANLIK */}
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex flex-wrap gap-1">
-                                                {member.expertise === null || member.expertise.length === 0 ? (
-                                                    <span 
-                                                    className={`group px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition-all duration-200 ease-in-out cursor-pointer 
-                                                        ${isDarkMode 
-                                                          ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
-                                                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
-                                                          onClick={() => handleAddExpertiseClick(member.id)}>
-                                                            Uzmanlık Yok 
-                                                            <IoIosAddCircleOutline
-                                                                className="w-5 h-5 ml-1 transition-transform duration-200 ease-in-out group-hover:scale-110"
-                                                                
-                                                            />
-                                                        </span>
-                                                ) : (
-                                                    member.expertise.map((expertise, index) => (
-                                                        <span key={index} className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
-                                                            {expertise}
-                                                        </span>
-                                                    ))
-                                                )}
-                                                    
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            {teamMembers.some(member => member.role === 'Owner' && member.id === currentUser?.id) && (
-                                                <>
-                                                    <button
-                                                        onClick={() => handleCommentClick(member.id)}
-                                                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-4"
-                                                    >
-                                                        <ChatBubbleLeftIcon className="h-5 w-5" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleOpenTaskForm(member, teamId, teamName)}
-                                                        className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-4"
-                                                    >
-                                                        <ClipboardDocumentListIcon className="h-5 w-5" />
-                                                    </button>
-                                                    {isTeamOwner && member.id !== currentUser?.id && member.role !== 'Owner' && (
-                                                        <button
-                                                            onClick={() => handleRemoveMemberClick(teamId, member.id)}
-                                                            className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900"
-                                                            title="Üyeyi Çıkart"
-                                                        >
-                                                            <UserMinusIcon className="h-5 w-5" />
-                                                        </button>
-                                                    )}
-                                                </>
-                                            )}
-                                        </td>
                                     </tr>
-                                ))}
+                                )}
                             </tbody>
                         </table>
                     </div>

@@ -970,14 +970,38 @@ public class TeamService : ITeamService
     /// </summary>
     public async Task<List<TeamMember>> GetTeamMembers(string teamId)
     {
-        var team = await GetTeamById(teamId);
+        // Takım ID'si kontrolü
+        if (string.IsNullOrEmpty(teamId))
+        {
+            return new List<TeamMember>();
+        }
+        
+        // Doğrudan veritabanından en güncel takım bilgisini çek
+        var team = await _teams.Find(t => t.Id == teamId).FirstOrDefaultAsync();
         if (team == null)
         {
             return new List<TeamMember>();
         }
 
-        // Takım üyelerini doğrudan döndür
-        return team.Members;
+        // Takım üyelerinin referans bütünlüğünü sağlayalım
+        var members = new List<TeamMember>(team.Members);
+        
+        // Her üye için performans verilerini kontrol et ve güncelle
+        foreach (var member in members)
+        {
+            // PerformanceScore ve CompletedTasksCount verilerini güncel tutalım
+            var performanceScore = await _performanceScores
+                .Find(p => p.UserId == member.Id && p.TeamId == teamId)
+                .FirstOrDefaultAsync();
+                
+            if (performanceScore != null)
+            {
+                member.PerformanceScore = performanceScore.Score;
+                member.CompletedTasksCount = performanceScore.CompletedTasksCount;
+            }
+        }
+        
+        return members;
     }
 
     // Yardımcı metodlar
