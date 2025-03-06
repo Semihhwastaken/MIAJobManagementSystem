@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppSelector } from '../../redux/hooks';
 import { notificationAxiosInstance } from '../../services/axiosInstance';
 import SignalRService from '../../services/signalRService';
@@ -12,6 +12,7 @@ export const NotificationCenter: React.FC = () => {
   const { user, isAuthenticated, token } = useAppSelector(state => state.auth);
   const signalRService = SignalRService.getInstance();
   const notificationRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef<Notification[]>([]);
 
   const getRelativeTime = (date: string) => {
     const now = new Date();
@@ -32,20 +33,83 @@ export const NotificationCenter: React.FC = () => {
       return formatDate(date);
     }
   };
-
+  
+  const [, setToasts] = useState<(Notification & { id: string })[]>([]);
+  const toastContainerRef = useRef<HTMLDivElement | null>(null);
+  
+  useEffect(() => {
+    // Create toast container if it doesn't exist
+    if (!toastContainerRef.current) {
+      const container = document.createElement('div');
+      container.className = 'fixed bottom-4 right-4 z-50 flex flex-col gap-2';
+      document.body.appendChild(container);
+      toastContainerRef.current = container;
+    }
+    
+    return () => {
+      // Clean up toast container on unmount
+      if (toastContainerRef.current) {
+        document.body.removeChild(toastContainerRef.current);
+      }
+    };
+  }, []);
+  
+  
+  
+  const showNotificationToast = (notification: Notification) => {
+    if (!notification.id) return;
+    
+    setToasts(prev => [
+      { ...notification, id: notification.id as string },
+      ...prev
+    ]);
+    
+    // Limit number of toasts to 3
+    setToasts(prev => prev.slice(0, 3));
+  };
+  
+  // Add global styles for toast animations
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes fadeOut {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(20px); }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+  const handleNewNotification = useCallback((notification: Notification) => {
+    setNotifications(prevNotifications => {
+      const notificationExists = prevNotifications.some(n => n.id === notification.id);
+      if (notificationExists) {
+        return prevNotifications;
+      }
+      const newNotifications = [notification, ...prevNotifications];
+      notificationsRef.current = newNotifications;
+      return newNotifications;
+    });
+    setUnreadCount(prev => prev + 1);
+    showNotificationToast(notification);
+  }, []);
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
   useEffect(() => {
-    // Check if we have all required auth data
     if (!user?.id || !isAuthenticated || !token) {
       console.warn('Waiting for authentication data...', {
         userId: user?.id,
@@ -53,103 +117,57 @@ export const NotificationCenter: React.FC = () => {
         hasToken: !!token
       });
       return;
-    } 
-    
-    
-
-    console.log('Authentication data loaded:', {
-      userId: user.id,
-      username: user.username,
-      isAuthenticated
-    });
-
-    const initializeSignalR = async () => {
-      try {
-        if (user?.id) {
-          await signalRService.startConnection(user.id);
-          signalRService.onReceiveNotification((notification: Notification) => {
-            console.log('New notification received:', notification); // Log mesajı eklendi
-            setNotifications(prevNotifications => {
-              // Eğer bildirim zaten varsa ekleme
-              const notificationExists = prevNotifications.some(n => n.id === notification.id);
-              if (notificationExists) {
-                return prevNotifications;
-              }
-              // Yeni bildirimi listenin başına ekle
-              const newNotifications = [notification, ...prevNotifications];
-              console.log('Updated notifications:', newNotifications); // State güncellemesini kontrol etmek için
-              return newNotifications;
-            });
-            setUnreadCount(prev => prev + 1);
-            showNotificationToast(notification);
-          });
-          signalRService.getConnectedUsersCount().then(count => {
-            console.log('Connected users count:', count);
-          });
-        }
-      } catch (error) {
-        console.error('SignalR connection error:', error);
+    }
+  console.log('Authentication data loaded:', {
+    userId: user.id,
+    username: user.username,
+    isAuthenticated
+  });
+  const initializeSignalR = async () => {
+    try {
+      if (user?.id) {
+        await signalRService.startConnection(user.id);
+        signalRService.onReceiveNotification(handleNewNotification);
+        signalRService.getConnectedUsersCount().then(count => {
+          console.log('Connected users count:', count);
+        });
       }
-    };
-
-    const fetchNotifications = async () => {
-      if (!user?.id) {
-        console.warn('Cannot fetch notifications: User ID not found');
-        return;
-      }
-  
-      try {
-        const url = `/Notifications/user/${user.id}`;
-        console.log('Fetching notifications from:', url);
-  
-        const response = await notificationAxiosInstance.get(url);
-  
-        if (Array.isArray(response.data)) {
-          console.log('Notifications fetched successfully:', response.data.length);
-          setNotifications(response.data);
-          const unreadNotifications = response.data.filter((n: Notification) => !n.isRead);
-          setUnreadCount(unreadNotifications.length);
-        } else {
-          console.error('Invalid API response format:', response.data);
-          setNotifications([]);
-          setUnreadCount(0);
-        }
-      } catch (error) {
-        console.error('Error fetching notifications:', error);
-        setNotifications([]);
-        setUnreadCount(0);
-      }
-    };
-
-
-    const showNotificationToast = (notification: Notification) => {
-      const toast = document.createElement('div');
-      
-      
-      toast.className = 'fixed bottom-4 right-4 bg-white shadow-lg rounded-lg p-4 mb-4 transition-all duration-500 transform translate-y-0 z-50';
-      toast.innerHTML = `
-        <div class="flex items-center">
-          <div class="flex-shrink-0">
-            ${getNotificationIcon(notification.type)}
-          </div>
-          <div class="ml-3">
-            <p class="text-sm font-medium text-gray-900">${notification.title}</p>
-            <p class="text-sm text-gray-500">${notification.message}</p>
-          </div>
-        </div>
-      `;
-  
-      document.body.appendChild(toast);
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 500);
-      }, 5000);
-    };
-
-    fetchNotifications();
-    initializeSignalR();
-  }, [user?.id, isAuthenticated, token, user?.username, signalRService]);
-
+    } catch (error) {
+      console.error('SignalR connection error:', error);
+    }
+  };
+  const fetchNotifications = async () => {
+    if (!user?.id) {
+      console.warn('Cannot fetch notifications: User ID not found');
+      return;
+    }
+  try {
+    const url = `/Notifications/user/${user.id}`;
+    console.log('Fetching notifications from:', url);
+  const response = await notificationAxiosInstance.get(url);
+  if (Array.isArray(response.data)) {
+    console.log('Notifications fetched successfully:', response.data.length);
+    setNotifications(response.data);
+    notificationsRef.current = response.data;
+    const unreadNotifications = response.data.filter((n: Notification) => !n.isRead);
+    setUnreadCount(unreadNotifications.length);
+  } else {
+    console.error('Invalid API response format:', response.data);
+    setNotifications([]);
+    setUnreadCount(0);
+  }
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    setNotifications([]);
+    setUnreadCount(0);
+  }
+  };
+  fetchNotifications();
+  initializeSignalR();
+  return () => {
+    signalRService.onReceiveNotification(() => {}); // Cleanup SignalR subscription
+  };
+  }, [user?.id, isAuthenticated, token, user?.username, handleNewNotification]);
   const handleMarkAsRead = async (id: string) => {
     try {
       await notificationAxiosInstance.put(`/Notifications/${id}/read`);
@@ -161,26 +179,21 @@ export const NotificationCenter: React.FC = () => {
       console.error('Error marking notification as read:', error);
     }
   };
-
   const handleMarkAllAsRead = async () => {
     if (!user?.id) return;
-
-    try {
-      await notificationAxiosInstance.put(`/Notifications/user/${user.id}/read-all`);
-      setNotifications(notifications.map(n => ({ ...n, isRead: true })));
-      setUnreadCount(0);
-    } catch (error) {
-      console.error('Error marking all notifications as read:', error);
-    }
+  try {
+    await notificationAxiosInstance.put(`/Notifications/user/${user.id}/read-all`);
+    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+    setUnreadCount(0);
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error);
+  }
   };
   const getNotificationIcon = (type: string | number | undefined) => {
     if (!type) {
-      return '📢'; // Default icon for invalid types
+      return '📢';
     }
-    
-    // Convert numeric type to string if needed
     const typeString = typeof type === 'number' ? type.toString() : type.toLowerCase();
-    
     switch (typeString) {
       case 'comment':
       case '0':
@@ -247,10 +260,8 @@ export const NotificationCenter: React.FC = () => {
       minute: '2-digit'
     });
   };
-
   return (
     <div className="relative" ref={notificationRef}>
-      {/* Notification Bell Icon */}
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as signalR from "@microsoft/signalr";
 import { Message } from "../types/message";
 import { Notification } from "../types/notification";
@@ -13,6 +14,8 @@ class SignalRService {
     private messageReadCallbacks: ((messageId: string) => void)[] = [];
     private userConnectedCallbacks: ((userId: string) => void)[] = [];
     private userDisconnectedCallbacks: ((userId: string) => void)[] = [];
+    private notificationCallbacks: ((notification: Notification) => void)[] = [];
+    private reconnectInterval: any = null;
 
     private constructor() {
         // Chat Hub bağlantısı (JobTrackingAPI - 5173)
@@ -20,8 +23,10 @@ class SignalRService {
             .withUrl("http://localhost:5173/chatHub", {
                 accessTokenFactory: () => localStorage.getItem('token') || ''
             })
-            .withAutomaticReconnect()
-            .configureLogging(signalR.LogLevel.Warning) // Changed from Information to Warning
+            .withAutomaticReconnect([
+                0, 2000, 5000, 10000, 15000, 30000 // More aggressive reconnection strategy
+            ])
+            .configureLogging(signalR.LogLevel.Warning)
             .build();
 
         // Notification Hub bağlantısı (NotificationAPI - 8080)
@@ -29,8 +34,10 @@ class SignalRService {
             .withUrl("http://localhost:8080/notificationHub", {
                 accessTokenFactory: () => localStorage.getItem('token') || ''
             })
-            .withAutomaticReconnect()
-            .configureLogging(signalR.LogLevel.Warning) // Changed from Information to Warning
+            .withAutomaticReconnect([
+                0, 2000, 5000, 10000, 15000, 30000 // More aggressive reconnection strategy
+            ])
+            .configureLogging(signalR.LogLevel.Warning)
             .build();
 
         // Chat event listeners
@@ -58,10 +65,62 @@ class SignalRService {
             this.messageReadCallbacks.forEach(callback => callback(messageId));
         });
 
-        // Changed to only log actual errors
+        // Notification event listener
+        this.notificationHubConnection.on("ReceiveNotification", (notification: Notification) => {
+            console.log("Received notification:", notification);
+            this.notificationCallbacks.forEach(callback => callback(notification));
+        });
+
+        // Connection state change handlers
+        this.notificationHubConnection.onreconnecting(error => {
+            console.warn("Notification hub reconnecting:", error);
+        });
+
+        this.notificationHubConnection.onreconnected(connectionId => {
+            console.log("Notification hub reconnected with ID:", connectionId);
+            // Re-register to user group after reconnection if we have userId
+            if (this.userId) {
+                this.notificationHubConnection.invoke("JoinUserGroup", this.userId)
+                    .catch(err => console.error("Error rejoining user group:", err));
+            }
+        });
+
+        this.notificationHubConnection.onclose(error => {
+            console.error("Notification hub connection closed:", error);
+            this.setupReconnection();
+        });
+
+        // Error handlers
         this.hubConnection.on("ErrorOccurred", (error: string) => {
             console.error("SignalR Error:", error);
         });
+    }
+
+    private setupReconnection() {
+        // Clear any existing interval
+        if (this.reconnectInterval) {
+            clearInterval(this.reconnectInterval);
+        }
+
+        // Try to reconnect every 5 seconds if connection is lost
+        this.reconnectInterval = setInterval(async () => {
+            if (this.notificationHubConnection.state === signalR.HubConnectionState.Disconnected && this.userId) {
+                try {
+                    await this.notificationHubConnection.start();
+                    console.log("Notification hub reconnected");
+                    
+                    // Re-register to user group
+                    await this.notificationHubConnection.invoke("JoinUserGroup", this.userId);
+                    console.log("Rejoined user group:", this.userId);
+                    
+                    // Clear the interval if reconnection is successful
+                    clearInterval(this.reconnectInterval);
+                    this.reconnectInterval = null;
+                } catch (err) {
+                    console.error("Failed to reconnect to notification hub:", err);
+                }
+            }
+        }, 5000);
     }
 
     public static getInstance(): SignalRService {
@@ -79,22 +138,32 @@ class SignalRService {
             if (this.hubConnection.state === signalR.HubConnectionState.Disconnected) {
                 await this.hubConnection.start();
                 console.log("Chat Hub connection started with userId: ", userId, "with url: ", this.hubConnection.baseUrl);
-                
             }
 
             // Start Notification Hub connection
             if (this.notificationHubConnection.state === signalR.HubConnectionState.Disconnected) {
                 await this.notificationHubConnection.start();
                 console.log("Notification Hub connection started with userId: ", userId, "with url: ", this.notificationHubConnection.baseUrl);
+                
+                // Explicitly join the user's group for notifications
+                await this.notificationHubConnection.invoke("JoinUserGroup", userId);
+                console.log("Joined notification group for user:", userId);
             }
         } catch (err) {
             console.error("Error while establishing connection: ", err);
+            this.setupReconnection();
             throw err;
         }
     }
 
     async stopConnection(): Promise<void> {
         try {
+            // Clear reconnection interval if it exists
+            if (this.reconnectInterval) {
+                clearInterval(this.reconnectInterval);
+                this.reconnectInterval = null;
+            }
+
             if (this.hubConnection.state === signalR.HubConnectionState.Connected) {
                 await this.hubConnection.stop();
             }
@@ -188,14 +257,32 @@ class SignalRService {
 
     // Notification Methods
     onReceiveNotification(callback: (notification: Notification) => void): void {
-        this.notificationHubConnection.on("ReceiveNotification", callback);
+        // Remove any existing callback with the same reference to avoid duplicates
+        this.removeNotificationCallback(callback);
+        
+        // Add the new callback
+        this.notificationCallbacks.push(callback);
+    }
+
+    removeNotificationCallback(callback: (notification: Notification) => void): void {
+        const index = this.notificationCallbacks.indexOf(callback);
+        if (index > -1) {
+            this.notificationCallbacks.splice(index, 1);
+        }
     }
 
     async getConnectedUsersCount(): Promise<number> {
-        console.log(this.notificationHubConnection.state);
-        console.log(signalR.HubConnectionState.Connected);
         if (this.notificationHubConnection.state !== signalR.HubConnectionState.Connected) {
-            throw new Error("Connection is not established");
+            console.warn("Notification hub not connected, attempting to reconnect...");
+            try {
+                await this.notificationHubConnection.start();
+                if (this.userId) {
+                    await this.notificationHubConnection.invoke("JoinUserGroup", this.userId);
+                }
+            } catch (err) {
+                console.error("Failed to reconnect to notification hub:", err);
+                throw new Error("Connection is not established");
+            }
         }
         return await this.notificationHubConnection.invoke("GetConnectedUsersCount");
     }
@@ -206,6 +293,18 @@ class SignalRService {
 
     async sendTestNotification(): Promise<void> {
         if (!this.userId) throw new Error("User not authenticated");
+        
+        if (this.notificationHubConnection.state !== signalR.HubConnectionState.Connected) {
+            console.warn("Notification hub not connected, attempting to reconnect...");
+            try {
+                await this.notificationHubConnection.start();
+                await this.notificationHubConnection.invoke("JoinUserGroup", this.userId);
+            } catch (err) {
+                console.error("Failed to reconnect to notification hub:", err);
+                throw new Error("Connection is not established");
+            }
+        }
+        
         await this.notificationHubConnection.invoke("SendTestNotification", this.userId);
     }
 }

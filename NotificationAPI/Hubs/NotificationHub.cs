@@ -48,5 +48,13 @@ namespace NotificationAPI.Hubs
         {
             return _connectedUsers;
         }
+
+        public async Task JoinUserGroup(string userId)
+        {
+            if (!string.IsNullOrEmpty(userId))
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, userId);
+            }
+        }
     }
 }
