@@ -40,6 +40,9 @@ namespace JobTrackingAPI.Models
         [RegularExpression("^(High|Medium|Low)$", ErrorMessage = "Priority must be High, Medium, or Low")]
         public string Priority { get; set; } = "Medium";
 
+        [BsonElement("category")]
+        public string Category { get; set; } = string.Empty;
+
         [BsonElement("participants")]
         public List<string> Participants { get; set; } = new List<string>();
 
