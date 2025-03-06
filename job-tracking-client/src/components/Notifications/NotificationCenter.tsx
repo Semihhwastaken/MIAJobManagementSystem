@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppSelector } from '../../redux/hooks';
 import { notificationAxiosInstance } from '../../services/axiosInstance';
 import SignalRService from '../../services/signalRService';
-import { Transition } from '@headlessui/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Notification } from '../../types/notification';
 
@@ -12,6 +11,38 @@ export const NotificationCenter: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const { user, isAuthenticated, token } = useAppSelector(state => state.auth);
   const signalRService = SignalRService.getInstance();
+  const notificationRef = useRef<HTMLDivElement>(null);
+
+  const getRelativeTime = (date: string) => {
+    const now = new Date();
+    const messageDate = new Date(date);
+    const diffInMinutes = Math.floor((now.getTime() - messageDate.getTime()) / (1000 * 60));
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInMinutes < 1) {
+      return 'Şimdi';
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes} dakika önce`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours} saat önce`;
+    } else if (diffInDays < 7) {
+      return `${diffInDays} gün önce`;
+    } else {
+      return formatDate(date);
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     // Check if we have all required auth data
@@ -23,6 +54,8 @@ export const NotificationCenter: React.FC = () => {
       });
       return;
     } 
+    
+    
 
     console.log('Authentication data loaded:', {
       userId: user.id,
@@ -35,10 +68,23 @@ export const NotificationCenter: React.FC = () => {
         if (user?.id) {
           await signalRService.startConnection(user.id);
           signalRService.onReceiveNotification((notification: Notification) => {
-            setNotifications(prev => [notification, ...prev]);
+            console.log('New notification received:', notification); // Log mesajı eklendi
+            setNotifications(prevNotifications => {
+              // Eğer bildirim zaten varsa ekleme
+              const notificationExists = prevNotifications.some(n => n.id === notification.id);
+              if (notificationExists) {
+                return prevNotifications;
+              }
+              // Yeni bildirimi listenin başına ekle
+              const newNotifications = [notification, ...prevNotifications];
+              console.log('Updated notifications:', newNotifications); // State güncellemesini kontrol etmek için
+              return newNotifications;
+            });
             setUnreadCount(prev => prev + 1);
-            console.log('Notification receivedssss:', notification);
             showNotificationToast(notification);
+          });
+          signalRService.getConnectedUsersCount().then(count => {
+            console.log('Connected users count:', count);
           });
         }
       } catch (error) {
@@ -177,6 +223,15 @@ export const NotificationCenter: React.FC = () => {
       case 'calendar_event_deleted':
       case '11':
         return '🗑️';
+      case 'TeamStatusCreated':
+      case '12':
+        return '📊';
+      case 'TeamStatusUpdated':
+      case '13':
+        return '🐦‍🔥'
+      case 'TeamStatusDeleted':
+      case '14':
+        return '🗑️';
         
       default:
         return '📢';
@@ -194,13 +249,13 @@ export const NotificationCenter: React.FC = () => {
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={notificationRef}>
       {/* Notification Bell Icon */}
       <motion.button
-        whileHover={{ scale: 1.1 }}
+        whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+        className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white transition-colors duration-200 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         <svg
           className="w-6 h-6"
@@ -227,71 +282,93 @@ export const NotificationCenter: React.FC = () => {
         </AnimatePresence>
       </motion.button>
 
-      {/* Notification Panel */}
-      <Transition
-        show={isOpen}
-        enter="transition ease-out duration-200"
-        enterFrom="transform opacity-0 scale-95"
-        enterTo="transform opacity-100 scale-100"
-        leave="transition ease-in duration-150"
-        leaveFrom="transform opacity-100 scale-100"
-        leaveTo="transform opacity-0 scale-95"
-      >
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg py-1 z-50">
-          <div className="px-4 py-2 border-b border-gray-200">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">Bildirimler</h3>
-              {unreadCount > 0 && (
-                <button
-                  onClick={handleMarkAllAsRead}
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  Tümünü Okundu İşaretle
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="max-h-96 overflow-y-auto">
-            <AnimatePresence>
-              {notifications.length > 0 ? (
-                notifications.map((notification) => (
-                  <motion.div
-                    key={notification.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.2 }}
-                    className={`px-4 py-3 hover:bg-gray-50 cursor-pointer ${!notification.isRead ? 'bg-blue-50' : ''
-                      }`}
-                    onClick={() => notification.id && handleMarkAsRead(notification.id)}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+            className="fixed right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-xl shadow-xl py-1 z-50 border border-gray-100 dark:border-gray-700 max-h-[80vh] md:absolute md:max-h-[600px]"
+            style={{
+              top: "100%",
+              marginRight: "1rem",
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            <div className="sticky top-0 px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-t-xl">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Bildirimler</h3>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllAsRead}
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium px-3 py-1 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/50 transition-colors"
                   >
-                    <div className="flex items-center">
-                      <span className="text-2xl mr-3">
-                        {getNotificationIcon(notification.type)}
-                      </span>
-                      <div className="flex-1">
-                        <h4 className="text-sm font-medium text-gray-900">
-                          {notification.title}
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          {notification.message}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {formatDate(notification.createdDate)}
-                        </p>
+                    Tümünü Okundu İşaretle
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="overflow-y-auto max-h-[calc(80vh-4rem)] md:max-h-[500px] scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-100 dark:scrollbar-track-gray-700">
+              <AnimatePresence>
+                {notifications.length > 0 ? (
+                  notifications.map((notification) => (
+                    <motion.div
+                      key={notification.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className={`px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer border-b border-gray-50 dark:border-gray-700 transition-colors ${
+                        !notification.isRead ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
+                      }`}
+                      onClick={() => notification.id && handleMarkAsRead(notification.id)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="text-xl mt-1">
+                          {getNotificationIcon(notification.type)}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start">
+                            <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                              {notification.title}
+                            </h4>
+                            <span className="text-xs text-gray-400 dark:text-gray-500 ml-2 whitespace-nowrap">
+                              {getRelativeTime(notification.createdDate)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5 line-clamp-2">
+                            {notification.message}
+                          </p>
+                        </div>
+                        {!notification.isRead && (
+                          <span className="w-2 h-2 rounded-full bg-blue-500 dark:bg-blue-400 mt-2 flex-shrink-0" />
+                        )}
                       </div>
-                    </div>
+                    </motion.div>
+                  ))
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                  >
+                    <svg 
+                      className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    </svg>
+                    <p className="text-gray-600 dark:text-gray-400">Henüz bildirim yok</p>
                   </motion.div>
-                ))
-              ) : (
-                <div className="px-4 py-6 text-center text-gray-500">
-                  Henüz bildirim yok
-                </div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-      </Transition>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

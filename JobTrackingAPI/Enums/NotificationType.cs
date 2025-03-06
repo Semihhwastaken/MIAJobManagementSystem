@@ -14,6 +14,9 @@ namespace JobTrackingAPI.Enums
         Message,
         CalendarEventCreated,
         CalendarEventUpdated,
-        CalendarEventDeleted
+        CalendarEventDeleted,
+        TeamStatusCreated,
+        TeamStatusUpdated,
+        TeamStatusDeleted,
     }
 }

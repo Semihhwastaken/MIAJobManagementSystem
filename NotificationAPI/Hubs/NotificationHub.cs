@@ -8,6 +8,7 @@ namespace NotificationAPI.Hubs
     public class NotificationHub : Hub
     {
         private readonly INotificationService _notificationService;
+        private static int _connectedUsers = 0;
 
         public NotificationHub(INotificationService notificationService)
         {
@@ -16,6 +17,7 @@ namespace NotificationAPI.Hubs
 
         public override async Task OnConnectedAsync()
         {
+            Interlocked.Increment(ref _connectedUsers);
             var userId = Context.GetHttpContext()?.Request.Query["userId"].ToString();
             if (!string.IsNullOrEmpty(userId))
             {
@@ -26,6 +28,7 @@ namespace NotificationAPI.Hubs
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
+            Interlocked.Decrement(ref _connectedUsers);
             var userId = Context.GetHttpContext()?.Request.Query["userId"].ToString();
             if (!string.IsNullOrEmpty(userId))
             {
@@ -39,6 +42,11 @@ namespace NotificationAPI.Hubs
             var notification = new Notification(userId, title, message, type, relatedJobId);
             await _notificationService.CreateNotificationAsync(notification);
             await Clients.Group(userId).SendAsync("ReceiveNotification", notification);
+        }
+
+        public int GetConnectedUsersCount()
+        {
+            return _connectedUsers;
         }
     }
 }

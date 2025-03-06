@@ -158,6 +158,26 @@ namespace JobTrackingAPI.Controllers
                 // Update task first
                 await _tasksService.UpdateTask(id, task);
                 _logger.LogInformation("Task {TaskId} marked as completed", id);
+
+                foreach (var item in task.AssignedUsers)
+                {
+                    var user = await _usersCollection.Find(u => u.Id == item.Id).FirstOrDefaultAsync();
+                    if (user == null)
+                    {
+                        return BadRequest($"ID'si {item.Id} olan kullanıcı bulunamadı.");
+                    }
+                    await _notificationService.SendNotificationAsync(new NotificationDto
+                    {
+                        UserId = user.Id,
+                        Title = "Görev Tamamlandı",
+                        Message = $"{task.Title} görevi tamamlandı.",
+                        Type = NotificationType.TaskCompleted,
+                        RelatedJobId = task.Id
+                    });
+                }
+                {
+                    
+                }
                 
                 try {
                     // Update performance score for each assigned user
@@ -393,10 +413,29 @@ namespace JobTrackingAPI.Controllers
                     return NotFound("Task not found");
                 }
                 
+                
+                
                 // DeleteTask in the service now handles file deletion
                 await _tasksService.DeleteTask(id);
                 
                 _logger.LogInformation("Task {TaskId} deleted successfully", id);
+
+                foreach (var item in task.AssignedUsers)
+                {
+                    var user = await _usersCollection.Find(u => u.Id == item.Id).FirstOrDefaultAsync();
+                    if (user == null)
+                    {
+                        return BadRequest($"ID'si {item.Id} olan kullanıcı bulunamadı.");
+                    }
+                    await _notificationService.SendNotificationAsync(new NotificationDto
+                    {
+                        UserId = user.Id,
+                        Title = "Görev Silindi",
+                        Message = $"{task.Title} görevi silindi.",
+                        Type = NotificationType.TaskDeleted,
+                        RelatedJobId = task.Id
+                    });
+                }
                 
                 // Invalidate task-related caches
                 InvalidateTaskRelatedCaches(task);

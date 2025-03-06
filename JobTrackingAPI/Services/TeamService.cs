@@ -25,7 +25,6 @@ public class TeamService : ITeamService
     private readonly IOptions<MongoDbSettings> _settings;
     private readonly IMongoCollection<TaskItem> _tasks;
     private readonly IMongoCollection<PerformanceScore> _performanceScores;
-    private readonly IHubContext<NotificationHub> _notificationHubContext;
     private readonly CacheService _cacheService;
     
     // Cache for commonly accessed team members
@@ -37,7 +36,6 @@ public class TeamService : ITeamService
         IOptions<MongoDbSettings> settings, 
         IUserService userService,
         IMongoDatabase database,
-        IHubContext<NotificationHub> notificationHubContext,
         CacheService cacheService) // Constructor güncellendi
     {
         var client = new MongoClient(settings.Value.ConnectionString);
@@ -47,7 +45,6 @@ public class TeamService : ITeamService
         _performanceScores = db.GetCollection<PerformanceScore>("PerformanceScores");
         _userService = userService;
         _settings = settings;
-        _notificationHubContext = notificationHubContext;
         _cacheService = cacheService;
         
         // Create indexes for better query performance
@@ -583,8 +580,7 @@ public class TeamService : ITeamService
         if (member != null)
         {
             // Notify clients about the status change
-            await _notificationHubContext.Clients.All.SendAsync("MemberStatusUpdated", 
-                new { memberId = id, status = member.Status });
+            
         }
         
         return member;

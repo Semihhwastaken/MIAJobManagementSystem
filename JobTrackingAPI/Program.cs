@@ -236,6 +236,8 @@ app.UseHttpsRedirection();
 // CORS'u etkinleştir
 app.UseCors("AllowFrontend");
 
+app.UseCors();
+
 // Authentication ve Authorization middleware'lerini ekle
 app.UseAuthentication();
 app.UseAuthorization();
@@ -244,7 +246,7 @@ app.MapControllers();
 
 // Configure SignalR Hub
 app.MapHub<ChatHub>("/chatHub");
-app.MapHub<NotificationHub>("/notificationHub");
+
 
 // Configure static file serving
 app.UseStaticFiles(new StaticFileOptions

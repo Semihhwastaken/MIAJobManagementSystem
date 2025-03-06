@@ -4,8 +4,7 @@ using JobTrackingAPI.Models;
 using JobTrackingAPI.Models.Requests;
 using JobTrackingAPI.Services;
 using MongoDB.Driver;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using JobTrackingAPI.Enums;
 using System.Security.Claims;
 using System.Linq;
 using Microsoft.Extensions.Caching.Memory;
@@ -26,19 +25,22 @@ namespace JobTrackingAPI.Controllers
         private readonly ILogger<TeamController> _logger;
         private static readonly SemaphoreSlim _updateStatusSemaphore = new SemaphoreSlim(1, 1);
         private static DateTime _lastStatusUpdate = DateTime.MinValue;
+        private readonly NotificationService _notificationService;
 
         public TeamController(
             TeamService teamService, 
             UserService userService, 
             IMongoDatabase database, 
             IMemoryCache memoryCache,
-            ILogger<TeamController> logger)
+            ILogger<TeamController> logger,
+            NotificationService notificationService)
         {
             _teamService = teamService;
             _userService = userService;
             _database = database;
             _cache = memoryCache;
             _logger = logger;
+            _notificationService = notificationService;
         }
 
         [HttpGet("members/{userId}/performance")]
@@ -292,6 +294,7 @@ namespace JobTrackingAPI.Controllers
             try
             {
                 var updatedMember = await _teamService.UpdateMemberStatusAsync(id, status.Status);
+
                 if (updatedMember == null)
                     return NotFound($"Member with ID {id} not found");
                 
@@ -382,6 +385,16 @@ namespace JobTrackingAPI.Controllers
                 };
 
                 var createdTeam = await _teamService.CreateAsync(team);
+                foreach (var item in createdTeam.Members)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        userId:item.Id,
+                        title:"Yeni Takım",
+                        message:$"{user.FullName} adlı kullanıcı tarafından {createdTeam.Name} adlı takıma eklendiniz",
+                        notificationType:NotificationType.TeamStatusCreated,
+                        relatedJobId:createdTeam.Id
+                    );
+                }
                 
                 // Clear user's teams cache
                 _cache.Remove($"teams_{userId}");
@@ -450,6 +463,17 @@ namespace JobTrackingAPI.Controllers
                 if (!result.success)
                 {
                     return BadRequest(new { message = result.message });
+                }
+                var t = await _teamService.GetTeamById(teamId);
+                foreach (var item in t.Members)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        userId:item.Id,
+                        title:"Takım Silindi",
+                        message:$"{t.Name} adlı takım silindi",
+                        notificationType:NotificationType.TeamStatusDeleted,
+                        relatedJobId:t.Id
+                    );
                 }
                 
                 // Clear team related caches
@@ -556,6 +580,17 @@ namespace JobTrackingAPI.Controllers
                 if (!result.success)
                 {
                     return BadRequest(new { message = result.message });
+                }
+                var t = await _teamService.GetTeamById(teamId);
+                foreach (var item in t.Members)
+                {
+                    await _notificationService.SendNotificationAsync(
+                    userId:memberId,
+                    title:"Takımdan Çıkarılma",
+                    message:$"{t.Name} adlı takımdan {item.FullName} kişisi çıkarıldı",
+                    notificationType:NotificationType.TeamStatusDeleted,
+                    relatedJobId:t.Id
+                );
                 }
                 
                 // Clear caches

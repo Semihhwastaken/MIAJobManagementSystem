@@ -100,8 +100,8 @@ const Dashboard = () => {
           overdueGrowth: calculateGrowth(data.overdueTasks, data.previousOverdueTasks),
         });
         setLineChartData({
-          labels: data.lineChartData.map((item: { Date: string }) => new Date(item.Date).toLocaleDateString()),
-          datasets: [
+          labels: Array.isArray(data.lineChartData) ? data.lineChartData.map((item: { Date: string }) => new Date(item.Date).toLocaleDateString()) : [],
+          datasets: Array.isArray(data.lineChartData) ? [
             {
               label: 'Completed',
               data: data.lineChartData.map((item: { Date: string; Completed: number; NewTasks: number }) => item.Completed),
@@ -118,7 +118,7 @@ const Dashboard = () => {
               fill: true,
               tension: 0.4,
             },
-          ],
+          ] : [],
         });
         setDoughnutData({
           labels: ['Completed', 'In Progress', 'Overdue'],

@@ -158,6 +158,12 @@ namespace JobTrackingAPI.Controllers
                     return BadRequest(new { error = "End time must be after start time on the same day." });
                 }
 
+                // Validate category
+                if (!new[] { "meeting", "task", "deadline" }.Contains(calendarEvent.Category))
+                {
+                    return BadRequest(new { error = "Invalid category. Must be meeting, task, or deadline." });
+                }
+
                 // Get the user ID from claims
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))

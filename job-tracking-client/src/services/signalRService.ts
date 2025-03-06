@@ -15,18 +15,18 @@ class SignalRService {
     private userDisconnectedCallbacks: ((userId: string) => void)[] = [];
 
     private constructor() {
-        // Chat Hub bağlantısı
+        // Chat Hub bağlantısı (JobTrackingAPI - 5173)
         this.hubConnection = new signalR.HubConnectionBuilder()
-            .withUrl("/chatHub", {
+            .withUrl("http://localhost:5173/chatHub", {
                 accessTokenFactory: () => localStorage.getItem('token') || ''
             })
             .withAutomaticReconnect()
             .configureLogging(signalR.LogLevel.Warning) // Changed from Information to Warning
             .build();
 
-        // Notification Hub bağlantısı
+        // Notification Hub bağlantısı (NotificationAPI - 8080)
         this.notificationHubConnection = new signalR.HubConnectionBuilder()
-            .withUrl("/notificationHub", {
+            .withUrl("http://localhost:8080/notificationHub", {
                 accessTokenFactory: () => localStorage.getItem('token') || ''
             })
             .withAutomaticReconnect()
@@ -78,11 +78,14 @@ class SignalRService {
             // Start Chat Hub connection
             if (this.hubConnection.state === signalR.HubConnectionState.Disconnected) {
                 await this.hubConnection.start();
+                console.log("Chat Hub connection started with userId: ", userId, "with url: ", this.hubConnection.baseUrl);
+                
             }
 
             // Start Notification Hub connection
             if (this.notificationHubConnection.state === signalR.HubConnectionState.Disconnected) {
                 await this.notificationHubConnection.start();
+                console.log("Notification Hub connection started with userId: ", userId, "with url: ", this.notificationHubConnection.baseUrl);
             }
         } catch (err) {
             console.error("Error while establishing connection: ", err);
@@ -186,6 +189,19 @@ class SignalRService {
     // Notification Methods
     onReceiveNotification(callback: (notification: Notification) => void): void {
         this.notificationHubConnection.on("ReceiveNotification", callback);
+    }
+
+    async getConnectedUsersCount(): Promise<number> {
+        console.log(this.notificationHubConnection.state);
+        console.log(signalR.HubConnectionState.Connected);
+        if (this.notificationHubConnection.state !== signalR.HubConnectionState.Connected) {
+            throw new Error("Connection is not established");
+        }
+        return await this.notificationHubConnection.invoke("GetConnectedUsersCount");
+    }
+
+    isConnected(): boolean {
+        return this.notificationHubConnection.state === signalR.HubConnectionState.Connected;
     }
 
     async sendTestNotification(): Promise<void> {
