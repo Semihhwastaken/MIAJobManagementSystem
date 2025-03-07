@@ -73,7 +73,7 @@ const teamService = {
     // Davet koduyla takıma katıl
     joinTeamWithInviteCode: async (inviteCode: string): Promise<Team> => {
         try {
-            const response = await axiosInstance.post<Team>(`${API_URL}/team/join-with-invite-code`, { inviteCode });
+            const response = await axiosInstance.post<Team>(`${API_URL}/team/join-with-code/${inviteCode}`);
             return response.data;
         } catch (error) {
             console.error('Error joining team with invite code:', error);
