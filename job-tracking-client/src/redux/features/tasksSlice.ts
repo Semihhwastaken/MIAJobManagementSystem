@@ -92,6 +92,9 @@ export const fetchTaskHistory = createAsyncThunk(
 
         try {
             const response = await axiosInstance.get('/Tasks/history');
+            if (!response.data) {
+                throw new Error('Sunucudan veri alınamadı');
+            }
             return response.data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data?.message || 'Görev geçmişi yüklenirken bir hata oluştu');
@@ -392,9 +395,19 @@ const taskSlice = createSlice({
                 state.loading = false;
                 state.error = action.payload as string;
             })
+            .addCase(fetchTaskHistory.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
             .addCase(fetchTaskHistory.fulfilled, (state, action) => {
+                state.loading = false;
                 state.taskHistory = action.payload;
                 state.lastHistoryFetch = Date.now();
+                state.error = null;
+            })
+            .addCase(fetchTaskHistory.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
             })
             .addCase(createTask.pending, (state) => {
                 state.loading = true;

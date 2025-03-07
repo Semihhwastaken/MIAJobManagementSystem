@@ -694,13 +694,22 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
-                _logger.LogInformation("Getting task history");
+                _logger.LogInformation("Getting task history for current user");
                 
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized();
+                }
+                
+                var cacheKey = $"task_history_{userId}";
                 var tasks = await _cacheService.GetOrUpdateAsync(
-                    "task_history",
+                    cacheKey,
                     async () => {
                         var allTasks = await _tasksService.GetTasks();
-                        return allTasks.Where(t => t.Status == "completed" || t.Status == "overdue")
+                        return allTasks.Where(t => 
+                                       (t.Status == "completed" || t.Status == "overdue") &&
+                                       (t.AssignedUserIds != null && t.AssignedUserIds.Contains(userId)))
                                      .OrderByDescending(t => t.UpdatedAt)
                                      .ToList();
                     },

@@ -3,6 +3,7 @@ using MongoDB.Driver;
 using JobTrackingAPI.Models;
 using JobTrackingAPI.Enums;
 using System.Text.RegularExpressions;
+using System.Security.Claims;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -24,7 +25,7 @@ namespace JobTrackingAPI.Controllers
         [HttpGet("job/{jobId}")]
         public async Task<ActionResult<IEnumerable<Comment>>> GetJobComments(string jobId)
         {
-            var comments = await _comments.Find(c => c.JobId == jobId)
+            var comments = await _comments.Find(c => c.TaskId == jobId)
                                         .SortByDescending(c => c.CreatedDate)
                                         .ToListAsync();
             return Ok(comments);
@@ -53,12 +54,12 @@ namespace JobTrackingAPI.Controllers
                     title: "New Mention",
                     message: $"You were mentioned in a comment by {comment.UserId}",
                     type: NotificationType.Mention,
-                    relatedJobId: comment.JobId
+                    relatedJobId: comment.TaskId
                 );
                 await _notifications.InsertOneAsync(notification);
             }
 
-            return CreatedAtAction(nameof(GetJobComments), new { jobId = comment.JobId }, comment);
+            return CreatedAtAction(nameof(GetJobComments), new { jobId = comment.TaskId }, comment);
         }
 
         [HttpDelete("{id}")]

@@ -1,15 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Modal } from '@mui/material';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../redux/store';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import { fetchTaskHistory } from '../../redux/features/tasksSlice';
 import axiosInstance from '../../services/axiosInstance';
 
 interface TaskHistoryProps {
     isOpen: boolean;
     onClose: () => void;
-    tasks: TaskHistoryDto[];
 }
 
 interface TaskHistoryDto {
@@ -24,33 +24,35 @@ interface TaskHistoryDto {
     completedDate?: Date;
 }
 
-const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose, tasks }) => {
+const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
+    const dispatch = useDispatch();
     const [selectedStatus, setSelectedStatus] = useState<'all' | 'completed' | 'overdue'>('all');
     const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [historyTasks, setHistoryTasks] = useState<TaskHistoryDto[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    const taskHistory = useSelector((state: RootState) => state.tasks.taskHistory);
+
     useEffect(() => {
-        const fetchHistoryTasks = async () => {
+        const loadTaskHistory = async () => {
             try {
                 setLoading(true);
-                const response = await axiosInstance.get('/tasks/history');
-                setHistoryTasks(response.data);
+                await dispatch(fetchTaskHistory() as any);
             } catch (err: any) {
-                setError(err.response?.data?.message || 'Görev geçmişi yüklenirken bir hata oluştu');
-                console.error('Error fetching task history:', err);
+                setError(err.message || 'Görev geçmişi yüklenirken bir hata oluştu');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchHistoryTasks();
-    }, []);
+        if (isOpen) {
+            loadTaskHistory();
+        }
+    }, [dispatch, isOpen]);
 
     const historicalTasks = useMemo(() => {
-        return historyTasks.filter(task => {
+        return taskHistory.filter(task => {
             if (selectedStatus === 'completed' && task.status !== 'completed') return false;
             if (selectedStatus === 'overdue' && task.status !== 'overdue') return false;
             if (selectedStatus === 'all' && task.status !== 'completed' && task.status !== 'overdue') return false;
@@ -59,13 +61,13 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose, tasks }) => 
                    task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                    task.description.toLowerCase().includes(searchTerm.toLowerCase());
         }).sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
-    }, [historyTasks, selectedStatus, searchTerm]);
+    }, [taskHistory, selectedStatus, searchTerm]);
 
     const stats = useMemo(() => {
-        const completed = historyTasks.filter(t => t.status === 'completed').length;
-        const overdue = historyTasks.filter(t => t.status === 'overdue').length;
+        const completed = taskHistory.filter(t => t.status === 'completed').length;
+        const overdue = taskHistory.filter(t => t.status === 'overdue').length;
         return { completed, overdue };
-    }, [historyTasks]);
+    }, [taskHistory]);
 
     const toggleTaskDetails = (taskId: string) => {
         setExpandedTaskId(expandedTaskId === taskId ? null : taskId);
