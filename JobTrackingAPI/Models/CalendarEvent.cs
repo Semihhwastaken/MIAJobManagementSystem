@@ -53,6 +53,9 @@ namespace JobTrackingAPI.Models
         
         [BsonElement("teamId")]
         public string? TeamId { get; set; }
+        
+        [BsonElement("meetingLink")]
+        public string? MeetingLink { get; set; }
 
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

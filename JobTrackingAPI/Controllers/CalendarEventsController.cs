@@ -21,19 +21,22 @@ namespace JobTrackingAPI.Controllers
         private readonly IUserService _userService; // Change to interface
         private readonly INotificationService _notificationService;
         private readonly ITeamService _teamService;
+        private readonly EmailService _emailService;
 
         public CalendarEventsController(
             CalendarEventService calendarEventService,
             ILogger<CalendarEventsController> logger,
             IUserService userService, // Change to interface
             INotificationService notificationService,
-            ITeamService teamService)
+            ITeamService teamService,
+            EmailService emailService)
         {
             _calendarEventService = calendarEventService;
             _logger = logger;
             _userService = userService;
             _notificationService = notificationService;
             _teamService = teamService;
+            _emailService = emailService;
         }
 
         /// <summary>
@@ -194,6 +197,31 @@ namespace JobTrackingAPI.Controllers
                             notificationType: NotificationType.CalendarEventCreated,
                             relatedJobId: createdEvent.Id
                         );
+                        
+                        // Get creator user for creator name
+                        var creatorUser = await _userService.GetUserById(userId);
+                        string creatorName = creatorUser?.FullName ?? "Bir kullanıcı";
+                        
+                        // Format date and time for email
+                        string eventDate = DateTime.Parse(calendarEvent.StartDate).ToString("dd MMMM yyyy");
+                        string eventTime = $"{calendarEvent.StartTime} - {calendarEvent.EndTime}";
+                        
+                        // Send email notification
+                        try {
+                            await _emailService.SendCalendarEventNotificationAsync(
+                                toEmail: participantEmail,
+                                eventTitle: calendarEvent.Title,
+                                eventDescription: calendarEvent.Description,
+                                eventDate: eventDate,
+                                eventTime: eventTime,
+                                creatorName: creatorName,
+                                meetingLink: calendarEvent.MeetingLink
+                            );
+                            _logger.LogInformation("Email notification sent to: {@Email}", participantEmail);
+                        }
+                        catch (Exception emailEx) {
+                            _logger.LogError(emailEx, "Error sending email notification to: {@Email}", participantEmail);
+                        }
                     }
                     else
                     {
@@ -274,6 +302,31 @@ namespace JobTrackingAPI.Controllers
                             notificationType: NotificationType.CalendarEventUpdated,
                             relatedJobId: id
                         );
+                        
+                        // Get creator user for creator name
+                        var creatorUser = await _userService.GetUserById(userId);
+                        string creatorName = creatorUser?.FullName ?? "Bir kullanıcı";
+                        
+                        // Format date and time for email
+                        string eventDate = DateTime.Parse(calendarEvent.StartDate).ToString("dd MMMM yyyy");
+                        string eventTime = $"{calendarEvent.StartTime} - {calendarEvent.EndTime}";
+                        
+                        // Send email notification
+                        try {
+                            await _emailService.SendCalendarEventNotificationAsync(
+                                toEmail: participantEmail,
+                                eventTitle: calendarEvent.Title + " (Güncellendi)",
+                                eventDescription: calendarEvent.Description,
+                                eventDate: eventDate,
+                                eventTime: eventTime,
+                                creatorName: creatorName,
+                                meetingLink: calendarEvent.MeetingLink
+                            );
+                            _logger.LogInformation("Email notification sent to: {@Email}", participantEmail);
+                        }
+                        catch (Exception emailEx) {
+                            _logger.LogError(emailEx, "Error sending email notification to: {@Email}", participantEmail);
+                        }
                     }
                     else
                     {
@@ -325,6 +378,31 @@ namespace JobTrackingAPI.Controllers
                             notificationType: NotificationType.CalendarEventDeleted,
                             relatedJobId: id
                         );
+                        
+                        // Get creator user for creator name
+                        var creatorUser = await _userService.GetUserById(userId);
+                        string creatorName = creatorUser?.FullName ?? "Bir kullanıcı";
+                        
+                        // Format date and time for email
+                        string eventDate = DateTime.Parse(existingEvent.StartDate).ToString("dd MMMM yyyy");
+                        string eventTime = $"{existingEvent.StartTime} - {existingEvent.EndTime}";
+                        
+                        // Send email notification
+                        try {
+                            await _emailService.SendCalendarEventNotificationAsync(
+                                toEmail: participantEmail,
+                                eventTitle: existingEvent.Title + " (İptal Edildi)",
+                                eventDescription: existingEvent.Description,
+                                eventDate: eventDate,
+                                eventTime: eventTime,
+                                creatorName: creatorName,
+                                meetingLink: existingEvent.MeetingLink
+                            );
+                            _logger.LogInformation("Email notification sent to: {@Email}", participantEmail);
+                        }
+                        catch (Exception emailEx) {
+                            _logger.LogError(emailEx, "Error sending email notification to: {@Email}", participantEmail);
+                        }
                     }
                     else
                     {

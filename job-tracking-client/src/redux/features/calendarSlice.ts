@@ -13,6 +13,7 @@ export interface CalendarEvent {
   participants: string[];
   createdBy?: string;
   teamId?: string;
+  meetingLink?: string;
   createdAt?: string;
   updatedAt?: string;
   category: 'meeting' | 'task' | 'deadline';

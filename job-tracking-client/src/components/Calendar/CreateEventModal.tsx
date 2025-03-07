@@ -45,8 +45,51 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
     priority: 'Medium' as 'High' | 'Medium' | 'Low',
     participants: [],
     category: initialData?.category || 'task',
-    teamId: initialData?.teamId || ''
+    teamId: initialData?.teamId || '',
+    meetingLink: initialData?.meetingLink || ''
   });
+
+  // Link doğrulama için geçerli toplantı URL'leri
+  const validMeetingDomains = [
+    'meet.google.com',
+    'zoom.us',
+    'teams.microsoft.com',
+    'whereby.com',
+    'webex.com',
+    'gotomeeting.com',
+    'bluejeans.com',
+    'discord.com',
+    'meet.jit.si',
+    'skype.com'
+  ];
+
+  // meetingLink validation fonksiyonu
+  const validateMeetingLink = (link: string): boolean => {
+    if (!link) return true; // Boş link geçerli sayılır (zorunlu alan değil)
+    
+    try {
+      const url = new URL(link);
+      // Desteklenen toplantı domain'lerini kontrol et
+      return validMeetingDomains.some(domain => url.hostname.includes(domain));
+    } catch (e) {
+      // Geçersiz URL
+      return false;
+    }
+  };
+
+  // Link validasyon hatası state'i
+  const [linkError, setLinkError] = useState<string | null>(null);
+
+  // Link değiştiğinde validasyon uygula
+  const handleMeetingLinkChange = (link: string) => {
+    setFormData({ ...formData, meetingLink: link });
+    
+    if (!validateMeetingLink(link)) {
+      setLinkError('Lütfen geçerli bir toplantı linki girin (Google Meet, Zoom, Microsoft Teams, vb.)');
+    } else {
+      setLinkError(null);
+    }
+  };
 
   // Kullanıcının takımlarını yükleme
   useEffect(() => {
@@ -123,7 +166,8 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
         priority: 'Medium',
         participants: [],
         category: 'task',
-        teamId: userTeams.length > 0 ? userTeams[0].id : ''
+        teamId: userTeams.length > 0 ? userTeams[0].id : '',
+        meetingLink: ''
       });
     }
   }, [initialData, userTeams]);
@@ -180,6 +224,12 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
       dispatch(setError('Aynı gün içinde bitiş saati başlangıç saatinden sonra olmalıdır'));
       return;
     }
+    
+    // Eğer toplantı kategorisi seçilmiş ve link eklenmiş ancak geçersizse engelle
+    if (formData.category === 'meeting' && formData.meetingLink && !validateMeetingLink(formData.meetingLink)) {
+      dispatch(setError('Lütfen geçerli bir toplantı linki girin'));
+      return;
+    }
 
     // Eğer kullanıcı kendi e-postasını eklemediyse, otomatik olarak ekle
     if (currentUser?.email && !formData.participants.includes(currentUser.email)) {
@@ -200,7 +250,8 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
         priority: 'Medium',
         participants: [],
         category: 'task',
-        teamId: formData.teamId
+        teamId: formData.teamId,
+        meetingLink: ''
       });
     }
   };
@@ -405,6 +456,34 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
                       <option value="deadline">Son Tarih</option>
                     </select>
                   </div>
+
+                  {/* Toplantı kategorisi seçildiğinde link alanını göster */}
+                  {formData.category === 'meeting' && (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Toplantı Linki
+                      </label>
+                      <input
+                        type="url"
+                        value={formData.meetingLink || ''}
+                        onChange={(e) => handleMeetingLinkChange(e.target.value)}
+                        placeholder="https://meet.google.com/... veya https://zoom.us/..."
+                        className={`w-full rounded-lg border p-2 
+                          ${isDarkMode 
+                            ? 'bg-gray-700 border-gray-600 text-white' 
+                            : 'bg-white border-gray-300 text-gray-900'
+                          }
+                          ${linkError ? 'border-red-500' : ''}
+                        `}
+                      />
+                      {linkError && (
+                        <p className="mt-1 text-red-500 text-xs">{linkError}</p>
+                      )}
+                      <p className="mt-1 text-xs text-gray-500">
+                        Desteklenen platformlar: Google Meet, Zoom, Microsoft Teams, Webex, ve diğerleri
+                      </p>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
