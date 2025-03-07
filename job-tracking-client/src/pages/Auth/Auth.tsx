@@ -339,57 +339,72 @@ const Auth: React.FC = () => {
                 }
             } else {
                 // Login flow
-                const response = await fetch('http://localhost:5193/api/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        username: formData.username,
-                        password: formData.password
-                    })
-                });
+                try {
+                    const response = await fetch('http://localhost:5193/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            username: formData.username,
+                            password: formData.password
+                        })
+                    });
 
-                const data = await response.json();
-                console.log('Login Response:', data);
-
-                if (response.ok) {
-                    if (!data.token || !data.user) {
-                        throw new Error('Invalid response format from server');
-
-                    }
-                    try {
-                        // Store auth data
-                        localStorage.setItem('token', data.token);
-                        localStorage.setItem('user', JSON.stringify(data.user));
-
-                        // Update Redux state
-                        dispatch(setToken(data.token));
-                        dispatch(setUser(data.user));
-
-                        // Update authentication context
-                        setIsAuthenticated(true);
-
-                        // Initialize SignalR connections
-                        const signalRService = SignalRService.getInstance();
-                        await signalRService.startConnection(data.user.id);
-
-                        // Only navigate if everything is successful
-                        showSuccess('Başarıyla giriş yaptınız.');
-                        navigate('/');
-                    } catch (error) {
-                        console.error('Error during post-login setup:', error);
-                        setErrors({ general: 'Error during login setup. Please try again.' });
-                        // Clear any partial auth state
-                        localStorage.removeItem('token');
-                        localStorage.removeItem('user');
-                        setIsAuthenticated(false);
-                    }
-                } else {
+                    // response.json()'ı bir kez çağırıp sonucu saklıyoruz
                     const data = await response.json();
-                    const errorMessage = data.message || 'An error occurred';
-                    setErrors({ general: errorMessage });
-                    showError('Giriş başarısız, lütfen tekrar deneyin.');
+                    console.log('Login Response:', data);
+
+                    if (response.ok) {
+                        if (!data.token || !data.user) {
+                            throw new Error('Sunucudan geçersiz yanıt formatı alındı');
+                        }
+                        try {
+                            // Store auth data
+                            localStorage.setItem('token', data.token);
+                            localStorage.setItem('user', JSON.stringify(data.user));
+
+                            // Update Redux state
+                            dispatch(setToken(data.token));
+                            dispatch(setUser(data.user));
+
+                            // Update authentication context
+                            setIsAuthenticated(true);
+
+                            // Initialize SignalR connections
+                            const signalRService = SignalRService.getInstance();
+                            await signalRService.startConnection(data.user.id);
+
+                            // Only navigate if everything is successful
+                            showSuccess('Başarıyla giriş yaptınız.');
+                            navigate('/');
+                        } catch (error) {
+                            console.error('Giriş sonrası kurulum sırasında hata:', error);
+                            setErrors({ general: 'Giriş sırasında bir hata oluştu. Lütfen tekrar deneyin.' });
+                            // Clear any partial auth state
+                            localStorage.removeItem('token');
+                            localStorage.removeItem('user');
+                            setIsAuthenticated(false);
+                        }
+                    } else {
+                        // response.ok değilse, zaten aldığımız data'yı kullanıyoruz
+                        let errorMessage = 'Bir hata oluştu';
+                        
+                        if (data && data.message) {
+                            errorMessage = data.message;
+                        } else if (response.status === 401) {
+                            errorMessage = 'Kullanıcı adı veya şifre hatalı';
+                        } else if (response.status === 500) {
+                            errorMessage = 'Sunucu hatası, lütfen daha sonra tekrar deneyin';
+                        }
+                        
+                        setErrors({ general: errorMessage });
+                        showError(`Giriş başarısız: ${errorMessage}`);
+                    }
+                } catch (fetchError) {
+                    console.error('Giriş isteği sırasında hata:', fetchError);
+                    setErrors({ general: 'Sunucuya bağlanırken bir hata oluştu. Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.' });
+                    showError('Sunucuya bağlanılamadı');
                 }
             }
         } catch (error) {

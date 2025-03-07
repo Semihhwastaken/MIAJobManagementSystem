@@ -171,7 +171,7 @@ public class TeamService : ITeamService
                     Title = user.Title,
                     Position = user.Position,
                     Phone = user.Phone,
-                    PerformanceScore = 0,
+                    PerformanceScore = 50,
                     CompletedTasksCount = 0,
                     Status = "available",
                     OnlineStatus = "online",
@@ -231,6 +231,26 @@ public class TeamService : ITeamService
         {
             return false;
         }
+        
+        // Takım üyelik sınırlamalarını kontrol et
+        if (role.ToLower() == "owner")
+        {
+            // Kullanıcının sahip olduğu takım sayısını kontrol et (max 5)
+            if (user.OwnerTeams != null && user.OwnerTeams.Count >= 5)
+            {
+                _logger.LogWarning($"Kullanıcı {userId} en fazla 5 takıma sahip olabilir. Şu anda {user.OwnerTeams.Count} takımın sahibi.");
+                return false;
+            }
+        }
+        else
+        {
+            // Kullanıcının üye olduğu takım sayısını kontrol et (max 10)
+            if (user.MemberTeams != null && user.MemberTeams.Count >= 10)
+            {
+                _logger.LogWarning($"Kullanıcı {userId} en fazla 10 takıma üye olabilir. Şu anda {user.MemberTeams.Count} takıma üye.");
+                return false;
+            }
+        }
 
         // Yeni üye objesi oluştur - sadece gerekli alanları içerecek
         var newMember = new TeamMember
@@ -240,7 +260,7 @@ public class TeamService : ITeamService
             Metrics = new MemberMetricsUpdateDto
             {
                 TeamId = teamId,
-                PerformanceScore = 0,
+                PerformanceScore = 50,
                 CompletedTasks = 0,
                 OverdueTasks = 0,
                 TotalTasks = 0
@@ -815,8 +835,8 @@ public class TeamService : ITeamService
         if (member == null)
             throw new ArgumentNullException(nameof(member));
 
-        // Performans puanını varsayılan olarak 0 yap
-        member.PerformanceScore = 0;
+        // Performans puanını varsayılan olarak 50 yap (0 yerine)
+        member.PerformanceScore = 50;
         member.CompletedTasksCount = 0;
     }
 
@@ -1312,18 +1332,31 @@ public class TeamService : ITeamService
                 return string.Empty;
             }
 
+            // Mevcut davet bağlantısını kontrol et
+            if (!string.IsNullOrEmpty(team.InviteCode) && 
+                team.InviteLinkExpiresAt.HasValue && 
+                team.InviteLinkExpiresAt.Value > DateTime.UtcNow)
+            {
+                // Geçerli bir davet bağlantısı zaten var, onu döndür
+                return $"/team-invite?code={team.InviteCode}";
+            }
+
             // Davet kodu oluştur
             var inviteCode = GenerateInviteCode();
+            
+            // Sona erme tarihi oluştur (1 gün)
+            var expiresAt = DateTime.UtcNow.AddDays(1);
             
             // Takımı güncelle
             var filter = Builders<Team>.Filter.Eq(t => t.Id, teamId);
             var update = Builders<Team>.Update
                 .Set(t => t.InviteCode, inviteCode)
-                .Set(t => t.InviteLink, $"/join/{inviteCode}");
+                .Set(t => t.InviteLink, $"/team-invite?code={inviteCode}")
+                .Set(t => t.InviteLinkExpiresAt, expiresAt);
             
             await _teams.UpdateOneAsync(filter, update);
             
-            return $"/join/{inviteCode}";
+            return $"/team-invite?code={inviteCode}";
         }
         catch (Exception ex)
         {

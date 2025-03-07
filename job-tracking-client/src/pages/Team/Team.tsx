@@ -61,7 +61,6 @@ const Team: React.FC = () => {
     const [creatingTeam, setCreatingTeam] = useState(false);
     const [inviteLink, setInviteLink] = useState('');
     const [inviteLinkLoading, setInviteLinkLoading] = useState(false);
-    const [inviteLinkDialogOpen, setInviteLinkDialogOpen] = useState(false);
     const [showInviteLinkModal, setShowInviteLinkModal] = useState(false);
     const [inviteCode, setInviteCode] = useState('');
     const [joinTeamDialogOpen, setJoinTeamDialogOpen] = useState(false);
@@ -130,76 +129,82 @@ const Team: React.FC = () => {
     }, [dispatch]);
 
     const handleCreateTeam = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            navigate('/auth');
+        if (!teamName || !teamDepartment) {
+            enqueueSnackbar('Takım adı ve departman seçimi zorunludur', { variant: 'error' });
             return;
         }
 
-        if (teamName.trim() && teamDepartment) {
-            try {
-                console.log('Takım oluşturma isteği gönderiliyor:', {
-                    name: teamName,
-                    description: teamDescription.trim() || undefined,
-                    department: teamDepartment
-                });
-
-                const result = await dispatch(createTeam({
-                    name: teamName,
-                    description: teamDescription.trim() || undefined,
-                    department: teamDepartment
-                }) as any);
-
-                console.log('API Yanıtı:', result); // Debug için
-
-                if (result.error) {
-                    const errorMessage = result.error.response?.data?.message || result.error.message || 'Ekip oluşturulurken bir hata oluştu';
-                    console.error('Hata detayı:', result.error); // Debug için
-                    enqueueSnackbar(errorMessage, { variant: 'error' });
-                    return;
-                }
-
-                if (result.payload) {
-                    try {
-                        const linkResult = await dispatch(generateTeamInviteLink(result.payload.id) as any);
-                        if (linkResult.error) {
-                            // 401 hatası için özel kontrol
-                            if (linkResult.error.response?.status === 401) {
-                                navigate('/auth');
-                                return;
-                            }
-                            throw new Error(linkResult.error.message || 'Davet linki oluşturulurken bir hata oluştu');
-                        }
-
-                        if (linkResult.payload) {
-                            setInviteLink(linkResult.payload.inviteLink);
-                            enqueueSnackbar('Ekip başarıyla oluşturuldu!', { variant: 'success' });
-                            setShowCreateTeamModal(false);
-                            setTeamName('');
-                            setTeamDescription('');
-                            setTeamDepartment('');
-                            dispatch(fetchTeams());
-                        }
-                    } catch (error: any) {
-                        enqueueSnackbar(error.message, { variant: 'error' });
-                    }
-                }
-            } catch (error: any) {
-                enqueueSnackbar(error.message, { variant: 'error' });
-                setShowCreateTeamModal(true);
+        try {
+            setCreatingTeam(true);
+            
+            // Kullanıcının owner olduğu takımları kontrol et
+            const ownerTeams = teams.filter(team => team.members.some(m => m.id === currentUser?.id && m.role === 'Owner'));
+            if (ownerTeams.length >= 5) {
+                enqueueSnackbar('En fazla 5 takıma sahip olabilirsiniz. Yeni bir takım oluşturmak için mevcut takımlarınızdan birini silmelisiniz.', { variant: 'error' });
+                setCreatingTeam(false);
+                return;
             }
-        } else {
-            enqueueSnackbar('Takım adı ve departman seçimi zorunludur', { variant: 'error' });
+
+            const result = await dispatch(createTeam({
+                name: teamName,
+                description: teamDescription,
+                department: teamDepartment
+            })).unwrap();
+
+            enqueueSnackbar('Takım başarıyla oluşturuldu', { variant: 'success' });
+            
+            // Link oluşturma işlemini başlat
+            try {
+                const linkResult = await dispatch(generateTeamInviteLink(result.payload.id) as any);
+                if (linkResult.meta.requestStatus === 'rejected') {
+                    throw new Error(linkResult.error.message || 'Davet linki oluşturulurken bir hata oluştu');
+                }
+                
+                // Link bilgisini tut
+                setInviteLink(linkResult.payload.inviteLink);
+            } catch (err) {
+                console.error('Link oluşturma hatası:', err);
+            }
+
+            // Formu temizle
+            setTeamName('');
+            setTeamDescription('');
+            setTeamDepartment('');
+            
+            setCreatingTeam(false);
+            setShowCreateTeamModal(false);
+            
+            // Ekipleri yeniden yükle
+            dispatch(fetchTeams());
+            
+        } catch (error) {
+            console.error('Ekip oluşturma hatası:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Ekip oluşturulurken bir hata meydana geldi';
+            enqueueSnackbar(errorMessage, { variant: 'error' });
+            setCreatingTeam(false);
         }
     };
 
     const handleGenerateInviteLink = async (teamId: string) => {
         try {
+            console.log('Davet linki oluşturuluyor...', teamId);
             setInviteLinkLoading(true);
-            // Yeni eklenen redux aksiyonunu kullan
+            
+            // Davet linki oluştur veya varsa mevcut olanı getir
+            // Backend, süresi geçmiş linkler için yeni link üretecek, geçerli linkler için mevcut linki döndürecek
             const result = await dispatch(generateTeamInviteLink(teamId)).unwrap();
-            setInviteLink(result.inviteLink);
-            setInviteLinkDialogOpen(true);
+            
+            console.log('API yanıtı:', result);
+            
+            // API'den gelen bağlantıyı al
+            const link = result.inviteLink;
+            console.log('Davet linki:', link);
+            
+            // Tam URL oluştur
+            const fullUrl = `${window.location.origin}${link}`;
+            setInviteLink(fullUrl);
+            
+            setShowInviteLinkModal(true);
             setInviteLinkLoading(false);
         } catch (error) {
             console.error('Davet linki oluşturma hatası:', error);
@@ -334,19 +339,26 @@ const Team: React.FC = () => {
             return;
         }
         
+        // Kullanıcının üye olduğu takım sayısını kontrol et
+        const memberTeams = teams.filter(team => team.members.some(m => m.id === currentUser?.id));
+        if (memberTeams.length >= 10) {
+            toast.error('En fazla 10 takıma üye olabilirsiniz.');
+            return;
+        }
+
+        setJoiningTeam(true);
         try {
-            setJoiningTeam(true);
-            // Yeni eklenen redux aksiyonunu kullan
             await dispatch(joinTeamWithInviteCode(inviteCode)).unwrap();
-            toast.success('Takıma başarıyla katıldınız!');
-            setJoinTeamDialogOpen(false);
+            toast.success('Takıma başarıyla katıldınız.');
             setInviteCode('');
-            // Takımları yeniden yükle
+            setShowInviteLinkModal(false);
+            
+            // Ekipleri yeniden yükle
             dispatch(fetchTeams());
-            setJoiningTeam(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Takıma katılma hatası:', error);
             toast.error('Takıma katılırken bir hata oluştu. Davet kodunu kontrol edin.');
+        } finally {
             setJoiningTeam(false);
         }
     };
@@ -545,17 +557,6 @@ const Team: React.FC = () => {
                                                             className={`px-2 py-1 rounded-md ${isDarkMode
                                                                 ? 'bg-blue-900 hover:bg-blue-800 text-blue-200'
                                                                 : 'bg-blue-100 hover:bg-blue-200 text-blue-800'
-                                                                }`}
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
-                                                            </svg>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleAddExpertiseClick(member.id)}
-                                                            className={`px-2 py-1 rounded-md ${isDarkMode
-                                                                ? 'bg-purple-900 hover:bg-purple-800 text-purple-200'
-                                                                : 'bg-purple-100 hover:bg-purple-200 text-purple-800'
                                                                 }`}
                                                         >
                                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -828,18 +829,18 @@ const Team: React.FC = () => {
                                 {copySuccess ? 'Kopyalandı!' : 'Kopyala'}
                             </button>
                         </div>
-                        {inviteLink && (
-                            <div className="mt-2">
-                                <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Davet Linki:</h3>
-                                <a href={inviteLink} target="_blank" rel="noopener noreferrer" className={`text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300`}>
-                                    {inviteLink}
-                                </a>
-                            </div>
-                        )}
-                        <div className="flex justify-end">
+                        <div className="mt-4 bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
+                            <h3 className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                Bilgi:
+                            </h3>
+                            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                Bu davet linki 24 saat geçerlidir. Link süresi geçtiğinde yeni bir davet linki oluşturulacaktır.
+                            </p>
+                        </div>
+                        <div className="flex justify-end mt-4">
                             <button
                                 onClick={() => setShowInviteLinkModal(false)}
-                                className={`px-4 py-2 ${isDarkMode
+                                className={`px-4 py-2 rounded-lg ${isDarkMode
                                     ? 'text-gray-400 hover:text-gray-200'
                                     : 'text-gray-600 hover:text-gray-800'
                                     }`}

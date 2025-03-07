@@ -3,6 +3,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from '../../services/axiosInstance';
 import { User } from '../../types/task';
 import { fetchMemberActiveTasks } from './teamSlice';
+import { RESET_STATE } from './actionTypes';
 
 export interface Task {
     id?: string;
@@ -368,6 +369,10 @@ const taskSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            // Global reset state action
+            .addCase(RESET_STATE, () => {
+                return initialState;
+            })
             .addCase(fetchTasks.pending, (state) => {
                 state.loading = true;
                 state.error = null;
