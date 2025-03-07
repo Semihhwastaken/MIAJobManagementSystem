@@ -3,15 +3,19 @@ import { AuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { NotificationCenter } from '../Notifications/NotificationCenter';
+import { invalidateCache } from '../../redux/features/teamSlice';
+import { logout as logoutAction } from '../../redux/features/authSlice';
+import { useDispatch } from 'react-redux';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
   const { isAuthenticated, setIsAuthenticated } = useContext(AuthContext);
+  const dispatch = useDispatch();
   const { isDarkMode, toggleTheme } = useTheme();
   const isAuthPage = location.pathname === '/auth';
 
@@ -22,9 +26,26 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         throw new Error('Oturum bilgisi bulunamadı');
       }
 
+      // Redux store'daki tüm cache ve verileri temizle
+      dispatch(invalidateCache('all')); // Tüm takım verilerini temizle
+      dispatch(logoutAction());         // Auth state'i temizle
+
       // Önce storage'ı temizle
       localStorage.clear();
       sessionStorage.clear();
+
+      // IndexedDB önbelleklerini temizle
+      if ('caches' in window) {
+        try {
+          const cacheNames = await window.caches.keys();
+          await Promise.all(
+            cacheNames.map(cacheName => window.caches.delete(cacheName))
+          );
+          console.log('Browser cache temizlendi');
+        } catch (e) {
+          console.error('Browser cache temizlenirken hata:', e);
+        }
+      }
 
       // Sonra state'i güncelle
       setIsAuthenticated(false);

@@ -347,6 +347,12 @@ namespace JobTrackingAPI.Controllers
                 {
                     return NotFound("Kullanıcı bulunamadı.");
                 }
+                
+                // Kullanıcının sahip olduğu takım sayısını kontrol et (max 5)
+                if (user.OwnerTeams != null && user.OwnerTeams.Count >= 5)
+                {
+                    return BadRequest("En fazla 5 takıma sahip olabilirsiniz. Yeni bir takım oluşturmak için önce mevcut takımlarınızdan birini silmelisiniz.");
+                }
 
                 var team = new Team
                 {
@@ -519,6 +525,15 @@ namespace JobTrackingAPI.Controllers
 
                 if (team.Members.Any(m => m.Id == userId))
                     return BadRequest("Zaten bu takımın üyesisiniz");
+
+                // Kullanıcı bilgilerini getir
+                var user = await _userService.GetUserById(userId);
+                if (user == null)
+                    return NotFound("Kullanıcı bulunamadı");
+                
+                // Takım üyelik sınırını kontrol et
+                if (user.MemberTeams != null && user.MemberTeams.Count >= 10)
+                    return BadRequest("En fazla 10 takıma üye olabilirsiniz");
 
                 var result = await _teamService.JoinTeamWithInviteCode(inviteCode, userId);
                 if (!result)

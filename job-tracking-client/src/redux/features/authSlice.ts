@@ -17,7 +17,16 @@ interface AuthState {
 
 const initialState: AuthState = {
     token: localStorage.getItem('token'),
-    user: JSON.parse(localStorage.getItem('user') || 'null'),
+    user: (() => {
+        try {
+            const userData = localStorage.getItem('user');
+            return userData ? JSON.parse(userData) : null;
+        } catch (error) {
+            console.error('Kullanıcı verisi ayrıştırılamadı:', error);
+            localStorage.removeItem('user'); // Bozuk verileri temizle
+            return null;
+        }
+    })(),
     isAuthenticated: !!localStorage.getItem('token'),
     loading: false,
     error: null,

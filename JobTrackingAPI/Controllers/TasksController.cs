@@ -29,6 +29,7 @@ namespace JobTrackingAPI.Controllers
         private readonly IMongoCollection<Team> _teamsCollection;
         private readonly CacheService _cacheService;
         private readonly ILogger<TasksController> _logger;
+        private readonly IUserService _userService;
     
         public TasksController(
             ITasksService tasksService,
@@ -37,17 +38,19 @@ namespace JobTrackingAPI.Controllers
             NotificationService notificationService,
             ITeamService teamsService,
             CacheService cacheService,
-            ILogger<TasksController> logger)
+            ILogger<TasksController> logger,
+            IUserService userService)
         {
             var database = mongoClient.GetDatabase(settings.Value.DatabaseName);
             _tasksService = tasksService;
             _notificationService = notificationService;
-            _usersCollection = database.GetCollection<User>("Users");
+            _usersCollection = database.GetCollection<User>(settings.Value.UsersCollectionName);
             _tasksCollection = database.GetCollection<TaskItem>("Tasks");
             _teamsCollection = database.GetCollection<Team>("Teams");
             _teamsService = teamsService;
             _cacheService = cacheService;
             _logger = logger;
+            _userService = userService;
         }
     
         [HttpPost]
@@ -130,6 +133,23 @@ namespace JobTrackingAPI.Controllers
                 }
                 var createdTask = await _tasksService.CreateTask(task);
                 _logger.LogInformation("Task created successfully: {TaskId}", createdTask.Id);
+                
+                // Görev atanan kullanıcıların assignedJobs listelerini güncelle
+                if (createdTask.AssignedUserIds != null && createdTask.AssignedUserIds.Any())
+                {
+                    foreach (var assignedUserId in createdTask.AssignedUserIds)
+                    {
+                        try
+                        {
+                            await _userService.AddToAssignedJobs(assignedUserId, createdTask.Id);
+                            _logger.LogInformation("Added task {TaskId} to user {UserId} assigned jobs", createdTask.Id, assignedUserId);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error updating assigned jobs for user {UserId}", assignedUserId);
+                        }
+                    }
+                }
                 
                 // Invalidate caches after creating a new task
                 InvalidateTaskRelatedCaches(createdTask);
@@ -265,15 +285,15 @@ namespace JobTrackingAPI.Controllers
                 // Görevden çıkarılan kullanıcılardan bu görevi kaldır
                 foreach (var userId in removedUserIds)
                 {
-                    var userUpdate = Builders<User>.Update.Pull(u => u.AssignedJobs, id);
-                    await _usersCollection.UpdateOneAsync(u => u.Id == userId, userUpdate);
+                    await _userService.RemoveFromAssignedJobs(userId, id);
+                    _logger.LogInformation("Removed task {TaskId} from user {UserId} assigned jobs", id, userId);
                 }
                 
                 // Göreve yeni eklenen kullanıcılara bu görevi ekle
                 foreach (var userId in addedUserIds)
                 {
-                    var userUpdate = Builders<User>.Update.AddToSet(u => u.AssignedJobs, id);
-                    await _usersCollection.UpdateOneAsync(u => u.Id == userId, userUpdate);
+                    await _userService.AddToAssignedJobs(userId, id);
+                    _logger.LogInformation("Added task {TaskId} to user {UserId} assigned jobs", id, userId);
                 }
                 
                 // UpdateTask in the service now handles file deletion if status changes to completed or overdue
@@ -454,12 +474,13 @@ namespace JobTrackingAPI.Controllers
                     var user = await _usersCollection.Find(u => u.Id == item.Id).FirstOrDefaultAsync();
                     if (user == null)
                     {
-                        return BadRequest($"ID'si {item.Id} olan kullanıcı bulunamadı.");
+                        _logger.LogWarning("User not found: {UserId} for task {TaskId}", item.Id, id);
+                        continue;
                     }
                     
                     // Kullanıcının assignedJobs listesinden görevi kaldır
-                    var userUpdate = Builders<User>.Update.Pull(u => u.AssignedJobs, id);
-                    await _usersCollection.UpdateOneAsync(u => u.Id == user.Id, userUpdate);
+                    await _userService.RemoveFromAssignedJobs(user.Id, id);
+                    _logger.LogInformation("Removed task {TaskId} from user {UserId} assigned jobs", id, user.Id);
                     
                     await _notificationService.SendNotificationAsync(new NotificationDto
                     {
