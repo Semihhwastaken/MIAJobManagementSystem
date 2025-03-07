@@ -12,9 +12,10 @@ export interface CalendarEvent {
   priority: 'High' | 'Medium' | 'Low';
   participants: string[];
   createdBy?: string;
+  teamId?: string;
   createdAt?: string;
   updatedAt?: string;
-  category: 'meeting' | 'task' | 'deadline';  // Add this line
+  category: 'meeting' | 'task' | 'deadline';
 }
 
 interface CalendarState {

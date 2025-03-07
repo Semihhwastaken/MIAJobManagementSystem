@@ -50,6 +50,9 @@ namespace JobTrackingAPI.Models
 
         [BsonElement("createdBy")]
         public string CreatedBy { get; set; } = string.Empty;
+        
+        [BsonElement("teamId")]
+        public string? TeamId { get; set; }
 
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

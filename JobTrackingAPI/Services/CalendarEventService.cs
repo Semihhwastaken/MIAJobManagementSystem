@@ -166,5 +166,50 @@ namespace JobTrackingAPI.Services
                 throw;
             }
         }
+
+        public async Task<List<CalendarEvent>> GetTeamMemberEventsAsync(List<string> memberEmails)
+        {
+            try
+            {
+                var filter = Builders<CalendarEvent>.Filter.AnyIn(e => e.Participants, memberEmails);
+                return await _events.Find(filter).ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetTeamMemberEventsAsync: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task<List<CalendarEvent>> GetEventsByTeamIdAsync(string teamId, string startDate = null, string endDate = null)
+        {
+            try
+            {
+                var filterBuilder = Builders<CalendarEvent>.Filter;
+                var filter = filterBuilder.Eq(e => e.TeamId, teamId);
+
+                // Eğer tarih aralığı belirtilmişse, filtreye ekle
+                if (!string.IsNullOrEmpty(startDate) && !string.IsNullOrEmpty(endDate))
+                {
+                    if (!DateTime.TryParse(startDate, out DateTime start) || !DateTime.TryParse(endDate, out DateTime end))
+                    {
+                        throw new ArgumentException("Invalid date format");
+                    }
+
+                    filter = filterBuilder.And(
+                        filter,
+                        filterBuilder.Lte(e => e.StartDate, endDate),
+                        filterBuilder.Gte(e => e.EndDate, startDate)
+                    );
+                }
+
+                return await _events.Find(filter).ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetEventsByTeamIdAsync: {ex.Message}");
+                throw;
+            }
+        }
     }
 }
