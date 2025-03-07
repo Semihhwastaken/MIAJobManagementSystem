@@ -183,7 +183,6 @@ export const updateTaskStatus = createAsyncThunk(
         }
     }
 );
-
 export const fileUpload = createAsyncThunk(
     'tasks/fileUpload',
     async ({ taskId, file }: { taskId: string; file: File }, { dispatch, rejectWithValue }) => {

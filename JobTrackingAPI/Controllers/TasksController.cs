@@ -71,48 +71,41 @@ namespace JobTrackingAPI.Controllers
                 task.Dependencies ??= new List<string>();
                 task.SubTasks ??= new List<SubTask>();
                 
-                // Kullanıcı kimliğini al
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                
-                // AssignedUsers listesini hazırla (geriye dönük uyumluluk için)
+                // Atanan kullanıcıları doğrula ve bilgilerini güncelle
                 if (task.AssignedUsers != null && task.AssignedUsers.Any())
                 {
-                    // AssignedUserIds listesini AssignedUsers'dan doldur
-                    task.AssignedUserIds = new List<string>();
                     var updatedAssignedUsers = new List<AssignedUser>();
                     foreach (var assignedUser in task.AssignedUsers)
                     {
-                        try
+                        if (string.IsNullOrEmpty(assignedUser.Id))
                         {
-                            // Kullanıcıyı veritabanından al
-                            var user = await _usersCollection.Find(u => u.Id == assignedUser.Id).FirstOrDefaultAsync();
-                            if (user != null)
-                            {
-                                // AssignedUserIds listesine ID'yi ekle
-                                task.AssignedUserIds.Add(user.Id);
-                                
-                                // AssignedUsers listesini güncelle (geriye dönük uyumluluk için)
-                                updatedAssignedUsers.Add(new AssignedUser
-                                {
-                                    Id = user.Id,
-                                    Username = user.Username,
-                                    Email = user.Email,
-                                    FullName = user.FullName,
-                                    Department = user.Department,
-                                    Title = user.Title,
-                                    Position = user.Position,
-                                    ProfileImage = user.ProfileImage
-                                });
-                            }
-                            else
-                            {
-                                _logger.LogWarning($"Görev oluşturulurken kullanıcı bulunamadı: {assignedUser.Id}");
-                            }
+                            return BadRequest($"Atanan kullanıcı ID'si boş olamaz.");
                         }
-                        catch (Exception ex)
+                        var user = await _usersCollection.Find(u => u.Id == assignedUser.Id).FirstOrDefaultAsync();
+                        if (user == null)
                         {
-                            _logger.LogError(ex, $"Görev oluşturulurken kullanıcı bilgileri alınırken hata: {assignedUser.Id}");
+                            return BadRequest($"ID'si {assignedUser.Id} olan kullanıcı bulunamadı.");
                         }
+                        updatedAssignedUsers.Add(new AssignedUser
+                        {
+                            Id = user.Id,
+                            Username = user.Username,
+                            Email = user.Email,
+                            FullName = user.FullName,
+                            Department = user.Department,
+                            Title = user.Title,
+                            Position = user.Position,
+                            ProfileImage = user.ProfileImage
+                        });
+                        // Send notification to assigned user
+                        await _notificationService.SendNotificationAsync(new NotificationDto
+                        {
+                            UserId = user.Id,
+                            Title = "Yeni Görev Atandı",
+                            Message = $"{task.Title} görevi size atandı.",
+                            Type = NotificationType.TaskAssigned,
+                            RelatedJobId = task.Id
+                        });
                     }
                     task.AssignedUsers = updatedAssignedUsers;
                 }

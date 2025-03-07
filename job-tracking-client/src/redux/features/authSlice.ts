@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
@@ -5,6 +6,7 @@ interface AuthState {
     token: string | null;
     user: {
         id: string;
+        username:string;
         email: string;
         fullName: string;
         role: string;
