@@ -3,10 +3,12 @@ import { motion, useInView } from "framer-motion";
 import ImageCarousel from "../../components/ImageCarousel";
 import { useNavigate } from "react-router-dom";
 import Footer from "../../components/Footer/Footer";
+import { useTheme } from "../../context/ThemeContext"; // Import the theme context
 
 const App: React.FC = () => {
   const [activeAccordion, setActiveAccordion] = useState<number | null>(null);
   const navigate = useNavigate();
+  const { isDarkMode } = useTheme(); // Get the dark mode state
 
   // Scroll animasyonları için ref'ler
   const featuresRef = React.useRef(null);
@@ -96,7 +98,11 @@ const App: React.FC = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600"
+      className={`min-h-screen ${
+        isDarkMode 
+          ? "bg-gradient-to-br from-gray-900 to-gray-800" 
+          : "bg-gradient-to-br from-blue-500 to-purple-600"
+      }`}
     >
       {/* Hero Section with Carousel */}
       <motion.div
@@ -106,7 +112,11 @@ const App: React.FC = () => {
         className="relative h-[500px]"
       >
         <ImageCarousel />
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/80 to-purple-600/80 z-10">
+        <div className={`absolute inset-0 ${
+          isDarkMode 
+            ? "bg-gradient-to-r from-gray-800/80 to-black/80" 
+            : "bg-gradient-to-r from-blue-600/80 to-purple-600/80"
+        } z-10`}>
           <div className="container mx-auto px-6 h-full flex items-center">
             <motion.div
               initial={{ x: -100, opacity: 0 }}
@@ -159,7 +169,11 @@ const App: React.FC = () => {
           <motion.div
             variants={itemVariants}
             whileHover={{ y: -10, transition: { duration: 0.2 } }}
-            className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-all"
+            className={`${
+              isDarkMode
+                ? "bg-gray-800 shadow-xl"
+                : "bg-white shadow-lg"
+            } rounded-xl p-8 hover:shadow-xl transition-all`}
           >
             <motion.div
               whileHover={{ rotate: 360 }}
@@ -168,8 +182,8 @@ const App: React.FC = () => {
             >
               <i className="fas fa-tasks"></i>
             </motion.div>
-            <h3 className="text-2xl font-bold mb-4 text-gray-600">Görev Yönetimi</h3>
-            <p className="text-gray-600 mb-6">
+            <h3 className={`text-2xl font-bold mb-4 ${isDarkMode ? "text-gray-100" : "text-gray-600"}`}>Görev Yönetimi</h3>
+            <p className={`mb-6 ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
               Görevlerinizi oluşturun, düzenleyin ve önceliklendirin. Ekibinizle
               gerçek zamanlı işbirliği yapın.
             </p>
@@ -189,7 +203,11 @@ const App: React.FC = () => {
           <motion.div
             variants={itemVariants}
             whileHover={{ y: -10, transition: { duration: 0.2 } }}
-            className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-all"
+            className={`${
+              isDarkMode
+                ? "bg-gray-800 shadow-xl"
+                : "bg-white shadow-lg"
+            } rounded-xl p-8 hover:shadow-xl transition-all`}
           >
             <motion.div
               whileHover={{ rotate: 360 }}
@@ -198,8 +216,8 @@ const App: React.FC = () => {
             >
               <i className="fas fa-users"></i>
             </motion.div>
-            <h3 className="text-2xl font-bold mb-4 text-gray-600">Ekip İşbirliği</h3>
-            <p className="text-gray-600 mb-6">
+            <h3 className={`text-2xl font-bold mb-4 ${isDarkMode ? "text-gray-100" : "text-gray-600"}`}>Ekip İşbirliği</h3>
+            <p className={`mb-6 ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
               Ekibinizle sorunsuz iletişim kurun, görevleri atayın ve projelerin
               durumunu takip edin.
             </p>
@@ -219,7 +237,11 @@ const App: React.FC = () => {
           <motion.div
             variants={itemVariants}
             whileHover={{ y: -10, transition: { duration: 0.2 } }}
-            className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-all"
+            className={`${
+              isDarkMode
+                ? "bg-gray-800 shadow-xl"
+                : "bg-white shadow-lg"
+            } rounded-xl p-8 hover:shadow-xl transition-all`}
           >
             <motion.div
               whileHover={{ rotate: 360 }}
@@ -228,8 +250,8 @@ const App: React.FC = () => {
             >
               <i className="fas fa-chart-bar"></i>
             </motion.div>
-            <h3 className="text-2xl font-bold mb-4 text-gray-600">Raporlar ve Analizler</h3>
-            <p className="text-gray-600 mb-6">
+            <h3 className={`text-2xl font-bold mb-4 ${isDarkMode ? "text-gray-100" : "text-gray-600"}`}>Raporlar ve Analizler</h3>
+            <p className={`mb-6 ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
               Proje ilerlemesini takip edin, performans metriklerini analiz edin
               ve veri odaklı kararlar alın.
             </p>
@@ -253,12 +275,12 @@ const App: React.FC = () => {
         initial="hidden"
         animate={howToUseInView ? "visible" : "hidden"}
         variants={containerVariants}
-        className="bg-white py-20"
+        className={`${isDarkMode ? "bg-gray-800" : "bg-white"} py-20`}
       >
         <div className="container mx-auto px-6">
           <motion.h2
             variants={itemVariants}
-            className="text-3xl font-bold text-center mb-12 text-gray-600"
+            className={`text-3xl font-bold text-center mb-12 ${isDarkMode ? "text-gray-100" : "text-gray-600"}`}
           >
             Nasıl Kullanılır?
           </motion.h2>
@@ -268,17 +290,17 @@ const App: React.FC = () => {
                 key={index}
                 variants={itemVariants}
                 whileHover={{ scale: 1.05 }}
-                className="text-center text-gray-600"
+                className={`text-center ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}
               >
                 <motion.div
                   whileHover={{ rotate: 360 }}
                   transition={{ duration: 0.6 }}
-                  className="w-16 h-16 mx-auto bg-blue-100 rounded-full flex items-center justify-center mb-4"
+                  className={`w-16 h-16 mx-auto ${isDarkMode ? "bg-blue-900" : "bg-blue-100"} rounded-full flex items-center justify-center mb-4`}
                 >
-                  <i className={`fas ${step.icon} text-blue-500 text-2xl`}></i>
+                  <i className={`fas ${step.icon} ${isDarkMode ? "text-blue-300" : "text-blue-500"} text-2xl`}></i>
                 </motion.div>
-                <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
-                <p className="text-gray-600">{step.description}</p>
+                <h3 className={`text-xl font-semibold mb-2 ${isDarkMode ? "text-gray-200" : ""}`}>{step.title}</h3>
+                <p className={`${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{step.description}</p>
               </motion.div>
             ))}
           </div>
@@ -295,7 +317,7 @@ const App: React.FC = () => {
       >
         <motion.h2
           variants={itemVariants}
-          className="text-3xl font-bold text-center mb-12 text-gray-600"
+          className={`text-3xl font-bold text-center mb-12 ${isDarkMode ? "text-gray-100" : "text-gray-600"}`}
         >
           Sıkça Sorulan Sorular
         </motion.h2>
@@ -308,7 +330,11 @@ const App: React.FC = () => {
               whileHover={{ scale: 1.02 }}
             >
               <motion.button
-                className="w-full bg-white p-4 rounded-lg shadow-md flex justify-between items-center hover:bg-gray-50 transition-colors !rounded-button whitespace-nowrap text-gray-600"
+                className={`w-full ${
+                  isDarkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-white hover:bg-gray-50"
+                } p-4 rounded-lg shadow-md flex justify-between items-center transition-colors !rounded-button whitespace-nowrap ${
+                  isDarkMode ? "text-gray-100" : "text-gray-600"
+                }`}
                 onClick={() => handleAccordionClick(index)}
                 whileTap={{ scale: 0.98 }}
               >
@@ -316,7 +342,7 @@ const App: React.FC = () => {
                 <motion.i
                   animate={{ rotate: activeAccordion === index ? 180 : 0 }}
                   transition={{ duration: 0.3 }}
-                  className={`fas fa-chevron-down text-blue-500`}
+                  className={`fas fa-chevron-down ${isDarkMode ? "text-blue-400" : "text-blue-500"}`}
                 ></motion.i>
               </motion.button>
               <motion.div
@@ -328,8 +354,8 @@ const App: React.FC = () => {
                 transition={{ duration: 0.3 }}
                 className="overflow-hidden"
               >
-                <div className="bg-white mt-2 p-4 rounded-lg shadow-md">
-                  <p className="text-gray-600">{faq.answer}</p>
+                <div className={`${isDarkMode ? "bg-gray-700" : "bg-white"} mt-2 p-4 rounded-lg shadow-md`}>
+                  <p className={`${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>{faq.answer}</p>
                 </div>
               </motion.div>
             </motion.div>
