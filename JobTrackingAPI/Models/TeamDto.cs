@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 
 namespace JobTrackingAPI.Models
 {
@@ -7,16 +8,14 @@ namespace JobTrackingAPI.Models
         public string Status { get; set; }
     }
 
-    public class TeamMemberUpdateDto
+    public class TeamDto
     {
-        public string? Email { get; set; }
-        public string? FullName { get; set; }
-        public string? Department { get; set; }
-        public string? Title { get; set; }
-        public string? Phone { get; set; }
-        public string? Position { get; set; }
-        public string? ProfileImage { get; set; }
-        public List<string>? Expertise { get; set; }
-        public AvailabilitySchedule? AvailabilitySchedule { get; set; }
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Status { get; set; } = "active";
+        public List<UserDto>? Members { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
     }
 }

@@ -44,6 +44,15 @@ namespace JobTrackingAPI.Models
         [BsonElement("changeType")]
         public string ChangeType { get; set; } = string.Empty;
 
+        [BsonElement("oldValue")]
+        public string OldValue { get; set; } = string.Empty;
+
+        [BsonElement("newValue")]
+        public string NewValue { get; set; } = string.Empty;
+
+        [BsonElement("timestamp")]
+        public DateTime Timestamp { get; set; }
+
         // Parameterless constructor for MongoDB serialization
         public TaskHistory()
         {

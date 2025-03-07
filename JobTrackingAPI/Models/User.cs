@@ -36,10 +36,6 @@ namespace JobTrackingAPI.Models
         [Required]
         public string? Department { get; set; }
 
-        [BsonElement("password")]
-        [Required]
-        public string Password { get; set; } = null!;
-
         [BsonElement("title")]
         [Required]
         public string? Title { get; set; }
@@ -61,6 +57,24 @@ namespace JobTrackingAPI.Models
         [BsonElement("profileImage")]
         public string? ProfileImage { get; set; }
 
+        [BsonElement("expertise")]
+        public List<string> Expertise { get; set; } = new List<string>();
+
+        [BsonElement("metrics")]
+        public MemberMetricsUpdateDto Metrics { get; set; } = new MemberMetricsUpdateDto();
+
+        [BsonElement("availabilitySchedule")]
+        public AvailabilitySchedule? AvailabilitySchedule { get; set; }
+
+        [BsonElement("onlineStatus")]
+        public string OnlineStatus { get; set; } = "offline";
+
+        [BsonElement("performanceScore")]
+        public double PerformanceScore { get; set; }
+
+        [BsonElement("completedTasksCount")]
+        public int CompletedTasksCount { get; set; }
+
         [BsonElement("createdDate")]
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
@@ -73,7 +87,13 @@ namespace JobTrackingAPI.Models
         [BsonElement("isOnline")]
         public bool IsOnline { get; set; } = false;
 
-        [BsonElement("teams")]
-        public List<string> Teams { get; set; } = new List<string>();
+        [BsonElement("ownerTeams")]
+        public List<string> OwnerTeams { get; set; } = new List<string>();
+
+        [BsonElement("memberTeams")]
+        public List<string> MemberTeams { get; set; } = new List<string>();
+
+        [BsonElement("taskHistory")]
+        public List<string> TaskHistory { get; set; } = new List<string>();
     }
 }

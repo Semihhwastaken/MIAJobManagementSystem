@@ -1,4 +1,6 @@
 using JobTrackingAPI.Models;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace JobTrackingAPI.Services
 {
@@ -12,5 +14,12 @@ namespace JobTrackingAPI.Services
         Task DeleteTask(string id);
         Task<List<TaskHistoryDto>> GetUserTaskHistory(string userId);
         Task FileUpload(string taskId, string fileUrl);
+        
+        // AssignedUsers yerine AssignedUserIds kullanan yeni metotlar
+        Task<IEnumerable<TaskItem>> GetTasksByAssignedUserIdAsync(string userId);
+        Task<IEnumerable<TaskItem>> GetTasksByDepartmentAsync(string department);
+        Task<IEnumerable<TaskItem>> GetTasksByTeamsAsync(List<string> teamIds);
+        Task<bool> AssignUserToTaskAsync(string taskId, string userId);
+        Task<bool> RemoveUserFromTaskAsync(string taskId, string userId);
     }
 }

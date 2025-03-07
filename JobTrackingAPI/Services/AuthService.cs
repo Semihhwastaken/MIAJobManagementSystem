@@ -23,6 +23,7 @@ namespace JobTrackingAPI.Services
         private readonly Random _random;
         private readonly string _jwtSecret;
         private readonly ILogger<AuthService> _logger;
+        private readonly IOptions<MongoDbSettings> _settings;
 
         public AuthService(
             IOptions<MongoDbSettings> settings,
@@ -40,6 +41,7 @@ namespace JobTrackingAPI.Services
             _random = new Random();
             _jwtSecret = jwtSettings.Value.Secret;
             _logger = logger;
+            _settings = settings;
         }
 
         private string GenerateVerificationCode()
@@ -164,9 +166,42 @@ namespace JobTrackingAPI.Services
             if (user == null)
                 return null;
 
-            var hashedPassword = HashPassword(password);
-            if (user.Password != hashedPassword)
+            // Password hash ve salt kullanarak doğrulama yapma
+            if (user.PasswordHash != null && user.PasswordHash.Length > 0 && 
+                user.PasswordSalt != null && user.PasswordSalt.Length > 0)
+            {
+                // Hash ve salt ile güvenli doğrulama
+                bool validPassword = VerifyPassword(password, user.PasswordHash, user.PasswordSalt);
+                if (!validPassword)
+                    return null;
+            }
+            else
+            {
+                return null; // Geçerli hash ve salt bilgisi olmadığı için kimlik doğrulama başarısız
+            }
+
+            return user;
+        }
+
+        public async Task<User?> ValidateUser(string email, string password)
+        {
+            var user = await _users.Find(x => x.Email == email).FirstOrDefaultAsync();
+            if (user == null)
                 return null;
+
+            // Password hash ve salt kullanarak doğrulama yapma
+            if (user.PasswordHash != null && user.PasswordHash.Length > 0 && 
+                user.PasswordSalt != null && user.PasswordSalt.Length > 0)
+            {
+                // Hash ve salt ile güvenli doğrulama
+                bool validPassword = VerifyPassword(password, user.PasswordHash, user.PasswordSalt);
+                if (!validPassword)
+                    return null;
+            }
+            else
+            {
+                return null; // Geçerli hash ve salt bilgisi olmadığı için kimlik doğrulama başarısız
+            }
 
             return user;
         }
@@ -183,7 +218,7 @@ namespace JobTrackingAPI.Services
                     return (false, "Kullanıcı adı veya şifre hatalı", null, null);
                 }
 
-                // Handle users with either password hash/salt or legacy password
+                // Handle users with password hash/salt
                 bool validPassword = false;
                 
                 // Check if user has password hash and salt
@@ -193,25 +228,6 @@ namespace JobTrackingAPI.Services
                     // Use secure password verification with hash and salt
                     validPassword = VerifyPassword(password, user.PasswordHash, user.PasswordSalt);
                     _logger.LogDebug("Verifying password with hash/salt for user {Username}", username);
-                }
-                // Fall back to legacy password if available
-                else if (!string.IsNullOrEmpty(user.Password))
-                {
-                    // Use legacy password check
-                    string hashedPassword = HashPassword(password);
-                    validPassword = (user.Password == hashedPassword);
-                    _logger.LogDebug("Verifying password with legacy method for user {Username}", username);
-                    
-                    // Optionally upgrade to secure hash/salt
-                    if (validPassword)
-                    {
-                        var (passwordHash, passwordSalt) = CreatePasswordHash(password);
-                        var passwordUpdate = Builders<User>.Update
-                            .Set(u => u.PasswordHash, passwordHash)
-                            .Set(u => u.PasswordSalt, passwordSalt);
-                        await _users.UpdateOneAsync(u => u.Id == user.Id, passwordUpdate);
-                        _logger.LogInformation("Upgraded password security for user {Username}", username);
-                    }
                 }
                 else
                 {
@@ -263,16 +279,80 @@ namespace JobTrackingAPI.Services
 
         private async Task<List<TaskItem>> GetUserTasksAsync(string userId)
         {
-            // Implement logic to get user tasks from the database
-            // This is a placeholder implementation
-            return await Task.FromResult(new List<TaskItem>());
+            try
+            {
+                var database = new MongoClient(_settings.Value.ConnectionString).GetDatabase(_settings.Value.DatabaseName);
+                var tasks = database.GetCollection<TaskItem>("Tasks");
+                
+                // Kullanıcının atanmış görevlerini AssignedJobs alanından alıyoruz
+                var user = await _users.Find(u => u.Id == userId).FirstOrDefaultAsync();
+                if (user == null || user.AssignedJobs == null || !user.AssignedJobs.Any())
+                {
+                    return new List<TaskItem>();
+                }
+                
+                // AssignedJobs içindeki task ID'lerini kullanarak görevleri çekiyoruz
+                var filter = Builders<TaskItem>.Filter.In(t => t.Id, user.AssignedJobs);
+                var userTasks = await tasks.Find(filter).ToListAsync();
+                
+                _logger.LogInformation($"Loaded {userTasks.Count} tasks for user {userId}");
+                return userTasks;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error loading tasks for user {userId}");
+                return new List<TaskItem>();
+            }
         }
 
         private async Task<List<Team>> GetUserTeamsAsync(string userId)
         {
-            // Implement logic to get user teams from the database
-            // This is a placeholder implementation
-            return await Task.FromResult(new List<Team>());
+            try
+            {
+                var database = new MongoClient(_settings.Value.ConnectionString).GetDatabase(_settings.Value.DatabaseName);
+                var teams = database.GetCollection<Team>("Teams");
+                
+                // Kullanıcının üye olduğu ve sahibi olduğu takımları alıyoruz
+                var user = await _users.Find(u => u.Id == userId).FirstOrDefaultAsync();
+                if (user == null)
+                {
+                    return new List<Team>();
+                }
+                
+                var userTeams = new List<Team>();
+                
+                // Kullanıcının üye olduğu takımları çekiyoruz
+                if (user.MemberTeams != null && user.MemberTeams.Any())
+                {
+                    var memberFilter = Builders<Team>.Filter.In(t => t.Id, user.MemberTeams);
+                    var memberTeams = await teams.Find(memberFilter).ToListAsync();
+                    userTeams.AddRange(memberTeams);
+                }
+                
+                // Kullanıcının sahibi olduğu takımları çekiyoruz
+                if (user.OwnerTeams != null && user.OwnerTeams.Any())
+                {
+                    var ownerFilter = Builders<Team>.Filter.In(t => t.Id, user.OwnerTeams);
+                    var ownerTeams = await teams.Find(ownerFilter).ToListAsync();
+                    
+                    // Zaten üye olarak eklenmiş takımları tekrar eklemeyelim
+                    foreach (var team in ownerTeams)
+                    {
+                        if (!userTeams.Any(t => t.Id == team.Id))
+                        {
+                            userTeams.Add(team);
+                        }
+                    }
+                }
+                
+                _logger.LogInformation($"Loaded {userTeams.Count} teams for user {userId}");
+                return userTeams;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error loading teams for user {userId}");
+                return new List<Team>();
+            }
         }
 
         public async Task<User?> GetUserByIdAsync(string userId)

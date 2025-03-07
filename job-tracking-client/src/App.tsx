@@ -1,7 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material';
+<<<<<<< HEAD
 import { useDispatch } from 'react-redux';
 import { setUser,setToken } from './redux/features/authSlice';
+=======
+import { useDispatch, useSelector } from 'react-redux';
+import { setUser, setToken, setDataPreloaded } from './redux/features/authSlice';
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
 import { getCurrentUser } from './services/api';
 import { CssBaseline } from '@mui/material';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -21,6 +26,7 @@ import Profile from './pages/Profile/Profile';
 import TeamInvite from './pages/TeamInvite/TeamInvite';
 import Main from './pages/Main/Main';
 import { SnackbarProvider } from 'notistack';
+<<<<<<< HEAD
 
 const AppContent: React.FC = () => {
   const { isDarkMode } = useTheme();
@@ -28,6 +34,19 @@ const AppContent: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(
     localStorage.getItem('token') !== null
   );
+=======
+import { RootState } from './redux/store';
+import { fetchTasks } from './redux/features/tasksSlice';
+import { AppDispatch } from './redux/store';
+
+const AppContent: React.FC = () => {
+  const { isDarkMode } = useTheme();
+  const dispatch = useDispatch<AppDispatch>();
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    localStorage.getItem('token') !== null
+  );
+  const { user, dataPreloaded } = useSelector((state: RootState) => state.auth);
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
 
   // Load stored auth data on startup
   useEffect(() => {
@@ -90,6 +109,23 @@ const AppContent: React.FC = () => {
     loadUserData();
   }, [dispatch]);
 
+<<<<<<< HEAD
+=======
+  useEffect(() => {
+    if (isAuthenticated && user && !dataPreloaded) {
+      // Preload işlemini başlat
+      Promise.all([
+        dispatch(fetchTasks()),
+        // Diğer gerekli verileri yükle
+      ]).then(() => {
+        dispatch(setDataPreloaded(true));
+      }).catch((error) => {
+        console.error('Veri ön yükleme hatası:', error);
+      });
+    }
+  }, [isAuthenticated, user, dataPreloaded, dispatch]);
+
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
   const theme = useMemo(
     () =>
       createTheme({

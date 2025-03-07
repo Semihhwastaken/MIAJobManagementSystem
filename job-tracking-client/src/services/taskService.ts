@@ -12,6 +12,7 @@ export interface TaskItem {
         username: string;
         role: string;
     }>;
+    assignedUserIds: string[];
     subTasks: Array<{
         id: string;
         title: string;
@@ -23,6 +24,7 @@ export interface TaskItem {
         fileName: string;
         fileUrl: string;
     }>;
+    teamId?: string;
 }
 
 const taskService = {
@@ -37,17 +39,50 @@ const taskService = {
     },
 
     createTask: async (task: Partial<TaskItem>): Promise<TaskItem> => {
+        if (task.assignedUsers && task.assignedUsers.length > 0) {
+            task.assignedUserIds = task.assignedUsers.map(user => user.id);
+        }
+        
         const response = await axiosInstance.post('/tasks', task);
         return response.data;
     },
 
     updateTask: async (id: string, task: Partial<TaskItem>): Promise<TaskItem> => {
+        if (task.assignedUsers && task.assignedUsers.length > 0) {
+            task.assignedUserIds = task.assignedUsers.map(user => user.id);
+        }
+        
         const response = await axiosInstance.put(`/tasks/${id}`, task);
         return response.data;
     },
 
     deleteTask: async (id: string): Promise<void> => {
         await axiosInstance.delete(`/tasks/${id}`);
+    },
+
+    getTasksByAssignedUserId: async (userId: string): Promise<TaskItem[]> => {
+        const response = await axiosInstance.get(`/tasks/user/${userId}/active-tasks`);
+        return response.data;
+    },
+
+    getTasksByDepartment: async (department: string): Promise<TaskItem[]> => {
+        const response = await axiosInstance.get(`/tasks/department/${department}`);
+        return response.data;
+    },
+
+    getTasksByTeams: async (teamIds: string[]): Promise<TaskItem[]> => {
+        const response = await axiosInstance.post(`/tasks/teams`, { teamIds });
+        return response.data;
+    },
+
+    assignUserToTask: async (taskId: string, userId: string): Promise<boolean> => {
+        const response = await axiosInstance.post(`/tasks/${taskId}/assign-user`, { userId });
+        return response.data.success;
+    },
+
+    removeUserFromTask: async (taskId: string, userId: string): Promise<boolean> => {
+        const response = await axiosInstance.post(`/tasks/${taskId}/remove-user`, { userId });
+        return response.data.success;
     },
 
     async checkOverdueTasks() {

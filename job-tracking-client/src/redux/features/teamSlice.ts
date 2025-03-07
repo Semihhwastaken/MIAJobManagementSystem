@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, createAsyncThunk, createAction } from '@reduxjs/toolkit';
+<<<<<<< HEAD
 import { TeamState, TeamMember } from '../../types/team';
+=======
+import { TeamState, TeamMember, Team } from '../../types/team';
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
 import axiosInstance from '../../services/axiosInstance';
 
 interface MemberMetricsUpdateDto {
@@ -197,7 +201,12 @@ export const generateTeamInviteLink = createAsyncThunk(
     'Team/generateInviteLink',
     async (teamId: string, { rejectWithValue }) => {
         try {
+<<<<<<< HEAD
             const response = await axiosInstance.post(`/Team/invite-link/${teamId}`);
+=======
+            // Yeni API endpoint'ini kullan
+            const response = await axiosInstance.post(`/Team/${teamId}/generate-invite-link`);
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
             return response.data;
         } catch (error: any) {
             console.error('Davet linki oluşturma hatası:', error.response?.data);
@@ -208,6 +217,7 @@ export const generateTeamInviteLink = createAsyncThunk(
 
 export const getTeamInviteLink = createAsyncThunk(
     'Team/getInviteLink',
+<<<<<<< HEAD
     async (teamId: string) => {
         try {
             const response = await axiosInstance.get(`/Team/invite-link/${teamId}/get`);
@@ -215,12 +225,23 @@ export const getTeamInviteLink = createAsyncThunk(
         } catch (error: any) {
             console.error('Davet linki alma hatası:', error.response?.data);
             return error.response?.data || error.message;
+=======
+    async (teamId: string, { rejectWithValue }) => {
+        try {
+            // Yeni API endpoint'ini kullan
+            const response = await axiosInstance.get(`/Team/${teamId}/invite-link`);
+            return response.data.inviteLink;
+        } catch (error: any) {
+            console.error('Davet linki alma hatası:', error.response?.data);
+            return rejectWithValue(error.response?.data || error.message);
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
         }
     }
 );
 
 export const setTeamInviteLink = createAsyncThunk(
     'Team/setInviteLink',
+<<<<<<< HEAD
     async ({ teamId, inviteLink }: { teamId: string; inviteLink: string }) => {
         try {
             const response = await axiosInstance.post(
@@ -232,12 +253,57 @@ export const setTeamInviteLink = createAsyncThunk(
         catch (error: any) {
             console.error('Davet linki atama hatası:', error.response?.data);
             throw error.response?.data || error.message;
+=======
+    async ({ teamId, inviteLink }: { teamId: string; inviteLink: string }, { rejectWithValue }) => {
+        try {
+            // Yeni API endpoint'ini kullan
+            const response = await axiosInstance.post(
+                `/Team/${teamId}/set-invite-link`,
+                { teamId, inviteLink }
+            );
+            return response.data.inviteLink;
+        }
+        catch (error: any) {
+            console.error('Davet linki atama hatası:', error.response?.data);
+            return rejectWithValue(error.response?.data || error.message);
+        }
+    }
+);
+
+export const clearInviteLink = createAsyncThunk(
+    'Team/clearInviteLink',
+    async (teamId: string, { rejectWithValue }) => {
+        try {
+            await axiosInstance.post(`/Team/${teamId}/clear-invite-link`);
+            return { success: true, teamId };
+        } catch (error: any) {
+            console.error('Davet linki temizleme hatası:', error.response?.data);
+            return rejectWithValue(error.response?.data || error.message);
+        }
+    }
+);
+
+export const joinTeamWithInviteCode = createAsyncThunk(
+    'Team/joinTeamWithInviteCode',
+    async (inviteCode: string, { rejectWithValue, dispatch }) => {
+        try {
+            const response = await axiosInstance.post('/Team/join-with-invite-code', { inviteCode });
+            
+            // Ekipleri yeniden yükle
+            dispatch(invalidateCache('teams'));
+            
+            return response.data;
+        } catch (error: any) {
+            console.error('Davet koduyla takıma katılma hatası:', error.response?.data);
+            return rejectWithValue(error.response?.data || error.message);
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
         }
     }
 );
 
 export const addExperties = createAsyncThunk(
     'Team/addExperties',
+<<<<<<< HEAD
     async ({ memberId, experties }: { memberId: string; experties: string }) => {
         try {
             const response = await axiosInstance.post(`/Team/members/${memberId}/experties`, { experties });
@@ -245,10 +311,21 @@ export const addExperties = createAsyncThunk(
         } catch (error: any) {
             console.error('Hata:', error.response?.data);
             return error.response?.data || error.message;
+=======
+    async ({ memberId, experties }: { memberId: string; experties: string }, { rejectWithValue }) => {
+        try {
+            // Yeni API endpoint'ini kullan
+            const response = await axiosInstance.post(`/Team/add-expertise`, { memberId, expertise: experties });
+            return response.data;
+        } catch (error: any) {
+            console.error('Hata:', error.response?.data);
+            return rejectWithValue(error.response?.data || error.message);
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
         }
     }
 );
 
+<<<<<<< HEAD
 export const joinTeamWithInviteLink = createAsyncThunk(
     'Team/joinWithInviteLink',
     async (inviteCode: string, { dispatch }) => {
@@ -256,13 +333,47 @@ export const joinTeamWithInviteLink = createAsyncThunk(
         // Invalidate teams cache after joining
         dispatch(invalidateCache('teams'));
         return response.data;
+=======
+export const assignOwnerRole = createAsyncThunk(
+    'Team/assignOwnerRole',
+    async ({ teamId, userId }: { teamId: string; userId: string }, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.post(`/Team/${teamId}/assign-owner`, { userId });
+            return { success: response.data.success, teamId, userId };
+        } catch (error: any) {
+            console.error('Sahip rolü atama hatası:', error.response?.data);
+            return rejectWithValue(error.response?.data || error.message);
+        }
+    }
+);
+
+export const removeTeamMember = createAsyncThunk(
+    'Team/removeTeamMember',
+    async ({ teamId, memberId }: { teamId: string; memberId: string }, { rejectWithValue, dispatch }) => {
+        try {
+            const response = await axiosInstance.post(`/Team/${teamId}/remove-member`, { memberId });
+            
+            // Üyeleri yeniden yükle
+            dispatch(invalidateCache('members'));
+            
+            return { success: response.data.success, message: response.data.message, teamId, memberId };
+        } catch (error: any) {
+            console.error('Takım üyesi çıkarma hatası:', error.response?.data);
+            return rejectWithValue(error.response?.data || error.message);
+        }
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
     }
 );
 
 export const fetchTeams = createAsyncThunk(
     'Team/fetchTeams',
+<<<<<<< HEAD
     async (_, { getState, rejectWithValue }) => {
         const state = getState() as { team: TeamState };
+=======
+    async (_, { getState, rejectWithValue, dispatch }) => {
+        const state = getState() as { team: TeamState; auth: { user: any } };
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
         
         // Use cached data if available and not expired
         if (isCacheValid(state.team.lastCacheTimes.teams) && state.team.teams.length > 0) {
@@ -277,9 +388,70 @@ export const fetchTeams = createAsyncThunk(
             }
             
             pendingRequests[requestKey] = true;
+<<<<<<< HEAD
             const response = await axiosInstance.get('/Team');
             pendingRequests[requestKey] = false;
             return response.data;
+=======
+            
+            // Önce takımları getir
+            const teamsResponse = await axiosInstance.get('/Team');
+            
+            // Ardından tam üye bilgilerini getir
+            const membersResponse = await axiosInstance.get('/Team/members');
+            
+            // Kullanıcı ID'lerine göre üye bilgilerini map'le
+            const membersMap = new Map();
+            membersResponse.data.forEach((member: TeamMember) => {
+                membersMap.set(member.id, member);
+            });
+            
+            // Takımların üye listelerini tam üye bilgileriyle güncelle
+            const enrichedTeams = teamsResponse.data.map((team: Team) => {
+                const enrichedMembers = team.members.map((member: TeamMember) => {
+                    const fullMemberInfo = membersMap.get(member.id);
+                    
+                    // Owner kontrolü - ownerTeams array'inden kontrol et
+                    const isOwner = fullMemberInfo?.ownerTeams?.includes(team.id);
+                    
+                    // Eğer bu üye için tam bilgi varsa, birleştir
+                    if (fullMemberInfo) {
+                        return {
+                            ...member,
+                            profileImage: fullMemberInfo.profileImage || member.profileImage,
+                            department: fullMemberInfo.department || member.department,
+                            // Performans skorlarını ve tamamlanan görev sayısını sadece bu takım için olan metrics'ten al
+                            performanceScore: member.metrics?.performanceScore || 50,
+                            completedTasksCount: member.metrics?.completedTasks || 0,
+                            expertise: fullMemberInfo.expertise || member.expertise || [],
+                            status: fullMemberInfo.status || member.status,
+                            onlineStatus: fullMemberInfo.onlineStatus || member.onlineStatus,
+                            title: fullMemberInfo.title || member.title,
+                            position: fullMemberInfo.position || member.position,
+                            // Full name'i doğru şekilde göstermek için
+                            fullName: member.fullName || fullMemberInfo.fullName,
+                            // Owner rolünü kontrol et
+                            role: isOwner ? 'Owner' : member.role || 'Member'
+                        };
+                    }
+                    
+                    return {
+                        ...member,
+                        performanceScore: member.metrics?.performanceScore || 50,
+                        completedTasksCount: member.metrics?.completedTasks || 0,
+                        role: isOwner ? 'Owner' : member.role || 'Member'
+                    };
+                });
+                
+                return {
+                    ...team,
+                    members: enrichedMembers
+                };
+            });
+            
+            pendingRequests[requestKey] = false;
+            return enrichedTeams;
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
         } catch (error: any) {
             pendingRequests['fetchTeams'] = false;
             return rejectWithValue(error.response?.data?.message || 'Takımlar alınırken bir hata oluştu');
@@ -303,6 +475,7 @@ export const deleteTeam = createAsyncThunk<DeleteTeamResponse, string>(
     }
 );
 
+<<<<<<< HEAD
 // Remove team member action
 export const removeTeamMember = createAsyncThunk<RemoveTeamMemberResponse, { teamId: string; memberId: string }>(
     'Team/removeTeamMember',
@@ -321,6 +494,8 @@ export const removeTeamMember = createAsyncThunk<RemoveTeamMemberResponse, { tea
     }
 );
 
+=======
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
 export const fetchMemberActiveTasks = createAsyncThunk(
     'Team/fetchMemberActiveTasks',
     async (teamId: string | undefined, { getState, rejectWithValue }) => {
@@ -532,7 +707,22 @@ const teamSlice = createSlice({
             })
             .addCase(fetchTeamMembers.fulfilled, (state, action) => {
                 state.loading = false;
+<<<<<<< HEAD
                 state.members = action.payload;
+=======
+                // Make sure each team member has default values for missing fields
+                const membersWithDefaults = action.payload.map((member: TeamMember) => ({
+                    ...member,
+                    profileImage: member.profileImage || null,
+                    performanceScore: typeof member.performanceScore === 'number' ? member.performanceScore : 50,
+                    onlineStatus: member.onlineStatus || 'online',
+                    expertise: member.expertise || [],
+                    completedTasksCount: member.completedTasksCount || 0,
+                    // Role bilgisini kontrol et
+                    role: member.role || 'Member'
+                }));
+                state.members = membersWithDefaults;
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                 state.lastCacheTimes.members = Date.now();
             })
             .addCase(fetchTeamMembers.rejected, (state, action) => {
@@ -608,7 +798,35 @@ const teamSlice = createSlice({
             })
             .addCase(fetchTeams.fulfilled, (state, action) => {
                 state.loading = false;
+<<<<<<< HEAD
                 state.teams = action.payload;
+=======
+                
+                // Process team data and ensure all members have default values
+                const teamsWithDefaults = action.payload.map((team: Team) => {
+                    // Process members in each team
+                    const updatedMembers = team.members.map((member: TeamMember) => ({
+                        ...member,
+                        // Değerler artık enrichedTeams işlemi sırasında eklendi, burada yalnızca boş olanlar için varsayılan değerler ekleniyor
+                        profileImage: member.profileImage || null,
+                        performanceScore: typeof member.performanceScore === 'number' ? member.performanceScore : 50,
+                        onlineStatus: member.onlineStatus || 'online',
+                        expertise: member.expertise || [],
+                        completedTasksCount: member.completedTasksCount || 0,
+                        department: member.department || 'Genel',
+                        role: member.role || 'Member'
+                    }));
+                    
+                    return {
+                        ...team,
+                        members: updatedMembers,
+                        // Backend'de CreatedById olarak gelen değeri createdBy ile eşleştir
+                        createdBy: team.createdById || team.createdBy
+                    };
+                });
+                
+                state.teams = teamsWithDefaults;
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                 state.lastCacheTimes.teams = Date.now();
             })
             .addCase(fetchTeams.rejected, (state, action) => {
@@ -631,6 +849,7 @@ const teamSlice = createSlice({
                 state.loading = false;
                 state.error = action.payload as string;
             })
+<<<<<<< HEAD
             .addCase(addExperties.fulfilled, (state, action) => {
                 const updatedMember = action.payload;
                 const index = state.members.findIndex(m => m.id === updatedMember.id);
@@ -683,6 +902,8 @@ const teamSlice = createSlice({
                 state.loading = false;
                 state.error = action.payload as string;
             })
+=======
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
             // Team members by team ID
             .addCase(getTeamMembersByTeamId.pending, (state) => {
                 state.loading = true;
@@ -690,10 +911,22 @@ const teamSlice = createSlice({
             })
             .addCase(getTeamMembersByTeamId.fulfilled, (state, action) => {
                 state.loading = false;
+<<<<<<< HEAD
                 if (action.payload && action.payload.length > 0) {
                     // Find the team by checking if any team has a member with the same ID as first member in payload
                     const team = state.teams.find(t => t.members.some(m => m.id === action.payload[0]?.id));
                     if (team) {
+=======
+                
+                // action.meta.arg içinde teamId bulunur (ilk parametredir)
+                const teamId = action.meta.arg;
+                
+                if (action.payload && action.payload.length > 0) {
+                    // teamId'yi kullanarak doğru takımı bul
+                    const team = state.teams.find(t => t.id === teamId);
+                    if (team) {
+                        // Takımın üyelerini API yanıtıyla güncelle
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                         team.members = action.payload;
                     }
                 }

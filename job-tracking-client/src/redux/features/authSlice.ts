@@ -1,45 +1,98 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  fullName: string;
-  department: string;
-}
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import axios from 'axios';
 
 interface AuthState {
-  user: User | null;
-  token: string | null;
-  isAuthenticated: boolean;
+    token: string | null;
+    user: {
+        id: string;
+        username:string;
+        email: string;
+        fullName: string;
+        role: string;
+    } | null;
+    isAuthenticated: boolean;
+    loading: boolean;
+    error: string | null;
+    dataPreloaded: boolean;
 }
 
 const initialState: AuthState = {
-  user: null,
-  token: localStorage.getItem('token'),
-  isAuthenticated: false,
+    token: localStorage.getItem('token'),
+    user: JSON.parse(localStorage.getItem('user') || 'null'),
+    isAuthenticated: !!localStorage.getItem('token'),
+    loading: false,
+    error: null,
+    dataPreloaded: false
 };
 
+export const login = createAsyncThunk(
+    'auth/login',
+    async (credentials: { email: string; password: string }, { rejectWithValue }) => {
+        try {
+            const response = await axios.post('/api/auth/login', credentials);
+            const { token, user } = response.data;
+            
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(user));
+            
+            return { token, user };
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Giriş yapılırken bir hata oluştu');
+        }
+    }
+);
+
 const authSlice = createSlice({
-  name: 'auth',
-  initialState,
-  reducers: {
-    setUser: (state, action: PayloadAction<User>) => {
-      state.user = action.payload;
-      state.isAuthenticated = true;
+    name: 'auth',
+    initialState,
+    reducers: {
+        logout: (state) => {
+            state.token = null;
+            state.user = null;
+            state.isAuthenticated = false;
+            state.dataPreloaded = false;
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+        },
+        setUser: (state, action) => {
+            state.user = action.payload;
+            state.isAuthenticated = !!action.payload;
+            if (action.payload) {
+                localStorage.setItem('user', JSON.stringify(action.payload));
+            }
+        },
+        setToken: (state, action) => {
+            state.token = action.payload;
+            state.isAuthenticated = !!action.payload;
+            if (action.payload) {
+                localStorage.setItem('token', action.payload);
+            }
+        },
+        setDataPreloaded: (state, action) => {
+            state.dataPreloaded = action.payload;
+        }
     },
-    setToken: (state, action: PayloadAction<string>) => {
-      state.token = action.payload;
-      localStorage.setItem('token', action.payload);
-    },
-    logout: (state) => {
-      state.user = null;
-      state.token = null;
-      state.isAuthenticated = false;
-      localStorage.removeItem('token');
-    },
-  },
+    extraReducers: (builder) => {
+        builder
+            .addCase(login.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(login.fulfilled, (state, action) => {
+                state.loading = false;
+                state.token = action.payload.token;
+                state.user = action.payload.user;
+                state.isAuthenticated = true;
+                state.error = null;
+                // Login başarılı olduğunda preload başlatılacak
+                state.dataPreloaded = false;
+            })
+            .addCase(login.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            });
+    }
 });
 
-export const { setUser, setToken, logout } = authSlice.actions;
+export const { logout, setUser, setToken, setDataPreloaded } = authSlice.actions;
 export default authSlice.reducer;

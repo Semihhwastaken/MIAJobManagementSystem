@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { joinTeamWithInviteLink } from '../../redux/features/teamSlice';
+import { joinTeamWithInviteCode } from '../../redux/features/teamSlice';
 import { AppDispatch } from '../../redux/store';
 import { useSnackbar } from 'notistack';
 import { useTheme } from '../../context/ThemeContext';
@@ -58,7 +58,7 @@ const TeamInvite: React.FC = () => {
         setStatus('Ekibe katılma işlemi gerçekleştiriliyor...');
 
         try {
-            const result = await dispatch(joinTeamWithInviteLink(inviteCode)).unwrap();
+            const result = await dispatch(joinTeamWithInviteCode(inviteCode)).unwrap();
             navigateWithCountdown('/team', result.message, 'success');
         } catch (error: unknown) {
             // HTTP 400 hatasını kontrol et

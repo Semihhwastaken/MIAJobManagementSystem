@@ -12,6 +12,7 @@ export interface Task {
     status: 'todo' | 'in-progress' | 'completed' | 'overdue';
     category: string;
     assignedUsers: User[];
+    assignedUserIds: string[];
     subTasks: { id?: string; title: string; completed: boolean }[];
     dependencies: string[];
     attachments: { fileName: string; fileUrl: string; fileType: string; uploadDate: string }[];
@@ -25,20 +26,47 @@ interface TaskState {
     items: Task[];
     loading: boolean;
     error: string | null;
+    lastFetch: number | null;
+    cachedTasks: { [key: string]: Task };
+    taskHistory: Task[];
+    lastHistoryFetch: number | null;
+    lastUserTasksFetch: { [userId: string]: number };
 }
+
+// Cache süreleri
+const ACTIVE_TASKS_CACHE_DURATION = 5 * 60 * 1000; // 5 dakika
+const COMPLETED_TASKS_CACHE_DURATION = 30 * 60 * 1000; // 30 dakika
+const USER_TASKS_CACHE_DURATION = 15 * 60 * 1000; // 15 dakika
 
 const initialState: TaskState = {
     items: [],
     loading: false,
-    error: null
+    error: null,
+    lastFetch: null,
+    cachedTasks: {},
+    taskHistory: [],
+    lastHistoryFetch: null,
+    lastUserTasksFetch: {}
+};
+
+// Cache kontrolü için yardımcı fonksiyon
+const isCacheValid = (lastFetch: number, duration: number) => {
+    return Date.now() - lastFetch < duration;
 };
 
 export const fetchTasks = createAsyncThunk(
     'tasks/fetchTasks',
-    async (_, { rejectWithValue }) => {
+    async (_, { getState, rejectWithValue }) => {
+        const state = getState() as { tasks: TaskState };
+        const now = Date.now();
+
+        // Cache kontrolü
+        if (state.tasks.lastFetch && (now - state.tasks.lastFetch < ACTIVE_TASKS_CACHE_DURATION)) {
+            return state.tasks.items;
+        }
+
         try {
             const response = await axiosInstance.get('/Tasks');
-            // Remove console.log to prevent flooding the console with messages
             if (!response.data) {
                 throw new Error('No data received from the server');
             }
@@ -50,10 +78,35 @@ export const fetchTasks = createAsyncThunk(
     }
 );
 
+export const fetchTaskHistory = createAsyncThunk(
+    'tasks/fetchHistory',
+    async (_, { getState, rejectWithValue }) => {
+        const state = getState() as { tasks: TaskState };
+        const now = Date.now();
+
+        // Cache kontrolü
+        if (state.tasks.lastHistoryFetch && (now - state.tasks.lastHistoryFetch < COMPLETED_TASKS_CACHE_DURATION)) {
+            return state.tasks.taskHistory;
+        }
+
+        try {
+            const response = await axiosInstance.get('/Tasks/history');
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Görev geçmişi yüklenirken bir hata oluştu');
+        }
+    }
+);
+
 export const createTask = createAsyncThunk(
     'tasks/createTask',
     async (task: Omit<Task, 'id'>, { dispatch, rejectWithValue }) => {
         try {
+            // AssignedUserIds'i AssignedUsers'dan doldur
+            if (task.assignedUsers && task.assignedUsers.length > 0) {
+                task.assignedUserIds = task.assignedUsers.map(user => user.id).filter(Boolean) as string[];
+            }
+            
             const response = await axiosInstance.post('/Tasks', task);
             dispatch(fetchMemberActiveTasks());
             return response.data;
@@ -70,6 +123,11 @@ export const updateTask = createAsyncThunk(
             // Ensure all required fields are present before sending
             if (!task.id) {
                 return rejectWithValue('Task ID is required for updates');
+            }
+
+            // AssignedUserIds'i AssignedUsers'dan güncelle
+            if (task.assignedUsers && task.assignedUsers.length > 0) {
+                task.assignedUserIds = task.assignedUsers.map(user => user.id).filter(Boolean) as string[];
             }
 
             const response = await axiosInstance.put(`/Tasks/${task.id}`, {
@@ -131,7 +189,7 @@ export const fileUpload = createAsyncThunk(
       try {
         const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'docx'];
         const maxFileSize = 5 * 1024 * 1024; // 5 MB
-        const fileExtension = file.name.split('.').pop().toLowerCase();
+        const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
   
         if (file.size > maxFileSize) {
             throw new Error('Dosya boyutu izin verilen limitin üzerinde.');
@@ -285,10 +343,28 @@ export const completeTask = createAsyncThunk(
         }
     }
 );
+
 const taskSlice = createSlice({
     name: 'tasks',
     initialState,
-    reducers: {},
+    reducers: {
+        clearTaskCache: (state) => {
+            state.lastFetch = null;
+            state.cachedTasks = {};
+        },
+        clearHistoryCache: (state) => {
+            state.lastHistoryFetch = null;
+            state.taskHistory = [];
+        },
+        clearTasksCache: (state) => {
+            state.lastFetch = null;
+            state.cachedTasks = {};
+        },
+        invalidateUserTasksCache: (state, action) => {
+            const userId = action.payload;
+            state.lastUserTasksFetch[userId] = 0;
+        }
+    },
     extraReducers: (builder) => {
         builder
             .addCase(fetchTasks.pending, (state) => {
@@ -298,10 +374,22 @@ const taskSlice = createSlice({
             .addCase(fetchTasks.fulfilled, (state, action) => {
                 state.loading = false;
                 state.items = action.payload;
+                state.lastFetch = Date.now();
+                
+                // Tekil görevleri cache'le
+                action.payload.forEach((task: Task) => {
+                    if (task.id) {
+                        state.cachedTasks[task.id] = task;
+                    }
+                });
             })
             .addCase(fetchTasks.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
+            })
+            .addCase(fetchTaskHistory.fulfilled, (state, action) => {
+                state.taskHistory = action.payload;
+                state.lastHistoryFetch = Date.now();
             })
             .addCase(createTask.pending, (state) => {
                 state.loading = true;
@@ -310,6 +398,9 @@ const taskSlice = createSlice({
             .addCase(createTask.fulfilled, (state, action) => {
                 state.loading = false;
                 state.items.push(action.payload);
+                if (action.payload.id) {
+                    state.cachedTasks[action.payload.id] = action.payload;
+                }
             })
             .addCase(createTask.rejected, (state, action) => {
                 state.loading = false;
@@ -339,6 +430,9 @@ const taskSlice = createSlice({
                 const index = state.items.findIndex(task => task.id === action.payload.id);
                 if (index !== -1) {
                     state.items[index] = action.payload;
+                    if (action.payload.id) {
+                        state.cachedTasks[action.payload.id] = action.payload;
+                    }
                 }
             })
             .addCase(updateTask.rejected, (state, action) => {
@@ -352,6 +446,9 @@ const taskSlice = createSlice({
             .addCase(deleteTask.fulfilled, (state, action) => {
                 state.loading = false;
                 state.items = state.items.filter(task => task.id !== action.payload);
+                if (action.payload) {
+                    delete state.cachedTasks[action.payload];
+                }
             })
             .addCase(deleteTask.rejected, (state, action) => {
                 state.loading = false;
@@ -396,4 +493,5 @@ const taskSlice = createSlice({
     }
 });
 
+export const { clearTaskCache, clearHistoryCache, clearTasksCache, invalidateUserTasksCache } = taskSlice.actions;
 export default taskSlice.reducer;

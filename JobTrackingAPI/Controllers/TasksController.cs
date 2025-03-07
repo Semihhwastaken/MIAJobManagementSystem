@@ -243,6 +243,32 @@ namespace JobTrackingAPI.Controllers
                 {
                     updatedTask.Status = "overdue";
                 }
+                
+                // Önce eski görev verilerini al
+                var oldAssignedUserIds = existingTask.AssignedUserIds?.ToList() ?? new List<string>();
+                var newAssignedUserIds = updatedTask.AssignedUsers?.Select(u => u.Id).ToList() ?? new List<string>();
+                
+                // Atanan kullanıcılarda değişiklik varsa bildirimleri gönder
+                var removedUserIds = oldAssignedUserIds.Where(id => !newAssignedUserIds.Contains(id)).ToList();
+                var addedUserIds = newAssignedUserIds.Where(id => !oldAssignedUserIds.Contains(id)).ToList();
+                
+                // Yeni AssignedUserIds listesini güncelle
+                updatedTask.AssignedUserIds = newAssignedUserIds;
+                
+                // Görevden çıkarılan kullanıcılardan bu görevi kaldır
+                foreach (var userId in removedUserIds)
+                {
+                    var userUpdate = Builders<User>.Update.Pull(u => u.AssignedJobs, id);
+                    await _usersCollection.UpdateOneAsync(u => u.Id == userId, userUpdate);
+                }
+                
+                // Göreve yeni eklenen kullanıcılara bu görevi ekle
+                foreach (var userId in addedUserIds)
+                {
+                    var userUpdate = Builders<User>.Update.AddToSet(u => u.AssignedJobs, id);
+                    await _usersCollection.UpdateOneAsync(u => u.Id == userId, userUpdate);
+                }
+                
                 // UpdateTask in the service now handles file deletion if status changes to completed or overdue
                 await _tasksService.UpdateTask(id, updatedTask);
                 
@@ -287,23 +313,22 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = "User not authenticated" });
             }
             
-            // Try to get from cache first
-            var cachedTasks = _cacheService.GetCachedUserTasks(userId);
-            if (cachedTasks != null)
+            try 
             {
-                _logger.LogInformation("Retrieved tasks for user {UserId} from cache", userId);
-                var activeCachedTasks = cachedTasks.Where(t => t.Status != "completed").ToList();
-                return Ok(activeCachedTasks);
+                var tasks = await _cacheService.GetOrUpdateAsync(
+                    $"user_tasks_{userId}",
+                    async () => await _tasksService.GetTasksByUserId(userId),
+                    TimeSpan.FromMinutes(15)
+                );
+                
+                var activeTasks = tasks.Where(t => t.Status != "completed").ToList();
+                return Ok(activeTasks);
             }
-            
-            var tasks = await _tasksService.GetTasksByUserId(userId);
-            _logger.LogInformation("Retrieved {Count} tasks for user {UserId} from database", tasks.Count, userId);
-            
-            // Cache the tasks
-            _cacheService.CacheUserTasks(userId, tasks);
-            
-            var activeTasks = tasks.Where(t => t.Status != "completed").ToList();
-            return Ok(activeTasks);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving tasks for user {UserId}", userId);
+                return StatusCode(500, new { message = "Internal server error" });
+            }
         }
         
         [HttpGet("user/{userId}/active-tasks")]
@@ -311,24 +336,24 @@ namespace JobTrackingAPI.Controllers
         {
             _logger.LogInformation("Getting active tasks for user: {UserId}", userId);
             
-            // Try to get from cache first
-            string cacheKey = $"active_tasks_{userId}";
-            var cachedActiveTasks = _cacheService.GetOrCreate<List<TaskItem>>(cacheKey, () => null);
-            if (cachedActiveTasks != null)
+            try 
             {
-                _logger.LogInformation("Retrieved active tasks for user {UserId} from cache", userId);
-                return Ok(cachedActiveTasks);
+                var tasks = await _cacheService.GetOrUpdateAsync(
+                    $"active_tasks_{userId}",
+                    async () => {
+                        var allTasks = await _tasksService.GetTasksByUserId(userId);
+                        return allTasks.Where(t => t.Status != "completed" && t.Status != "cancelled").ToList();
+                    },
+                    TimeSpan.FromMinutes(10)
+                );
+                
+                return Ok(tasks);
             }
-            
-            var tasks = await _tasksService.GetTasksByUserId(userId);
-            var activeTasks = tasks.Where(t => t.Status != "completed" && t.Status != "cancelled").ToList();
-            
-            _logger.LogInformation("Retrieved {Count} active tasks for user {UserId} from database", activeTasks.Count, userId);
-            
-            // Cache the active tasks
-            _cacheService.GetOrCreate(cacheKey, () => activeTasks, TimeSpan.FromMinutes(5));
-            
-            return Ok(activeTasks);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving active tasks for user {UserId}", userId);
+                return StatusCode(500, new { message = "Internal server error" });
+            }
         }
         
         [HttpGet("{id}")]
@@ -336,25 +361,24 @@ namespace JobTrackingAPI.Controllers
         {
             _logger.LogInformation("Getting task details: {TaskId}", id);
             
-            // Try to get from cache first
-            string cacheKey = $"task_{id}";
-            var cachedTask = _cacheService.GetOrCreate<TaskItem>(cacheKey, () => null);
-            if (cachedTask != null)
+            try 
             {
-                _logger.LogInformation("Retrieved task {TaskId} from cache", id);
-                return Ok(cachedTask);
-            }
-            
-            var task = await _tasksService.GetTask(id);
-            if (task == null)
-                return NotFound();
+                var task = await _cacheService.GetOrUpdateAsync(
+                    $"task_{id}",
+                    async () => await _tasksService.GetTask(id),
+                    TimeSpan.FromMinutes(15)
+                );
                 
-            _logger.LogInformation("Retrieved task {TaskId} from database", id);
-            
-            // Cache the task
-            _cacheService.GetOrCreate(cacheKey, () => task, TimeSpan.FromMinutes(10));
-            
-            return Ok(task);
+                if (task == null)
+                    return NotFound();
+                    
+                return Ok(task);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving task {TaskId}", id);
+                return StatusCode(500, new { message = "Internal server error" });
+            }
         }
         
         [HttpGet("user/{userId}")]
@@ -362,21 +386,21 @@ namespace JobTrackingAPI.Controllers
         {
             _logger.LogInformation("Getting all tasks for user: {UserId}", userId);
             
-            // Try to get from cache first
-            var cachedTasks = _cacheService.GetCachedUserTasks(userId);
-            if (cachedTasks != null)
+            try 
             {
-                _logger.LogInformation("Retrieved tasks for user {UserId} from cache", userId);
-                return Ok(cachedTasks);
+                var tasks = await _cacheService.GetOrUpdateAsync(
+                    $"user_tasks_{userId}",
+                    async () => await _tasksService.GetTasksByUserId(userId),
+                    TimeSpan.FromMinutes(15)
+                );
+                
+                return Ok(tasks);
             }
-            
-            var tasks = await _tasksService.GetTasksByUserId(userId);
-            _logger.LogInformation("Retrieved {Count} tasks for user {UserId} from database", tasks.Count, userId);
-            
-            // Cache the tasks
-            _cacheService.CacheUserTasks(userId, tasks);
-            
-            return Ok(tasks);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving tasks for user {UserId}", userId);
+                return StatusCode(500, new { message = "Internal server error" });
+            }
         }
         
         [HttpGet("download/{attachmentId}/{fileName}")]
@@ -413,8 +437,6 @@ namespace JobTrackingAPI.Controllers
                     return NotFound("Task not found");
                 }
                 
-                
-                
                 // DeleteTask in the service now handles file deletion
                 await _tasksService.DeleteTask(id);
                 
@@ -427,6 +449,11 @@ namespace JobTrackingAPI.Controllers
                     {
                         return BadRequest($"ID'si {item.Id} olan kullanıcı bulunamadı.");
                     }
+                    
+                    // Kullanıcının assignedJobs listesinden görevi kaldır
+                    var userUpdate = Builders<User>.Update.Pull(u => u.AssignedJobs, id);
+                    await _usersCollection.UpdateOneAsync(u => u.Id == user.Id, userUpdate);
+                    
                     await _notificationService.SendNotificationAsync(new NotificationDto
                     {
                         UserId = user.Id,
@@ -583,8 +610,8 @@ namespace JobTrackingAPI.Controllers
                 
                 await _tasksService.FileUpload(id, fileUrl);
                 
-                // Invalidate task cache after file upload
-                _cacheService.GetOrCreate<TaskItem>($"task_{id}", null);
+                // Invalidate task cache
+                _cacheService.InvalidateTaskRelatedCaches(task);
                 
                 var updatedTask = await _tasksService.GetTask(id);
                 var attachment = updatedTask?.Attachments?.LastOrDefault();
@@ -623,23 +650,14 @@ namespace JobTrackingAPI.Controllers
                     return BadRequest(new { message = "User not authenticated" });
                 }
                 
-                // Try to get from cache first
-                string cacheKey = $"dashboard_stats_{userId}";
-                var cachedStats = _cacheService.GetOrCreate<object>(cacheKey, () => null, TimeSpan.FromMinutes(5));
-                if (cachedStats != null)
-                {
-                    _logger.LogInformation("Retrieved dashboard stats for user {UserId} from cache", userId);
-                    return Ok(cachedStats);
-                }
-                
-                // Add an actual async operation to avoid CS1998 warning
-                await Task.Delay(1); // Minimal async operation to satisfy the compiler
-                
-                var stats = new { message = "200" };
-                
-                // Cache the dashboard stats
-                _cacheService.GetOrCreate(cacheKey, () => stats, TimeSpan.FromMinutes(5));
-                _logger.LogInformation("Cached dashboard stats for user {UserId}", userId);
+                var stats = await _cacheService.GetOrUpdateAsync(
+                    $"dashboard_stats_{userId}",
+                    async () => {
+                        await Task.Delay(1);
+                        return new { message = "200" };
+                    },
+                    TimeSpan.FromMinutes(5)
+                );
                 
                 return Ok(stats);
             }
@@ -657,27 +675,18 @@ namespace JobTrackingAPI.Controllers
             {
                 _logger.LogInformation("Getting task history");
                 
-                // Try to get from cache first
-                string cacheKey = "task_history";
-                var cachedHistory = _cacheService.GetOrCreate<List<TaskItem>>(cacheKey, () => null, TimeSpan.FromMinutes(10));
-                if (cachedHistory != null)
-                {
-                    _logger.LogInformation("Retrieved task history from cache");
-                    return Ok(cachedHistory);
-                }
+                var tasks = await _cacheService.GetOrUpdateAsync(
+                    "task_history",
+                    async () => {
+                        var allTasks = await _tasksService.GetTasks();
+                        return allTasks.Where(t => t.Status == "completed" || t.Status == "overdue")
+                                     .OrderByDescending(t => t.UpdatedAt)
+                                     .ToList();
+                    },
+                    TimeSpan.FromMinutes(30)
+                );
                 
-                var tasks = await _tasksService.GetTasks();
-                _logger.LogInformation("Retrieved {Count} tasks for history", tasks.Count);
-                
-                var historicalTasks = tasks.Where(t => t.Status == "completed" || t.Status == "overdue")
-                                         .OrderByDescending(t => t.UpdatedAt)
-                                         .ToList();
-                
-                // Cache the task history
-                _cacheService.GetOrCreate(cacheKey, () => historicalTasks, TimeSpan.FromMinutes(10));
-                _logger.LogInformation("Cached task history with {Count} items", historicalTasks.Count);
-                
-                return Ok(historicalTasks);
+                return Ok(tasks);
             }
             catch (Exception ex)
             {
@@ -702,11 +711,11 @@ namespace JobTrackingAPI.Controllers
                 // Invalidate the task's own cache if ID exists
                 if (!string.IsNullOrEmpty(task.Id))
                 {
-                    _cacheService.GetOrCreate<TaskItem>($"task_{task.Id}", () => null);
+                    _cacheService.GetOrCreate($"task_{task.Id}", () => (TaskItem?)null);
                 }
                 
                 // Invalidate task history cache
-                _cacheService.GetOrCreate<List<TaskItem>>("task_history", () => null);
+                _cacheService.GetOrCreate("task_history", () => (List<TaskItem>?)null);
                 
                 // Invalidate caches for all assigned users
                 if (task.AssignedUsers != null)
@@ -716,7 +725,7 @@ namespace JobTrackingAPI.Controllers
                         if (user != null && !string.IsNullOrEmpty(user.Id))
                         {
                             _cacheService.InvalidateUserCaches(user.Id);
-                            _cacheService.GetOrCreate<List<TaskItem>>($"active_tasks_{user.Id}", () => null);
+                            _cacheService.GetOrCreate($"active_tasks_{user.Id}", () => (List<TaskItem>?)null);
                             _logger.LogInformation("Invalidated cache for user: {UserId}", user.Id);
                         }
                     }

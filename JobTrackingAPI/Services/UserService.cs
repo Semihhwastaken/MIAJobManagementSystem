@@ -4,6 +4,10 @@ using JobTrackingAPI.Models;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using JobTrackingAPI.Settings;
+<<<<<<< HEAD
+=======
+using System.Linq;
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
 
 namespace JobTrackingAPI.Services
 {
@@ -34,6 +38,15 @@ namespace JobTrackingAPI.Services
             return user;
         }
 
+<<<<<<< HEAD
+=======
+        public async Task<bool> UpdateUser(string id, UpdateDefinition<User> update)
+        {
+            var result = await _users.UpdateOneAsync(u => u.Id == id, update);
+            return result.ModifiedCount > 0;
+        }
+
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
         public async Task<bool> DeleteUser(string id)
         {
             var result = await _users.DeleteOneAsync(u => u.Id == id);
@@ -58,5 +71,61 @@ namespace JobTrackingAPI.Services
             var result = await _users.UpdateOneAsync(u => u.Id == userId, update);
             return result.ModifiedCount > 0;
         }
+<<<<<<< HEAD
+=======
+
+        public async Task AddTaskToHistory(string userId, string taskId)
+        {
+            var update = Builders<User>.Update.AddToSet(u => u.TaskHistory, taskId);
+            await _users.UpdateOneAsync(u => u.Id == userId, update);
+        }
+
+        public async Task AddToAssignedJobs(string userId, string taskId)
+        {
+            var update = Builders<User>.Update.AddToSet(u => u.AssignedJobs, taskId);
+            await _users.UpdateOneAsync(u => u.Id == userId, update);
+        }
+
+        public async Task RemoveFromAssignedJobs(string userId, string taskId)
+        {
+            var update = Builders<User>.Update.Pull(u => u.AssignedJobs, taskId);
+            await _users.UpdateOneAsync(u => u.Id == userId, update);
+        }
+
+        public async Task<List<User>> GetUsersByIds(List<string> userIds)
+        {
+            if (userIds == null || !userIds.Any())
+            {
+                return new List<User>();
+            }
+            
+            var filter = Builders<User>.Filter.In(u => u.Id, userIds);
+            return await _users.Find(filter).ToListAsync();
+        }
+        
+        public async Task AddOwnerTeam(string userId, string teamId)
+        {
+            var update = Builders<User>.Update.AddToSet(u => u.OwnerTeams, teamId);
+            await _users.UpdateOneAsync(u => u.Id == userId, update);
+        }
+        
+        public async Task AddMemberTeam(string userId, string teamId)
+        {
+            var update = Builders<User>.Update.AddToSet(u => u.MemberTeams, teamId);
+            await _users.UpdateOneAsync(u => u.Id == userId, update);
+        }
+        
+        public async Task RemoveOwnerTeam(string userId, string teamId)
+        {
+            var update = Builders<User>.Update.Pull(u => u.OwnerTeams, teamId);
+            await _users.UpdateOneAsync(u => u.Id == userId, update);
+        }
+        
+        public async Task RemoveMemberTeam(string userId, string teamId)
+        {
+            var update = Builders<User>.Update.Pull(u => u.MemberTeams, teamId);
+            await _users.UpdateOneAsync(u => u.Id == userId, update);
+        }
+>>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
     }
 }

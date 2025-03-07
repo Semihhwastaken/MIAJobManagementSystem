@@ -199,12 +199,14 @@ namespace JobTrackingAPI.Controllers
                     return NotFound("Kullanıcı bulunamadı");
                 }
 
-                if (!VerifyPassword(request.CurrentPassword, user.Password))
+                if (!VerifyPasswordWithHashAndSalt(request.CurrentPassword, user.PasswordHash, user.PasswordSalt))
                 {
                     return BadRequest("Mevcut şifre yanlış");
                 }
 
-                user.Password = HashPassword(request.NewPassword);
+                var (newHash, newSalt) = CreatePasswordHash(request.NewPassword);
+                user.PasswordHash = newHash;
+                user.PasswordSalt = newSalt;
                 user.UpdatedDate = DateTime.UtcNow;
 
                 await _userService.UpdateUser(userId, user);
@@ -308,6 +310,36 @@ namespace JobTrackingAPI.Controllers
         {
             var hashedInput = HashPassword(password);
             return hashedInput == hashedPassword;
+        }
+
+        private (byte[] Hash, byte[] Salt) CreatePasswordHash(string password)
+        {
+            using (var hmac = new HMACSHA512())
+            {
+                var salt = hmac.Key;
+                var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+                
+                return (hash, salt);
+            }
+        }
+
+        private bool VerifyPasswordWithHashAndSalt(string password, byte[] storedHash, byte[] storedSalt)
+        {
+            if (storedHash.Length == 0 || storedSalt.Length == 0)
+                return false;
+            
+            using (var hmac = new HMACSHA512(storedSalt))
+            {
+                var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+                
+                for (int i = 0; i < computedHash.Length; i++)
+                {
+                    if (computedHash[i] != storedHash[i])
+                        return false;
+                }
+            }
+            
+            return true;
         }
     }
 

@@ -15,10 +15,47 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { isDarkMode, toggleTheme } = useTheme();
   const isAuthPage = location.pathname === '/auth';
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    setIsAuthenticated(false);
-    navigate('/auth');
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Oturum bilgisi bulunamadı');
+      }
+
+      // Önce storage'ı temizle
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // Sonra state'i güncelle
+      setIsAuthenticated(false);
+
+      // API çağrısını yap
+      try {
+        await fetch('http://localhost:5193/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include'
+        });
+      } catch (error) {
+        console.error('Logout API error:', error);
+      }
+
+      // En son yönlendirmeyi yap
+      setTimeout(() => {
+        navigate('/auth', { replace: true });
+      }, 100);
+    } catch (error) {
+      console.error('Logout error:', error);
+      
+      // Hata durumunda da temizlik yap
+      localStorage.clear();
+      sessionStorage.clear();
+      setIsAuthenticated(false);
+      navigate('/auth', { replace: true });
+    }
   };
 
   const navItems = [

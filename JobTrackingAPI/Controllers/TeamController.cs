@@ -18,8 +18,8 @@ namespace JobTrackingAPI.Controllers
     [Authorize]
     public class TeamController : ControllerBase
     {
-        private readonly TeamService _teamService;
-        private readonly UserService _userService;
+        private readonly ITeamService _teamService;
+        private readonly IUserService _userService;
         private readonly IMongoDatabase _database;
         private readonly IMemoryCache _cache;
         private readonly ILogger<TeamController> _logger;
@@ -28,8 +28,8 @@ namespace JobTrackingAPI.Controllers
         private readonly NotificationService _notificationService;
 
         public TeamController(
-            TeamService teamService, 
-            UserService userService, 
+            ITeamService teamService, 
+            IUserService userService, 
             IMongoDatabase database, 
             IMemoryCache memoryCache,
             ILogger<TeamController> logger,

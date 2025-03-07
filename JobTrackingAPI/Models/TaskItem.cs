@@ -119,6 +119,10 @@ namespace JobTrackingAPI.Models
         [BsonElement("assignedUsers")]
         [JsonPropertyName("assignedUsers")]
         public List<AssignedUser> AssignedUsers { get; set; } = new List<AssignedUser>();
+        
+        [BsonElement("assignedUserIds")]
+        [JsonPropertyName("assignedUserIds")]
+        public List<string> AssignedUserIds { get; set; } = new List<string>();
     
         [BsonElement("dueDate")]
         [JsonPropertyName("dueDate")]
@@ -160,6 +164,11 @@ namespace JobTrackingAPI.Models
         [JsonPropertyName("completedDate")]
         public DateTime? CompletedDate { get; set; }
 
+        [BsonElement("assignedJobs")]
+        public List<string> AssignedJobs { get; set; } = new List<string>();
+
+        [BsonElement("history")]
+        public List<TaskHistory> History { get; set; } = new List<TaskHistory>();
     }
     
     public class CreatedByUser
