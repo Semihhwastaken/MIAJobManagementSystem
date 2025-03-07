@@ -4,6 +4,13 @@ export interface Attachment {
     fileType?: string;
 }
 
+export interface FileAttachment {
+    fileName: string;
+    filePath: string;
+    contentType: string;
+    fileSize: number;
+}
+
 export interface Message {
     id?: string;
     senderId: string;
@@ -15,6 +22,7 @@ export interface Message {
     senderName?: string;
     receiverName?: string;
     attachments?: Attachment[];
+    fileAttachment?: FileAttachment;
 }
 
 export interface MessageResponse extends Message {

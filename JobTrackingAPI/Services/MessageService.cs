@@ -2,7 +2,7 @@ using JobTrackingAPI.Models;
 using MongoDB.Driver;
 using Microsoft.Extensions.Options;
 using JobTrackingAPI.Settings;
-using Microsoft.AspNetCore.Http;
+using JobTrackingAPI.Services;
 
 namespace JobTrackingAPI.Services
 {
@@ -14,20 +14,77 @@ namespace JobTrackingAPI.Services
         private readonly IMongoCollection<Team> _teams;
         private readonly IMongoCollection<Message> _messages;
         private readonly IMongoCollection<User> _users;
+        private readonly string _uploadsPath;
 
-        public MessageService(IOptions<MongoDbSettings> settings)
+        public MessageService(IOptions<MongoDbSettings> settings, IWebHostEnvironment env)
         {
             var client = new MongoClient(settings.Value.ConnectionString);
             var database = client.GetDatabase(settings.Value.DatabaseName);
             _teams = database.GetCollection<Team>("Teams");
             _messages = database.GetCollection<Message>("Messages");
             _users = database.GetCollection<User>("Users");
+            _uploadsPath = Path.Combine(env.WebRootPath, "uploads");
+            if (!Directory.Exists(_uploadsPath))
+            {
+                Directory.CreateDirectory(_uploadsPath);
+            }
         }
 
         public async Task<Message> CreateMessageAsync(Message message)
         {
             await _messages.InsertOneAsync(message);
             return message;
+        }
+
+        public async Task<Message> CreateMessageWithFileAsync(Message message, IFormFile file)
+        {
+            if (file != null)
+            {
+                // Get file extension from original file name
+                string fileExtension = Path.GetExtension(file.FileName);
+                // Create unique filename with original extension
+                var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+                var uploadFolder = Path.Combine(_uploadsPath);
+                Directory.CreateDirectory(uploadFolder);
+                
+                var filePath = Path.Combine("uploads", uniqueFileName);
+                var fullPath = Path.Combine(uploadFolder, uniqueFileName);
+
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                message.FileAttachment = new FileAttachment
+                {
+                    FileName = file.FileName, // Original filename with extension
+                    FilePath = filePath,
+                    ContentType = GetContentType(file.FileName), // Get proper content type
+                    FileSize = file.Length
+                };
+            }
+
+            await _messages.InsertOneAsync(message);
+            return message;
+        }
+
+        private string GetContentType(string fileName)
+        {
+            var extension = Path.GetExtension(fileName).ToLowerInvariant();
+            return extension switch
+            {
+                ".txt" => "text/plain",
+                ".pdf" => "application/pdf",
+                ".doc" => "application/msword",
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".xls" => "application/vnd.ms-excel",
+                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ".png" => "image/png",
+                ".jpg" => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                ".gif" => "image/gif",
+                _ => "application/octet-stream",
+            };
         }
 
         public async Task<Message?> GetMessageByIdAsync(string id)

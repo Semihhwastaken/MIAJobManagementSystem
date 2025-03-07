@@ -25,6 +25,16 @@ namespace JobTrackingAPI.Models
 
         [Required]
         public string Subject { get; set; } = string.Empty;
+
+        public FileAttachment? FileAttachment { get; set; }
+    }
+
+    public class FileAttachment
+    {
+        public string FileName { get; set; } = string.Empty;
+        public string FilePath { get; set; } = string.Empty;
+        public string ContentType { get; set; } = string.Empty;
+        public long FileSize { get; set; }
     }
 
     public class SendMessageDto
@@ -37,6 +47,8 @@ namespace JobTrackingAPI.Models
 
         [Required]
         public string Subject { get; set; } = string.Empty;
+
+        public IFormFile? File { get; set; }
     }
 
     public class MessageResponse
