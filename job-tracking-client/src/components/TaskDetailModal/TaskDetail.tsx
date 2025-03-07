@@ -8,8 +8,6 @@ import axiosInstance from '../../services/axiosInstance';
 import axios from 'axios';
 import { useTheme } from '../../context/ThemeContext';
 import CommentList from '../Comments/CommentList';
-import UserTaskCommentModal from '../Comments/UserTaskCommentModal';
-import { ChatBubbleLeftIcon } from '@heroicons/react/24/outline';
 
 interface TaskDetailModalProps {
     task: Task;
@@ -24,8 +22,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDownloading, setIsDownloading] = useState<{[key: string]: boolean}>({});
     const { isDarkMode } = useTheme();
-    const [showCommentModal, setShowCommentModal] = useState(false);
-    const [commentRefreshTrigger, setCommentRefreshTrigger] = useState(0);
 
     useEffect(() => {
         setLocalTask(task);
@@ -219,22 +215,15 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                            progressPercentage === 100 &&
                            areAllDependenciesCompleted();
 
-    // Yorum modalını kapatma işlevi
-    const handleCloseCommentModal = () => {
-        setShowCommentModal(false);
-        // Yorumları yeniden yükle
-        setCommentRefreshTrigger(prev => prev + 1);
-    };
-
     return (
         <div className="fixed inset-y-0 right-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-            <div className={`fixed inset-y-0 right-0 w-96 bg-white shadow-xl transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className={`fixed inset-y-0 right-0 w-96 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                 <div className="h-full p-6 overflow-y-auto">
                     <div className="flex justify-between items-start mb-6">
-                        <h3 className="text-lg font-medium text-gray-900" id="modal-title">
+                        <h3 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`} id="modal-title">
                             {localTask.title}
                         </h3>
-                        <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
+                        <button onClick={onClose} className={`${isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-500'}`}>
                             <span className="sr-only">Kapat</span>
                             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -253,12 +242,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
 
                     <div className="space-y-6">
                         <div>
-                            <h4 className="text-sm font-medium text-gray-900">Açıklama</h4>
-                            <p className="mt-1 text-sm text-gray-500">{localTask.description}</p>
+                            <h4 className={`text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>Açıklama</h4>
+                            <p className={`mt-1 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>{localTask.description}</p>
                         </div>
 
                         <div>
-                            <h4 className="text-sm font-medium text-gray-900">İlerleme</h4>
+                            <h4 className={`text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>İlerleme</h4>
                             <div className="mt-2">
                                 <div className="flex items-center">
                                     <div className="flex-1 bg-gray-200 rounded-full h-2">
@@ -267,13 +256,13 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                                             style={{ width: `${progressPercentage}%` }}
                                         />
                                     </div>
-                                    <span className="ml-2 text-sm text-gray-500">{progressPercentage}%</span>
+                                    <span className={`ml-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>{progressPercentage}%</span>
                                 </div>
                             </div>
                         </div>
 
                         <div>
-                            <h4 className="text-sm font-medium text-gray-900">Alt Görevler</h4>
+                            <h4 className={`text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>Alt Görevler</h4>
                             <div className="mt-2 space-y-2">
                                 {localTask.subTasks.map((subTask) => (
                                     <div key={subTask.id} className="flex items-center">
@@ -285,7 +274,13 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                                             className={`h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 
                                                 ${(localTask.status === 'overdue' || localTask.status === 'completed') ? 'cursor-not-allowed opacity-50' : ''}`}
                                         />
-                                        <label className={`ml-2 text-sm ${(localTask.status === 'overdue' || localTask.status === 'completed') ? 'text-gray-400' : 'text-gray-700'}`}>
+                                        <label className={`ml-2 text-sm ${
+                                            (localTask.status === 'overdue' || localTask.status === 'completed') 
+                                            ? 'text-gray-400' 
+                                            : isDarkMode 
+                                                ? 'text-gray-300' 
+                                                : 'text-gray-700'
+                                        }`}>
                                             {subTask.title}
                                         </label>
                                     </div>
@@ -294,15 +289,15 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                         </div>
 
                         <div>
-                            <h4 className="text-sm font-medium text-gray-900">Bağlı Görevler</h4>
+                            <h4 className={`text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>Bağlı Görevler</h4>
                             <div className="mt-2 space-y-2">
                                 {localTask.dependencies.map((depId, index) => (
-                                    <div key={index} className="text-sm text-gray-500 flex items-center justify-between">
+                                    <div key={index} className="text-sm flex items-center justify-between">
                                         <div className="flex items-center">
-                                            <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <svg className={`h-4 w-4 mr-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                                             </svg>
-                                            {getDependencyTitle(depId)}
+                                            <span className={`${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>{getDependencyTitle(depId)}</span>
                                         </div>
                                         <span className={`text-xs px-2 py-1 rounded-full ${isDependencyCompleted(depId) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                                             {isDependencyCompleted(depId) ? 'Tamamlandı' : 'Bekliyor'}
@@ -313,26 +308,26 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                         </div>
 
                         <div>
-                            <h4 className="text-sm font-medium text-gray-900">Dosyalar</h4>
+                            <h4 className={`text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>Dosyalar</h4>
                             <div className="mt-2 space-y-2">
                                 {!localTask.attachments || localTask.attachments.length === 0 ? (
-                                    <p className="text-sm italic text-gray-500">Bu göreve eklenmiş dosya bulunmamaktadır.</p>
+                                    <p className={`text-sm italic ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>Bu göreve eklenmiş dosya bulunmamaktadır.</p>
                                 ) : (
                                     localTask.attachments.map((attachment, index) => (
-                                        <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg">
-                                            <div className="flex items-center text-sm text-gray-500">
-                                                <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <div key={index} className={`flex items-center justify-between ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'} p-2 rounded-lg`}>
+                                            <div className="flex items-center text-sm">
+                                                <svg className={`h-4 w-4 mr-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                                                 </svg>
                                                 <button
                                                     onClick={() => handleDownloadFile(attachment.id!, attachment.fileName)}
                                                     disabled={isDownloading[attachment.id!]}
-                                                    className="text-indigo-600 hover:text-indigo-800 cursor-pointer disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                    className={`cursor-pointer ${isDarkMode ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-800'} disabled:text-gray-400 disabled:cursor-not-allowed`}
                                                 >
                                                     {isDownloading[attachment.id!] ? 'İndiriliyor...' : attachment.fileName}
                                                 </button>
                                             </div>
-                                            <span className="text-xs text-gray-400">
+                                            <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                                 {new Date(attachment.uploadDate).toLocaleDateString()}
                                             </span>
                                         </div>
@@ -342,12 +337,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                         </div>
 
                         <div>
-                            <h4 className="text-sm font-medium text-gray-900">Atanan Kişiler</h4>
+                            <h4 className={`text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>Atanan Kişiler</h4>
                             <div className="mt-2 flex flex-wrap gap-2">
                                 {localTask.assignedUsers.map((user, index) => (
                                     <div 
                                         key={user.id || index} 
-                                        className="flex items-center space-x-2 bg-gray-50 rounded-full px-3 py-1 group relative"
+                                        className={`flex items-center space-x-2 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-full px-3 py-1 group relative`}
                                         title={`${user.fullName || user.username}${user.department ? ` (${user.department})` : ''}`}
                                     >
                                         {user.profileImage ? (
@@ -357,14 +352,14 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                                                 className="w-6 h-6 rounded-full object-cover"
                                             />
                                         ) : (
-                                            <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600">
+                                            <div className={`w-6 h-6 rounded-full ${isDarkMode ? 'bg-gray-600' : 'bg-gray-200'} flex items-center justify-center text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                                                 {(user.fullName || user.username).charAt(0).toUpperCase()}
                                             </div>
                                         )}
-                                        <span className="text-sm text-gray-700">
+                                        <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                             {user.fullName || user.username}
                                             {user.department && (
-                                                <span className="text-gray-500 text-xs ml-1">
+                                                <span className={`text-xs ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                                     ({user.department})
                                                 </span>
                                             )}
@@ -380,15 +375,15 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                      localTask.status !== 'overdue' && 
                      progressPercentage === 100 &&
                      !areAllDependenciesCompleted() && (
-                        <div className="mt-6 p-4 bg-yellow-50 rounded-md">
+                        <div className={`mt-6 p-4 ${isDarkMode ? 'bg-yellow-900' : 'bg-yellow-50'} rounded-md`}>
                             <div className="flex">
                                 <div className="flex-shrink-0">
-                                    <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <svg className={`h-5 w-5 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-400'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                         <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                                     </svg>
                                 </div>
                                 <div className="ml-3">
-                                    <p className="text-sm font-medium text-yellow-800">
+                                    <p className={`text-sm font-medium ${isDarkMode ? 'text-yellow-200' : 'text-yellow-800'}`}>
                                         Bağlı görevler tamamlanmadan bu görev tamamlanamaz.
                                     </p>
                                 </div>
@@ -416,19 +411,19 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                     {/* Attachments */}
                     {localTask.attachments && localTask.attachments.length > 0 && (
                         <div className="mt-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-3">Ekler</h3>
+                            <h3 className={`text-lg font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'} mb-3`}>Ekler</h3>
                             <div className="space-y-2">
                                 {localTask.attachments.map((attachment, index) => (
-                                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                                    <div key={index} className={`flex items-center justify-between p-2 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-md`}>
                                         <div className="flex items-center">
-                                            <svg className="h-5 w-5 text-gray-400 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                            <svg className={`h-5 w-5 ${isDarkMode ? 'text-gray-300' : 'text-gray-400'} mr-2`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                 <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
                                             </svg>
-                                            <span className="text-sm text-gray-700">{attachment.fileName}</span>
+                                            <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{attachment.fileName}</span>
                                         </div>
                                         <button
                                             onClick={() => handleDownloadFile(attachment.fileUrl, attachment.fileName)}
-                                            className="text-indigo-600 hover:text-indigo-900 text-sm font-medium flex items-center"
+                                            className={`text-sm font-medium flex items-center ${isDarkMode ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-900'}`}
                                             disabled={isDownloading[attachment.fileUrl]}
                                         >
                                             {isDownloading[attachment.fileUrl] ? (
@@ -441,7 +436,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                                                 </>
                                             ) : (
                                                 <>
-                                                    <svg className="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <svg className={`h-4 w-4 mr-1 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                         <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
                                                     </svg>
                                                     İndir
@@ -456,42 +451,18 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
 
                     {/* Yorumlar Bölümü */}
                     <div className="mt-8">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                Yorumlar
-                            </h3>
-                            <button
-                                onClick={() => setShowCommentModal(true)}
-                                className={`px-4 py-2 rounded-md flex items-center space-x-2 ${
-                                    isDarkMode 
-                                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
-                                        : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                                }`}
-                            >
-                                <ChatBubbleLeftIcon className="h-5 w-5" />
-                                <span>Yorum Ekle</span>
-                            </button>
-                        </div>
-                        
-                        {/* Yorum Listesi Komponenti */}
+                        <h3 className={`text-lg font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'} mb-4`}>
+                            Yorumlar
+                        </h3>
                         <CommentList 
                             taskId={localTask.id || ''} 
-                            refreshTrigger={commentRefreshTrigger}
+                            refreshTrigger={0}
                         />
                     </div>
 
-                    {/* Yorum Ekleme Modalı */}
-                    {showCommentModal && (
-                        <UserTaskCommentModal
-                            isOpen={showCommentModal}
-                            onClose={handleCloseCommentModal}
-                            userId={localTask.createdBy?.id}
-                        />
-                    )}
-
                     {/* Completed Task Message */}
                     {localTask.status === 'completed' && (
-                        <div className="mt-6 p-4 bg-green-50 rounded-md">
+                        <div className={`mt-6 p-4 ${isDarkMode ? 'bg-green-900' : 'bg-green-50'} rounded-md`}>
                             <div className="flex">
                                 <div className="flex-shrink-0">
                                     <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -499,7 +470,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                                     </svg>
                                 </div>
                                 <div className="ml-3">
-                                    <p className="text-sm font-medium text-green-800">
+                                    <p className={`text-sm font-medium ${isDarkMode ? 'text-green-200' : 'text-green-800'}`}>
                                         Bu görev tamamlanmıştır ve artık değiştirilemez.
                                     </p>
                                 </div>
@@ -509,7 +480,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
 
                     {/* Overdue Task Message */}
                     {localTask.status === 'overdue' && (
-                        <div className="mt-6 p-4 bg-red-50 rounded-md">
+                        <div className={`mt-6 p-4 ${isDarkMode ? 'bg-red-900' : 'bg-red-50'} rounded-md`}>
                             <div className="flex">
                                 <div className="flex-shrink-0">
                                     <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -517,7 +488,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                                     </svg>
                                 </div>
                                 <div className="ml-3">
-                                    <p className="text-sm font-medium text-red-800">
+                                    <p className={`text-sm font-medium ${isDarkMode ? 'text-red-200' : 'text-red-800'}`}>
                                         Bu görevin süresi dolmuştur ve artık değiştirilemez.
                                     </p>
                                 </div>

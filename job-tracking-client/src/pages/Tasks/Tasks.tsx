@@ -363,25 +363,25 @@ const Tasks: React.FC = () => {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>My Tasks</h1>
-            <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Track and manage your tasks efficiently</p>
+        <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>My Tasks</h1>
+        <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Track and manage your tasks efficiently</p>
           </div>
         </div>
 
         {/* Task Management Tools */}
         <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-sm p-6 mb-8`}>
           <div className="flex items-center justify-between mb-6">
-            {/* Search Input */}
-            <div className="relative flex-1 max-w-md">
-              <input
-                type="text"
-                placeholder="Search tasks..."
-                className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
-                  isDarkMode 
-                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                    : 'border-gray-300 text-gray-900'
-                }`}
-                value={searchTerm}
+        {/* Search Input */}
+        <div className="relative flex-1 max-w-md">
+          <input
+            type="text"
+            placeholder="Search tasks..."
+            className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+          isDarkMode 
+            ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+            : 'border-gray-300 text-gray-900'
+            }`}
+            value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
               <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
@@ -396,7 +396,7 @@ const Tasks: React.FC = () => {
                 }}
                 className="!rounded-button flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                <i className="fas fa-history text-gray-600"></i>
+                <i className={`fas fa-history ${isDarkMode ? 'text-white' : 'text-gray-600'}`}></i>
               </button>
               <button
                 onClick={(e) => {
@@ -405,8 +405,8 @@ const Tasks: React.FC = () => {
                 }}
                 className={`!rounded-button flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors ${sortByPriority ? 'bg-indigo-100 border-indigo-300' : ''}`}
               >
-                <i className="fas fa-sort text-gray-600"></i>
-                <span className="text-gray-600">Sort</span>
+                <i className={`fas fa-sort ${isDarkMode ? 'text-white' : 'text-gray-600'}`}></i>
+                <span className={`${isDarkMode ? 'text-white' : 'text-gray-600'}`}>Sort</span>
               </button>
               <button
                 onClick={(e) => {
@@ -415,8 +415,8 @@ const Tasks: React.FC = () => {
                 }}
                 className={`!rounded-button flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors ${isFilterActive ? 'bg-indigo-100 border-indigo-300' : ''}`}
               >
-                <i className="fas fa-filter text-gray-600"></i>
-                <span className="text-gray-600">Filter</span>
+                <i className={`fas fa-filter ${isDarkMode ? 'text-white' : 'text-gray-600'}`}></i>
+                <span className={`${isDarkMode ? 'text-white' : 'text-gray-600'}`}>Filter</span>
               </button>
             </div>
           </div>
@@ -426,10 +426,7 @@ const Tasks: React.FC = () => {
             {categories.map((category) => (
               <button
                 key={category}
-                className={`!rounded-button px-4 py-2 rounded-lg transition-colors ${selectedCategory === category
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
+                className={`!rounded-button px-4 py-2 rounded-lg transition-colors ${isDarkMode ? selectedCategory === category ? 'bg-gray-900 text-white' : 'bg-gray-600 text-white-600 hover:bg-gray-200' : selectedCategory === category ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                 onClick={(e) => {
                   e.preventDefault();
                   setSelectedCategory(category);
@@ -447,14 +444,14 @@ const Tasks: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanımlama</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Öncelik</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategori</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Atanan Kişiler</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Son Düzenleme</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-200" : "text-gray-500"} uppercase tracking-wider`}>Title</th>
+                  <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-200" : "text-gray-500"} uppercase tracking-wider`}>Tanımlama</th>
+                  <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-200" : "text-gray-500"} uppercase tracking-wider`}>Öncelik</th>
+                  <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-200" : "text-gray-500"} uppercase tracking-wider`}>Durum</th>
+                  <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-200" : "text-gray-500"} uppercase tracking-wider`}>Kategori</th>
+                  <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-200" : "text-gray-500"} uppercase tracking-wider`}>Atanan Kişiler</th>
+                  <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-200" : "text-gray-500"} uppercase tracking-wider`}>Son Düzenleme</th>
+                  <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-200" : "text-gray-500"} uppercase tracking-wider`}>Actions</th>
                 </tr>
               </thead>
               <tbody className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} divide-y ${
@@ -463,13 +460,13 @@ const Tasks: React.FC = () => {
                 {filteredTasks.map((task) => (
                   <React.Fragment key={task.id}>
                     <tr 
-                      className={`hover:bg-gray-50 cursor-pointer transition-colors ${
-                        task.isLinked ? 'border-l-4 border-blue-400' : ''
+                      className={`${isDarkMode ? "hover:bg-gray-500" : "hover:bg-gray-50"} cursor-pointer transition-colors ${
+                        task.isLinked ? `border-l-4 ${isDarkMode ? "border-white-200" : "border-blue-400"}` : ''
                       }`}
                       onClick={(e) => handleTaskClick(task, e)}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{task.title}</td>
-                      <td className="px-6 py-4 whitespace-normal text-sm text-gray-500 max-w-xs">{task.description}</td>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${isDarkMode ? "text-gray-200" :"text-gray-900"}`}>{task.title}</td>
+                      <td className={`px-6 py-4 whitespace-normal text-sm ${isDarkMode ? "text-gray-200" :"text-gray-900"} max-w-xs`}>{task.description}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           task.priority === 'high' ? 'bg-red-100 text-red-800' :
@@ -489,7 +486,7 @@ const Tasks: React.FC = () => {
                           {task.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{task.category}</td>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDarkMode ? "text-gray-200" :"text-gray-900"}`}>{task.category}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {/* User Avatars */}
                         <div className="flex items-center space-x-2">
@@ -498,7 +495,7 @@ const Tasks: React.FC = () => {
                               {task.assignedUsers.map((user, index) => (
                                 <div
                                   key={index}
-                                  className="relative inline-flex items-center justify-center w-8 h-8 bg-indigo-500 rounded-full ring-2 ring-white"
+                                  className={`relative inline-flex items-center justify-center w-8 h-8 bg-indigo-500 rounded-full ring-2 ${isDarkMode ? "ring-gray-400" : "ring-white"}`}
                                   title={user.fullName}
                                 >
                                   <span className="text-xs font-medium text-white">
@@ -512,7 +509,7 @@ const Tasks: React.FC = () => {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDarkMode ? "text-gray-200" :"text-gray-900"}`}>
                         {new Date(task.dueDate).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -543,17 +540,17 @@ const Tasks: React.FC = () => {
                     {task.isLinked && task.linkedTasks?.map(linkedTask => (
                       <tr 
                         key={linkedTask.id}
-                        className="hover:bg-blue-50 cursor-pointer transition-colors bg-blue-50/30"
+                        className={`hover:${isDarkMode ? "bg-gray-400" : "bg-blue-50"} cursor-pointer transition-colors bg-blue-50/30`}
                         onClick={(e) => handleTaskClick(linkedTask, e)}
                       >
-                        <td className="px-6 py-4 pl-12 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className={`px-6 py-4 pl-12 whitespace-nowrap text-sm font-medium ${isDarkMode ? "text-gray-300" :"text-gray-900"}`}>
                           <div className="flex items-center">
-                            <div className="w-6 border-l-2 border-b-2 border-blue-400 h-6 -ml-6"></div>
+                            <div className={`w-6 border-l-2 border-b-2 ${isDarkMode ? "border-white-400" : "border-blue-400"} h-6 -ml-6`}></div>
                             {linkedTask.title}
                           </div>
                         </td>
                         {/* ...other cells similar to above... */}
-                        <td className="px-6 py-4 whitespace-normal text-sm text-gray-500 max-w-xs">{linkedTask.description}</td>
+                        <td className={`px-6 py-4 whitespace-normal text-sm ${isDarkMode ? "text-gray-300": "text-gray-500"}  max-w-xs`}>{linkedTask.description}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             linkedTask.priority === 'high' ? 'bg-red-100 text-red-800' :
@@ -573,7 +570,7 @@ const Tasks: React.FC = () => {
                             {linkedTask.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{linkedTask.category}</td>
+                        <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDarkMode ? "text-gray-300":"text-gray-500"} `}>{linkedTask.category}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
                             {linkedTask.assignedUsers && linkedTask.assignedUsers.length > 0 ? (
@@ -581,7 +578,7 @@ const Tasks: React.FC = () => {
                                 {linkedTask.assignedUsers.map((user, index) => (
                                   <div
                                     key={index}
-                                    className="relative inline-flex items-center justify-center w-8 h-8 bg-indigo-500 rounded-full ring-2 ring-white"
+                                    className={`relative inline-flex items-center justify-center w-8 h-8 bg-indigo-500 rounded-full ring-2 ${isDarkMode ? "ring-gray-300" : "ring-white"}`}
                                     title={user.fullName}
                                   >
                                     <span className="text-xs font-medium text-white">
@@ -595,7 +592,7 @@ const Tasks: React.FC = () => {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDarkMode ? "text-gray-300":"text-gray-500"} `}>
                           {new Date(linkedTask.dueDate).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -662,26 +659,30 @@ const Tasks: React.FC = () => {
 
       {/* Date Filter Modal - Only render when needed */}
       {isDateFilterModalOpen && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white/90 backdrop-blur-md p-6 rounded-lg shadow-xl w-96" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-semibold mb-4 text-gray-900">Tarih Aralığı Seçin</h2>
+        <div className="fixed inset-0 backdrop-blur-md bg-gray-800/30 flex items-center justify-center z-50">
+          <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-lg shadow-xl w-96`} onClick={e => e.stopPropagation()}>
+            <h2 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Tarih Aralığı Seçin</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Başlangıç Tarihi</label>
+                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Başlangıç Tarihi</label>
                 <input
                   type="date"
                   value={dateFilter.startDate}
                   onChange={(e) => setDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                  className={`w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 ${
+                    isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
+                  }`}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Bitiş Tarihi</label>
+                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Bitiş Tarihi</label>
                 <input
                   type="date"
                   value={dateFilter.endDate}
                   onChange={(e) => setDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                  className={`w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 ${
+                    isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
+                  }`}
                 />
               </div>
               <div className="flex justify-end space-x-3 mt-6">
@@ -692,7 +693,11 @@ const Tasks: React.FC = () => {
                     setIsFilterActive(false);
                     setIsDateFilterModalOpen(false);
                   }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  className={`px-4 py-2 text-sm font-medium rounded-md ${
+                    isDarkMode 
+                      ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
                 >
                   Filtreyi Temizle
                 </button>
@@ -705,7 +710,11 @@ const Tasks: React.FC = () => {
                     }
                   }}
                   disabled={!dateFilter.startDate || !dateFilter.endDate}
-                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  className={`px-4 py-2 text-sm font-medium text-white rounded-md ${
+                    !dateFilter.startDate || !dateFilter.endDate
+                      ? 'bg-gray-300 cursor-not-allowed'
+                      : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
                 >
                   Uygula
                 </button>
