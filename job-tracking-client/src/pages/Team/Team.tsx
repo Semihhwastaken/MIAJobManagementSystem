@@ -1,10 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-<<<<<<< HEAD
-import { useNavigate } from 'react-router-dom';
-=======
 import { useNavigate, useLocation } from 'react-router-dom';
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
 import { AppDispatch, RootState } from '../../redux/store';
 import UserTaskCommentModal from '../../components/Comments/UserTaskCommentModal';
 import { IoIosAddCircleOutline } from "react-icons/io";
@@ -20,12 +17,8 @@ import {
     getTeamInviteLink,
     setTeamInviteLink,
     addExperties,
-<<<<<<< HEAD
-    fetchMemberActiveTasks
-=======
     fetchMemberActiveTasks,
     joinTeamWithInviteCode
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
 } from '../../redux/features/teamSlice';
 import { useTheme } from '../../context/ThemeContext';
 import { TeamMember } from '../../types/team';
@@ -35,12 +28,8 @@ import {
     MagnifyingGlassIcon,
     PlusIcon,
     ClipboardDocumentIcon,
-<<<<<<< HEAD
-    UserMinusIcon
-=======
     UserMinusIcon,
     ChatBubbleOvalLeftEllipsisIcon
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
 } from '@heroicons/react/24/outline';
 import axiosInstance from '../../services/axiosInstance';
 import { useSnackbar } from 'notistack';
@@ -48,18 +37,12 @@ import { DEPARTMENTS } from '../../constants/departments';
 import TaskForm from '../../components/TaskForm/TaskForm';
 import { createTask, Task } from '../../redux/features/tasksSlice';
 import Footer from '../../components/Footer/Footer';
-<<<<<<< HEAD
-=======
 import { toast } from 'react-hot-toast';
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
 
 const Team: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
     const navigate = useNavigate();
-<<<<<<< HEAD
-=======
     const location = useLocation();
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
     const { isDarkMode } = useTheme();
     const { enqueueSnackbar } = useSnackbar();
     const {
@@ -71,13 +54,6 @@ const Team: React.FC = () => {
     } = useSelector((state: RootState) => state.team);
     const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
     const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
-<<<<<<< HEAD
-    const [newTeamName, setNewTeamName] = useState('');
-    const [newTeamDescription, setNewTeamDescription] = useState('');
-    const [inviteLink, setInviteLink] = useState('');
-    const [showInviteLinkModal, setShowInviteLinkModal] = useState(false);
-    const [selectedTeamId, setSelectedTeamId] = useState<string>('');
-=======
     const [teamName, setTeamName] = useState('');
     const [teamDescription, setTeamDescription] = useState('');
     const [teamDepartment, setTeamDepartment] = useState('');
@@ -105,7 +81,6 @@ const Team: React.FC = () => {
     const [selectedMemberId, setSelectedMemberId] = useState<string>('');
     const [newExpertise, setNewExpertise] = useState('');
     const [newTeamDepartment, setNewTeamDepartment] = useState('');
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
     const [copySuccess, setCopySuccess] = useState(false);
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [teamToDelete, setTeamToDelete] = useState<string>('');
@@ -113,17 +88,6 @@ const Team: React.FC = () => {
     const [memberToRemove, setMemberToRemove] = useState<{ teamId: string, memberId: string } | null>(null);
     const currentUser = useSelector((state: RootState) => state.auth.user);
     const [showCommentModal, setShowCommentModal] = useState(false);
-<<<<<<< HEAD
-    const [selectedUserId, setSelectedUserId] = useState<string>('');
-    const [showExpertiesModal, setShowExpertiesModal] = useState(false);
-    const [selectedMemberId, setSelectedMemberId] = useState<string>('');
-    const [newExpertise, setNewExpertise] = useState('');
-    const [newTeamDepartment, setNewTeamDepartment] = useState('');
-    const [showTaskForm, setShowTaskForm] = useState(false);
-    const [selectedMemberForTask, setSelectedMemberForTask] = useState<TeamMember | null>(null);
-    const [selectedTeamForTask, setSelectedTeamForTask] = useState<{ id: string; name: string } | null>(null);
-=======
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
 
     useEffect(() => {
         // Kullanıcı girişi kontrolü
@@ -133,12 +97,6 @@ const Team: React.FC = () => {
             return;
         }
 
-<<<<<<< HEAD
-        dispatch(fetchTeamMembers());
-        dispatch(fetchDepartments());
-        dispatch(fetchTeams());
-    }, [dispatch, navigate]);
-=======
         // Takım verilerini yükleme
         dispatch(fetchTeamMembers());
         dispatch(fetchDepartments());
@@ -155,7 +113,6 @@ const Team: React.FC = () => {
             ));
         }
     }, [dispatch, navigate, currentUser?.id, teams.length]);
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
 
     // Teams listesini periyodik olarak güncelle
     useEffect(() => {
@@ -179,20 +136,6 @@ const Team: React.FC = () => {
             return;
         }
 
-<<<<<<< HEAD
-        if (newTeamName.trim() && newTeamDepartment) {
-            try {
-                console.log('Takım oluşturma isteği gönderiliyor:', {
-                    name: newTeamName,
-                    description: newTeamDescription.trim() || undefined,
-                    department: newTeamDepartment
-                });
-
-                const result = await dispatch(createTeam({
-                    name: newTeamName,
-                    description: newTeamDescription.trim() || undefined,
-                    department: newTeamDepartment
-=======
         if (teamName.trim() && teamDepartment) {
             try {
                 console.log('Takım oluşturma isteği gönderiliyor:', {
@@ -205,7 +148,6 @@ const Team: React.FC = () => {
                     name: teamName,
                     description: teamDescription.trim() || undefined,
                     department: teamDepartment
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                 }) as any);
 
                 console.log('API Yanıtı:', result); // Debug için
@@ -233,15 +175,9 @@ const Team: React.FC = () => {
                             setInviteLink(linkResult.payload.inviteLink);
                             enqueueSnackbar('Ekip başarıyla oluşturuldu!', { variant: 'success' });
                             setShowCreateTeamModal(false);
-<<<<<<< HEAD
-                            setNewTeamName('');
-                            setNewTeamDescription('');
-                            setNewTeamDepartment('');
-=======
                             setTeamName('');
                             setTeamDescription('');
                             setTeamDepartment('');
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                             dispatch(fetchTeams());
                         }
                     } catch (error: any) {
@@ -259,42 +195,6 @@ const Team: React.FC = () => {
 
     const handleGenerateInviteLink = async (teamId: string) => {
         try {
-<<<<<<< HEAD
-            // Önce mevcut davet linkini kontrol et
-            const existingLinkResult = await dispatch(getTeamInviteLink(teamId)).unwrap();
-            let inviteLinkFull = '';
-    
-            if (existingLinkResult && existingLinkResult.inviteLink) {
-                // Mevcut davet linki varsa onu kullan
-                inviteLinkFull = existingLinkResult.inviteLink;
-                console.log('Yeni oluşturulan davet linki:', inviteLinkFull);
-            } else {
-                // Mevcut davet linki yoksa yeni oluştur
-                const newLinkResponse = await axiosInstance.post(`Team/invite-link/${teamId}`);
-                const inviteCode = newLinkResponse.data.inviteLink.split('code=')[1];
-                inviteLinkFull = `http://localhost:5173/team/join-with-code/${inviteCode}`;
-                console.log('Yeni oluşturulan davet linki:', inviteLinkFull);
-                
-                // Yeni oluşturulan linki veritabanına kaydet
-                await dispatch(setTeamInviteLink({ 
-                    teamId, 
-                    inviteLink: inviteLinkFull 
-                })).unwrap();
-            }
-    
-            // UI işlemleri
-            setInviteLink(inviteLinkFull);
-            setSelectedTeamId(teamId);
-            setShowInviteLinkModal(true);
-            
-            // Panoya kopyala
-            await navigator.clipboard.writeText(inviteLinkFull);
-            enqueueSnackbar('Davet linki panoya kopyalandı!', { variant: 'success' });
-            
-        } catch (error: any) {
-            console.error('Davet linki işlemi sırasında hata:', error);
-            enqueueSnackbar('Davet linki işlemi başarısız oldu', { variant: 'error' });
-=======
             setInviteLinkLoading(true);
             // Yeni eklenen redux aksiyonunu kullan
             const result = await dispatch(generateTeamInviteLink(teamId)).unwrap();
@@ -305,7 +205,6 @@ const Team: React.FC = () => {
             console.error('Davet linki oluşturma hatası:', error);
             toast.error('Davet linki oluşturulurken bir hata oluştu.');
             setInviteLinkLoading(false);
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
         }
     };
 
@@ -346,24 +245,6 @@ const Team: React.FC = () => {
     };
 
     const handleRemoveMember = async () => {
-<<<<<<< HEAD
-        if (!memberToRemove) return;
-
-        try {
-            await dispatch(removeTeamMember({
-                teamId: memberToRemove.teamId,
-                memberId: memberToRemove.memberId
-            })).unwrap();
-
-            enqueueSnackbar('Üye başarıyla çıkartıldı', { variant: 'success' });
-            setShowRemoveMemberModal(false);
-            setMemberToRemove(null);
-
-            // Takım listesini yenile
-            dispatch(fetchTeams());
-        } catch (error: any) {
-            enqueueSnackbar(error.message || 'Üye çıkartılırken bir hata oluştu', { variant: 'error' });
-=======
         if (!currentTeamId || !currentMemberId) return;
         
         try {
@@ -387,7 +268,6 @@ const Team: React.FC = () => {
             console.error('Üye çıkarma hatası:', error);
             toast.error('Üye çıkarılırken bir hata oluştu.');
             setRemovingMember(false);
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
         }
     };
 
@@ -397,25 +277,6 @@ const Team: React.FC = () => {
     };
 
     const handleAddExpertise = async () => {
-<<<<<<< HEAD
-        if (!newExpertise.trim()) {
-            enqueueSnackbar('Uzmanlık alanı boş olamaz', { variant: 'error' });
-            return;
-        }
-    
-        try {
-            await dispatch(addExperties({
-                memberId: selectedMemberId,
-                experties: newExpertise
-            })).unwrap();
-    
-            enqueueSnackbar('Uzmanlık başarıyla eklendi', { variant: 'success' });
-            setShowExpertiesModal(false);
-            setNewExpertise('');
-            dispatch(fetchTeams());
-        } catch (error: any) {
-            enqueueSnackbar(error.message || 'Uzmanlık eklenirken bir hata oluştu', { variant: 'error' });
-=======
         if (!expertise || !currentMemberId) {
             toast.error('Lütfen bir uzmanlık alanı girin.');
             return;
@@ -439,7 +300,6 @@ const Team: React.FC = () => {
             console.error('Uzmanlık alanı ekleme hatası:', error);
             toast.error('Uzmanlık alanı eklenirken bir hata oluştu.');
             setAddingExpertise(false);
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
         }
     };
 
@@ -448,17 +308,6 @@ const Team: React.FC = () => {
         setShowExpertiesModal(true);
     };
 
-<<<<<<< HEAD
-const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string) => {
-    setSelectedMemberForTask(member);
-    // Pass team info including id and name to TaskForm component
-    setSelectedTeamForTask({
-        id: teamId,
-        name: teamName
-    });
-    setShowTaskForm(true);
-};
-=======
     const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string) => {
         setSelectedMemberForTask(member);
         // Pass team info including id and name to TaskForm component
@@ -468,7 +317,6 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
         });
         setShowTaskForm(true);
     };
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
 
     const handleCreateTask = async (taskData: Omit<Task, 'id'>) => {
         try {
@@ -480,8 +328,6 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
         }
     };
 
-<<<<<<< HEAD
-=======
     const handleJoinTeamWithInviteCode = async () => {
         if (!inviteCode) {
             toast.error('Lütfen bir davet kodu girin.');
@@ -505,7 +351,6 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
         }
     };
 
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
     const renderTeamMembers = (teamMembers: TeamMember[], teamName: string, teamId: string) => {
         const filteredAndSortedMembers = teamMembers
             .filter(member => {
@@ -529,11 +374,7 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
 
         // İşlemi yapan kullanıcının bu takımın owner'ı olup olmadığını kontrol et
         const isTeamOwner = teamMembers.some(member => 
-<<<<<<< HEAD
-            member.id === currentUser?.id && member.role === 'Owner'
-=======
             member.id === currentUser?.id && (member.role === 'Owner' || member.role === 'Master')
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
         );
 
         return (
@@ -541,12 +382,8 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                 <div className="flex justify-between items-center mb-4">
                     <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{teamName}</h2>
                     <div className="flex gap-2">
-<<<<<<< HEAD
-                        {teamMembers.some(member => member.role === 'Owner' && member.id === currentUser?.id) && (
-=======
                         {/* Takım oluşturucu veya Owner/Master rolüne sahip kullanıcılar davet linki oluşturabilir */}
                         {(isTeamOwner || currentUser?.id === teams.find(t => t.id === teamId)?.createdById) && (
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                             <button
                                 onClick={() => handleGenerateInviteLink(teamId)}
                                 className={`flex items-center px-3 py-1 rounded-lg ${isDarkMode
@@ -557,12 +394,8 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                                 <ClipboardDocumentIcon className="h-5 w-5 mr-2" />
                                 Davet Linki
                             </button>)}
-<<<<<<< HEAD
-                        {teamMembers.some(member => member.role === 'Owner' && member.id === currentUser?.id) && (
-=======
                         {/* Takım oluşturucu veya Owner rolüne sahip kullanıcılar takımı silebilir */}
                         {(isTeamOwner || currentUser?.id === teams.find(t => t.id === teamId)?.createdById) && (
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                             <button
                                 onClick={() => handleDeleteTeamClick(teamId)}
                                 className={`flex items-center px-3 py-1 rounded-lg ${isDarkMode
@@ -614,26 +447,16 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                                                         <img className="h-10 w-10 rounded-full" src={member.profileImage} alt="" />
                                                     ) : (
                                                         <div className={`h-10 w-10 rounded-full flex items-center justify-center ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}>
-<<<<<<< HEAD
-                                                            <span className={`text-xl ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-=======
                                                             <span className={`text-xl font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                                                                 {member.fullName.charAt(0).toUpperCase()}
                                                             </span>
                                                         </div>
                                                     )}
-<<<<<<< HEAD
-                                                    <span className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white ${getOnlineStatusColor(member.onlineStatus)}`}></span>
-=======
                                                     <span className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white ${getOnlineStatusColor(member.onlineStatus || 'online')}`}></span>
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                                                 </div>
                                                 <div className="ml-4">
                                                     <div className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                         {member.fullName}
-<<<<<<< HEAD
-=======
                                                         {member.role === 'Owner' && (
                                                             <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                                                                 Sahip
@@ -644,7 +467,6 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                                                                 Yönetici
                                                             </span>
                                                         )}
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                                                     </div>
                                                     <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                                         {member.email}
@@ -654,9 +476,6 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                                         </td>
                                         {/* TABLE DEPARTMAN */}
                                         <td className="px-6 py-4 whitespace-nowrap">
-<<<<<<< HEAD
-                                            <div className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{member.department}</div>
-=======
                                             <div className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                 {member.department || member.title || 'Genel'}
                                                 {member.position && (
@@ -665,7 +484,6 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                                                     </div>
                                                 )}
                                             </div>
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                                         </td>
                                         {/* TABLE PERFORMANCE */}
                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -673,15 +491,6 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                                                 <div className="flex-1 h-2 bg-gray-200 rounded-full">
                                                     <div
                                                         className="h-2 bg-blue-500 rounded-full"
-<<<<<<< HEAD
-                                                        style={{ width: `${Math.round(member.performanceScore)}%` }}
-                                                    ></div>
-                                                </div>
-                                                <span className={`ml-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                    {Math.round(member.performanceScore)}%
-                                                </span>
-                                            </div>
-=======
                                                         style={{ width: `${Math.round(member.performanceScore) || 50}%` }}
                                                     ></div>
                                                 </div>
@@ -692,7 +501,6 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                                             <div className="text-xs text-gray-500 mt-1">
                                                 {member.completedTasksCount || 0} görev tamamlandı
                                             </div>
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                                         </td>
                                         {/* TABLE DURUM */}
                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -726,34 +534,6 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                                                     
                                             </div>
                                         </td>
-<<<<<<< HEAD
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            {teamMembers.some(member => member.role === 'Owner' && member.id === currentUser?.id) && (
-                                                <>
-                                                    <button
-                                                        onClick={() => handleCommentClick(member.id)}
-                                                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-4"
-                                                    >
-                                                        <ChatBubbleLeftIcon className="h-5 w-5" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleOpenTaskForm(member, teamId, teamName)}
-                                                        className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-4"
-                                                    >
-                                                        <ClipboardDocumentListIcon className="h-5 w-5" />
-                                                    </button>
-                                                    {isTeamOwner && member.id !== currentUser?.id && member.role !== 'Owner' && (
-                                                        <button
-                                                            onClick={() => handleRemoveMemberClick(teamId, member.id)}
-                                                            className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900"
-                                                            title="Üyeyi Çıkart"
-                                                        >
-                                                            <UserMinusIcon className="h-5 w-5" />
-                                                        </button>
-                                                    )}
-                                                </>
-                                            )}
-=======
                                         {/* TABLE İŞLEMLER */}
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div className="flex space-x-2">
@@ -807,7 +587,6 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                                                     </>
                                                 )}
                                             </div>
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                                         </td>
                                     </tr>
                                 ))}
@@ -832,10 +611,6 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
         }
     };
 
-<<<<<<< HEAD
-    const getOnlineStatusColor = (status: 'online' | 'offline') => {
-        return status === 'online' ? 'bg-green-500' : 'bg-gray-400';
-=======
     const getOnlineStatusColor = (status: string) => {
         switch (status) {
             case 'online':
@@ -845,7 +620,6 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
             default:
                 return 'bg-gray-500';
         }
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
     };
 
     return (
@@ -912,13 +686,8 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                             <input
                                 type="text"
                                 id="teamName"
-<<<<<<< HEAD
-                                value={newTeamName}
-                                onChange={(e) => setNewTeamName(e.target.value)}
-=======
                                 value={teamName}
                                 onChange={(e) => setTeamName(e.target.value)}
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 placeholder="Ekip adını girin"
                             />
@@ -929,13 +698,8 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                             </label>
                             <textarea
                                 id="teamDescription"
-<<<<<<< HEAD
-                                value={newTeamDescription}
-                                onChange={(e) => setNewTeamDescription(e.target.value)}
-=======
                                 value={teamDescription}
                                 onChange={(e) => setTeamDescription(e.target.value)}
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 placeholder="Ekip açıklamasını girin (opsiyonel)"
                                 rows={3}
@@ -947,13 +711,8 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                             </label>
                             <select
                                 id="teamDepartment"
-<<<<<<< HEAD
-                                value={newTeamDepartment}
-                                onChange={(e) => setNewTeamDepartment(e.target.value)}
-=======
                                 value={teamDepartment}
                                 onChange={(e) => setTeamDepartment(e.target.value)}
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             >
                                 <option value="">Departman Seçin</option>
@@ -969,15 +728,9 @@ const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string
                                 className="px-4 py-2 text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white"
                                 onClick={() => {
                                     setShowCreateTeamModal(false);
-<<<<<<< HEAD
-                                    setNewTeamName('');
-                                    setNewTeamDescription('');
-                                    setNewTeamDepartment('');
-=======
                                     setTeamName('');
                                     setTeamDescription('');
                                     setTeamDepartment('');
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                                 }}
                             >
                                 İptal

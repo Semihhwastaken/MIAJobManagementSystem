@@ -25,8 +25,6 @@ const teamService = {
             console.error('Error fetching team members:', error);
             throw error;
         }
-<<<<<<< HEAD
-=======
     },
     
     // Takım davet bağlantısı oluştur
@@ -114,7 +112,6 @@ const teamService = {
             console.error('Error adding expertise:', error);
             throw error;
         }
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
     }
 };
 

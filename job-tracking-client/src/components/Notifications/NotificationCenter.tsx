@@ -13,7 +13,6 @@ export const NotificationCenter: React.FC = () => {
   const signalRService = SignalRService.getInstance();
   const notificationRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<Notification[]>([]);
-<<<<<<< HEAD
 
   const getRelativeTime = (date: string) => {
     const now = new Date();
@@ -36,11 +35,6 @@ export const NotificationCenter: React.FC = () => {
   };
   
   const [, setToasts] = useState<(Notification & { id: string })[]>([]);
-=======
-  const isMounted = useRef(true);
-
-  const [toasts, setToasts] = useState<(Notification & { id: string })[]>([]);
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
   const toastContainerRef = useRef<HTMLDivElement | null>(null);
   
   useEffect(() => {
@@ -54,7 +48,6 @@ export const NotificationCenter: React.FC = () => {
     
     return () => {
       // Clean up toast container on unmount
-<<<<<<< HEAD
       if (toastContainerRef.current) {
         document.body.removeChild(toastContainerRef.current);
       }
@@ -95,79 +88,27 @@ export const NotificationCenter: React.FC = () => {
     };
   }, []);
   const handleNewNotification = useCallback((notification: Notification) => {
-=======
-      if (toastContainerRef.current && document.body.contains(toastContainerRef.current)) {
-        try {
-          document.body.removeChild(toastContainerRef.current);
-          toastContainerRef.current = null;
-        } catch (error) {
-          console.error('Error removing toast container:', error);
-        }
-      }
-    };
-  }, []);
-
-  // Component unmount kontrolü için ref
-  const isComponentMounted = useRef(true);
-
-  useEffect(() => {
-    isComponentMounted.current = true;
-    return () => {
-      isComponentMounted.current = false;
-    };
-  }, []);
-
-  const showNotificationToast = (notification: Notification) => {
-    if (!isComponentMounted.current || !notification.id) return;
-    
-    setToasts(prev => [
-      { ...notification, id: notification.id as string },
-      ...prev.slice(0, 2) // En fazla 3 toast göster (yeni + önceki 2)
-    ]);
-  };
-
-  const handleNewNotification = useCallback((notification: Notification) => {
-    if (!isComponentMounted.current) return;
-
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
     setNotifications(prevNotifications => {
       const notificationExists = prevNotifications.some(n => n.id === notification.id);
       if (notificationExists) {
         return prevNotifications;
       }
       const newNotifications = [notification, ...prevNotifications];
-<<<<<<< HEAD
       notificationsRef.current = newNotifications;
-=======
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
       return newNotifications;
     });
     setUnreadCount(prev => prev + 1);
     showNotificationToast(notification);
   }, []);
-<<<<<<< HEAD
-=======
-
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
-<<<<<<< HEAD
   document.addEventListener('mousedown', handleClickOutside);
   return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-=======
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
   useEffect(() => {
     if (!user?.id || !isAuthenticated || !token) {
       console.warn('Waiting for authentication data...', {
@@ -226,10 +167,7 @@ export const NotificationCenter: React.FC = () => {
   return () => {
     signalRService.onReceiveNotification(() => {}); // Cleanup SignalR subscription
   };
-<<<<<<< HEAD
   // eslint-disable-next-line react-hooks/exhaustive-deps
-=======
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
   }, [user?.id, isAuthenticated, token, user?.username, handleNewNotification]);
   const handleMarkAsRead = async (id: string) => {
     try {
@@ -323,75 +261,6 @@ export const NotificationCenter: React.FC = () => {
       minute: '2-digit'
     });
   };
-<<<<<<< HEAD
-=======
-
-  useEffect(() => {
-    // Component mount olduğunda
-    return () => {
-      // Component unmount olduğunda
-      isMounted.current = false;
-    };
-  }, []);
-
-  const removeNotification = (id: string) => {
-    if (!isMounted.current) return;
-    
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
-  };
-
-  const getRelativeTime = (date: string) => {
-    const now = new Date();
-    const messageDate = new Date(date);
-    const diffInMinutes = Math.floor((now.getTime() - messageDate.getTime()) / (1000 * 60));
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    const diffInDays = Math.floor(diffInHours / 24);
-
-    if (diffInMinutes < 1) {
-      return 'Şimdi';
-    } else if (diffInMinutes < 60) {
-      return `${diffInMinutes} dakika önce`;
-    } else if (diffInHours < 24) {
-      return `${diffInHours} saat önce`;
-    } else if (diffInDays < 7) {
-      return `${diffInDays} gün önce`;
-    } else {
-      return formatDate(date);
-    }
-  };
-
-  const addNotification = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
-    if (!isComponentMounted.current) return;
-
-    const newNotification: Partial<Notification> = {
-      id: Math.random().toString(36).substring(7),
-      message,
-      type,
-      createdDate: new Date().toISOString()
-    };
-
-    setNotifications(prev => [...prev, newNotification as Notification]);
-
-    if (newNotification.id) {
-      setTimeout(() => removeNotification(newNotification.id as string), 5000);
-    }
-  };
-
-  // User bilgilerini güvenli bir şekilde kullan
-  const userInfo = {
-    id: user?.id,
-    email: user?.email,
-    fullName: user?.fullName,
-    role: user?.role
-  };
-
-  console.log('Authentication data loaded:', {
-    userId: userInfo.id,
-    email: userInfo.email,
-    isAuthenticated
-  });
-
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
   return (
     <div className="relative" ref={notificationRef}>
       <motion.button

@@ -1,10 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, createAsyncThunk, createAction } from '@reduxjs/toolkit';
-<<<<<<< HEAD
-import { TeamState, TeamMember } from '../../types/team';
-=======
 import { TeamState, TeamMember, Team } from '../../types/team';
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
 import axiosInstance from '../../services/axiosInstance';
 
 interface MemberMetricsUpdateDto {
@@ -201,12 +197,8 @@ export const generateTeamInviteLink = createAsyncThunk(
     'Team/generateInviteLink',
     async (teamId: string, { rejectWithValue }) => {
         try {
-<<<<<<< HEAD
-            const response = await axiosInstance.post(`/Team/invite-link/${teamId}`);
-=======
             // Yeni API endpoint'ini kullan
             const response = await axiosInstance.post(`/Team/${teamId}/generate-invite-link`);
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
             return response.data;
         } catch (error: any) {
             console.error('Davet linki oluşturma hatası:', error.response?.data);
@@ -217,15 +209,6 @@ export const generateTeamInviteLink = createAsyncThunk(
 
 export const getTeamInviteLink = createAsyncThunk(
     'Team/getInviteLink',
-<<<<<<< HEAD
-    async (teamId: string) => {
-        try {
-            const response = await axiosInstance.get(`/Team/invite-link/${teamId}/get`);
-            return response.data;
-        } catch (error: any) {
-            console.error('Davet linki alma hatası:', error.response?.data);
-            return error.response?.data || error.message;
-=======
     async (teamId: string, { rejectWithValue }) => {
         try {
             // Yeni API endpoint'ini kullan
@@ -234,26 +217,12 @@ export const getTeamInviteLink = createAsyncThunk(
         } catch (error: any) {
             console.error('Davet linki alma hatası:', error.response?.data);
             return rejectWithValue(error.response?.data || error.message);
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
         }
     }
 );
 
 export const setTeamInviteLink = createAsyncThunk(
     'Team/setInviteLink',
-<<<<<<< HEAD
-    async ({ teamId, inviteLink }: { teamId: string; inviteLink: string }) => {
-        try {
-            const response = await axiosInstance.post(
-                `/Team/invite-link/${teamId}/set`,
-                { teamId, InviteLink: inviteLink }
-            );
-            return response.data;
-        }
-        catch (error: any) {
-            console.error('Davet linki atama hatası:', error.response?.data);
-            throw error.response?.data || error.message;
-=======
     async ({ teamId, inviteLink }: { teamId: string; inviteLink: string }, { rejectWithValue }) => {
         try {
             // Yeni API endpoint'ini kullan
@@ -296,22 +265,12 @@ export const joinTeamWithInviteCode = createAsyncThunk(
         } catch (error: any) {
             console.error('Davet koduyla takıma katılma hatası:', error.response?.data);
             return rejectWithValue(error.response?.data || error.message);
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
         }
     }
 );
 
 export const addExperties = createAsyncThunk(
     'Team/addExperties',
-<<<<<<< HEAD
-    async ({ memberId, experties }: { memberId: string; experties: string }) => {
-        try {
-            const response = await axiosInstance.post(`/Team/members/${memberId}/experties`, { experties });
-            return response.data;
-        } catch (error: any) {
-            console.error('Hata:', error.response?.data);
-            return error.response?.data || error.message;
-=======
     async ({ memberId, experties }: { memberId: string; experties: string }, { rejectWithValue }) => {
         try {
             // Yeni API endpoint'ini kullan
@@ -320,20 +279,10 @@ export const addExperties = createAsyncThunk(
         } catch (error: any) {
             console.error('Hata:', error.response?.data);
             return rejectWithValue(error.response?.data || error.message);
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
         }
     }
 );
 
-<<<<<<< HEAD
-export const joinTeamWithInviteLink = createAsyncThunk(
-    'Team/joinWithInviteLink',
-    async (inviteCode: string, { dispatch }) => {
-        const response = await axiosInstance.post(`${axiosInstance.defaults.baseURL}/Team/join-with-code/${inviteCode}`);
-        // Invalidate teams cache after joining
-        dispatch(invalidateCache('teams'));
-        return response.data;
-=======
 export const assignOwnerRole = createAsyncThunk(
     'Team/assignOwnerRole',
     async ({ teamId, userId }: { teamId: string; userId: string }, { rejectWithValue }) => {
@@ -361,19 +310,13 @@ export const removeTeamMember = createAsyncThunk(
             console.error('Takım üyesi çıkarma hatası:', error.response?.data);
             return rejectWithValue(error.response?.data || error.message);
         }
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
     }
 );
 
 export const fetchTeams = createAsyncThunk(
     'Team/fetchTeams',
-<<<<<<< HEAD
-    async (_, { getState, rejectWithValue }) => {
-        const state = getState() as { team: TeamState };
-=======
     async (_, { getState, rejectWithValue, dispatch }) => {
         const state = getState() as { team: TeamState; auth: { user: any } };
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
         
         // Use cached data if available and not expired
         if (isCacheValid(state.team.lastCacheTimes.teams) && state.team.teams.length > 0) {
@@ -388,11 +331,6 @@ export const fetchTeams = createAsyncThunk(
             }
             
             pendingRequests[requestKey] = true;
-<<<<<<< HEAD
-            const response = await axiosInstance.get('/Team');
-            pendingRequests[requestKey] = false;
-            return response.data;
-=======
             
             // Önce takımları getir
             const teamsResponse = await axiosInstance.get('/Team');
@@ -451,7 +389,6 @@ export const fetchTeams = createAsyncThunk(
             
             pendingRequests[requestKey] = false;
             return enrichedTeams;
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
         } catch (error: any) {
             pendingRequests['fetchTeams'] = false;
             return rejectWithValue(error.response?.data?.message || 'Takımlar alınırken bir hata oluştu');
@@ -475,27 +412,6 @@ export const deleteTeam = createAsyncThunk<DeleteTeamResponse, string>(
     }
 );
 
-<<<<<<< HEAD
-// Remove team member action
-export const removeTeamMember = createAsyncThunk<RemoveTeamMemberResponse, { teamId: string; memberId: string }>(
-    'Team/removeTeamMember',
-    async ({ teamId, memberId }, { rejectWithValue, dispatch }) => {
-        try {
-            const response = await axiosInstance.delete(`/Team/${teamId}/members/${memberId}`);
-            
-            // Invalidate teams cache and members cache
-            dispatch(invalidateCache('teams'));
-            dispatch(invalidateCache('members'));
-            
-            return { teamId, memberId, ...response.data };
-        } catch (error: any) {
-            return rejectWithValue(error.response?.data || error.message);
-        }
-    }
-);
-
-=======
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
 export const fetchMemberActiveTasks = createAsyncThunk(
     'Team/fetchMemberActiveTasks',
     async (teamId: string | undefined, { getState, rejectWithValue }) => {
@@ -707,9 +623,6 @@ const teamSlice = createSlice({
             })
             .addCase(fetchTeamMembers.fulfilled, (state, action) => {
                 state.loading = false;
-<<<<<<< HEAD
-                state.members = action.payload;
-=======
                 // Make sure each team member has default values for missing fields
                 const membersWithDefaults = action.payload.map((member: TeamMember) => ({
                     ...member,
@@ -722,7 +635,6 @@ const teamSlice = createSlice({
                     role: member.role || 'Member'
                 }));
                 state.members = membersWithDefaults;
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                 state.lastCacheTimes.members = Date.now();
             })
             .addCase(fetchTeamMembers.rejected, (state, action) => {
@@ -798,9 +710,6 @@ const teamSlice = createSlice({
             })
             .addCase(fetchTeams.fulfilled, (state, action) => {
                 state.loading = false;
-<<<<<<< HEAD
-                state.teams = action.payload;
-=======
                 
                 // Process team data and ensure all members have default values
                 const teamsWithDefaults = action.payload.map((team: Team) => {
@@ -826,7 +735,6 @@ const teamSlice = createSlice({
                 });
                 
                 state.teams = teamsWithDefaults;
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                 state.lastCacheTimes.teams = Date.now();
             })
             .addCase(fetchTeams.rejected, (state, action) => {
@@ -849,61 +757,6 @@ const teamSlice = createSlice({
                 state.loading = false;
                 state.error = action.payload as string;
             })
-<<<<<<< HEAD
-            .addCase(addExperties.fulfilled, (state, action) => {
-                const updatedMember = action.payload;
-                const index = state.members.findIndex(m => m.id === updatedMember.id);
-                if (index !== -1) {
-                    state.members[index] = updatedMember;
-                }
-                // Update the team
-                const team = state.teams.find(t => t.id === updatedMember.teamId);
-                if (team) {
-                    const memberIndex = team.members.findIndex(m => m.id === updatedMember.id);
-                    if (memberIndex !== -1) {
-                        team.members[memberIndex] = updatedMember;
-                    }
-                }
-            })
-            // Remove team member
-            .addCase(removeTeamMember.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(removeTeamMember.fulfilled, (state, action) => {
-                state.loading = false;
-                // Üyeyi teams listesinden çıkar
-                const team = state.teams.find(t => t.id === action.payload.teamId);
-                if (team) {
-                    team.members = team.members.filter(m => m.id !== action.payload.memberId);
-                }
-                // Reset teams cache time
-                state.lastCacheTimes.teams = 0;
-                state.lastCacheTimes.members = 0;
-            })
-            .addCase(removeTeamMember.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.payload as string;
-            })
-            // Active tasks
-            .addCase(fetchMemberActiveTasks.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(fetchMemberActiveTasks.fulfilled, (state, action) => {
-                state.loading = false;
-                // Merge new data with existing data rather than replacing
-                state.activeTasksData = {
-                    ...state.activeTasksData,
-                    ...action.payload
-                };
-            })
-            .addCase(fetchMemberActiveTasks.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.payload as string;
-            })
-=======
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
             // Team members by team ID
             .addCase(getTeamMembersByTeamId.pending, (state) => {
                 state.loading = true;
@@ -911,12 +764,6 @@ const teamSlice = createSlice({
             })
             .addCase(getTeamMembersByTeamId.fulfilled, (state, action) => {
                 state.loading = false;
-<<<<<<< HEAD
-                if (action.payload && action.payload.length > 0) {
-                    // Find the team by checking if any team has a member with the same ID as first member in payload
-                    const team = state.teams.find(t => t.members.some(m => m.id === action.payload[0]?.id));
-                    if (team) {
-=======
                 
                 // action.meta.arg içinde teamId bulunur (ilk parametredir)
                 const teamId = action.meta.arg;
@@ -926,7 +773,6 @@ const teamSlice = createSlice({
                     const team = state.teams.find(t => t.id === teamId);
                     if (team) {
                         // Takımın üyelerini API yanıtıyla güncelle
->>>>>>> 954951baa56d11e009937a68c5dc1b9badeb4754
                         team.members = action.payload;
                     }
                 }
