@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import React, { useState, useEffect } from 'react';
-=======
 import React, { useState, useEffect, useCallback } from 'react';
->>>>>>> newdb1
 import { useSelector } from 'react-redux';
 import { ChatWindow } from '../../components/Chat/ChatWindow';
 import { RootState } from '../../redux/store';
@@ -23,11 +19,6 @@ interface Conversation {
 }
 
 const Chat: React.FC = () => {
-<<<<<<< HEAD
-    const [selectedUser, setSelectedUser] = useState<{ id: string; name: string } | null>(null);
-    const [_, setConversations] = useState<Conversation[]>([]);
-    const [availableUsers, setAvailableUsers] = useState<any[]>([]);
-=======
     const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; profilImage?: string; } | null>(null);
     const [, setConversations] = useState<Conversation[]>([]);
 
@@ -43,16 +34,11 @@ const Chat: React.FC = () => {
     }
 
     const [availableUsers, setAvailableUsers] = useState<User[]>([]);
->>>>>>> newdb1
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const currentUser = useSelector((state: RootState) => state.auth.user);
 
-<<<<<<< HEAD
-    const fetchUnreadCounts = async () => {
-=======
     const fetchUnreadCounts = useCallback(async () => {
->>>>>>> newdb1
         if (!currentUser?.id) return;
 
         try {
@@ -67,11 +53,7 @@ const Chat: React.FC = () => {
         } catch (err) {
             console.error('Error fetching unread counts:', err);
         }
-<<<<<<< HEAD
-    };
-=======
     }, [currentUser?.id]);
->>>>>>> newdb1
 
     useEffect(() => {
         const fetchConversations = async () => {
@@ -83,11 +65,7 @@ const Chat: React.FC = () => {
                 
                 const response = await axiosInstance.get(`/messages/conversations/${currentUser.id}`);
                 if (response.data) {
-<<<<<<< HEAD
-                    setConversations(response.data.map((conv: any) => ({
-=======
                     setConversations(response.data.map((conv: Conversation) => ({
->>>>>>> newdb1
                         userId: conv.userId,
                         userName: conv.userName,
                         lastMessage: conv.lastMessage,
@@ -107,19 +85,8 @@ const Chat: React.FC = () => {
 
         fetchConversations();
 
-<<<<<<< HEAD
-        // Set up polling for new messages and updates
-        const pollInterval = setInterval(() => {
-            fetchConversations();
-            fetchUnreadCounts();
-        }, 30000); // Poll every 30 seconds
-
-        return () => clearInterval(pollInterval);
-    }, [currentUser?.id]);
-=======
        
     }, [currentUser?.id, fetchUnreadCounts]);
->>>>>>> newdb1
 
     // Fetch available users
     useEffect(() => {
@@ -128,11 +95,7 @@ const Chat: React.FC = () => {
 
             try {
                 const response = await axiosInstance.get('/Users');
-<<<<<<< HEAD
-                const users = response.data.filter((user: any) => user.id !== currentUser.id);
-=======
                 const users = response.data.filter((user: User) => user.id !== currentUser.id);
->>>>>>> newdb1
                 setAvailableUsers(users);
             } catch (err) {
                 console.error('Error fetching available users:', err);
@@ -194,11 +157,7 @@ const Chat: React.FC = () => {
                         {availableUsers.map((user) => (
                             <div
                                 key={user.id}
-<<<<<<< HEAD
-                                onClick={() => setSelectedUser({ id: user.id, name: user.fullName || user.username })}
-=======
                                 onClick={() => setSelectedUser({ id: user.id || '', name: user.fullName || user.username, profilImage: user.profileImage }) }
->>>>>>> newdb1
                                 className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-150 ease-in-out ${
                                     selectedUser?.id === user.id ? 'bg-blue-50 dark:bg-blue-900/30' : ''
                                 }`}

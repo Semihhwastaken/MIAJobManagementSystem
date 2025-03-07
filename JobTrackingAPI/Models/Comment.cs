@@ -11,15 +11,9 @@ namespace JobTrackingAPI.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; } = string.Empty;
 
-<<<<<<< HEAD
-        [BsonElement("jobId")]
-        [Required]
-        public string JobId { get; set; } = string.Empty;
-=======
         [BsonElement("taskId")]
         [Required]
         public string TaskId { get; set; } = string.Empty;
->>>>>>> newdb1
 
         [BsonElement("userId")]
         [Required]
@@ -32,8 +26,6 @@ namespace JobTrackingAPI.Models
         [BsonElement("createdDate")]
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
-<<<<<<< HEAD
-=======
         [BsonElement("priority")]
         public string Priority { get; set; } = "medium";
 
@@ -43,22 +35,12 @@ namespace JobTrackingAPI.Models
         [BsonElement("dueDate")]
         public DateTime? DueDate { get; set; }
 
->>>>>>> newdb1
         [BsonElement("mentions")]
         public List<string> Mentions { get; set; } = new List<string>();
 
         [BsonElement("attachments")]
         public List<Attachment> Attachments { get; set; } = new List<Attachment>();
 
-<<<<<<< HEAD
-        public Comment(string jobId, string userId, string content)
-        {
-            Id = ObjectId.GenerateNewId().ToString();
-            JobId = jobId;
-            UserId = userId;
-            Content = content;
-            CreatedDate = DateTime.UtcNow;
-=======
         // Add a parameterless constructor for MongoDB serialization
         public Comment()
         {
@@ -77,7 +59,6 @@ namespace JobTrackingAPI.Models
             CreatedDate = DateTime.UtcNow;
             Mentions = new List<string>();
             Attachments = new List<Attachment>();
->>>>>>> newdb1
         }
     }
 

@@ -31,10 +31,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ jobId }) => {
 
   useEffect(() => {
     fetchComments();
-<<<<<<< HEAD
-=======
   // eslint-disable-next-line react-hooks/exhaustive-deps
->>>>>>> newdb1
   }, [jobId]);
 
   const fetchComments = async () => {

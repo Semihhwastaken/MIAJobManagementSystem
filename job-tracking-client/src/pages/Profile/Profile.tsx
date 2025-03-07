@@ -2,10 +2,7 @@ import React, { useState, useEffect } from "react";
 import axiosInstance from "../../services/axiosInstance";
 import defaultAvatar from '../../assets/images/default-avatar.png';
 import Footer from "../../components/Footer/Footer";
-<<<<<<< HEAD
-=======
 import axios from "axios";
->>>>>>> newdb1
 
 interface UserInfo {
     id: string;
@@ -127,13 +124,8 @@ const Profile: React.FC = () => {
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = 'image/*';
-<<<<<<< HEAD
-        fileInput.onchange = async (e: any) => {
-            const file = e.target.files[0];
-=======
         fileInput.onchange = async (e: unknown) => {
             const file = (e as React.ChangeEvent<HTMLInputElement>).target.files![0];
->>>>>>> newdb1
             if (!file) return;
 
             // Dosya boyutunu kontrol et (5MB)
@@ -167,13 +159,8 @@ const Profile: React.FC = () => {
                     }));
                 }
                 setError(null);
-<<<<<<< HEAD
-            } catch (err: any) {
-                const errorMessage = err.response?.data || 'Profil resmi güncellenirken bir hata oluştu';
-=======
             } catch (err: unknown) {
                 const errorMessage = (axios.isAxiosError(err) && err.response?.data) || 'Profil resmi güncellenirken bir hata oluştu';
->>>>>>> newdb1
                 setError(errorMessage);
                 console.error('Profil resmi güncelleme hatası:', err);
             } finally {

@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-import axios from 'axios';
-=======
->>>>>>> newdb1
 import axiosInstance from './axiosInstance';
 
 export interface TaskItem {
@@ -16,10 +12,7 @@ export interface TaskItem {
         username: string;
         role: string;
     }>;
-<<<<<<< HEAD
-=======
     assignedUserIds: string[];
->>>>>>> newdb1
     subTasks: Array<{
         id: string;
         title: string;
@@ -31,10 +24,7 @@ export interface TaskItem {
         fileName: string;
         fileUrl: string;
     }>;
-<<<<<<< HEAD
-=======
     teamId?: string;
->>>>>>> newdb1
 }
 
 const taskService = {
@@ -49,33 +39,25 @@ const taskService = {
     },
 
     createTask: async (task: Partial<TaskItem>): Promise<TaskItem> => {
-<<<<<<< HEAD
-=======
         if (task.assignedUsers && task.assignedUsers.length > 0) {
             task.assignedUserIds = task.assignedUsers.map(user => user.id);
         }
         
->>>>>>> newdb1
         const response = await axiosInstance.post('/tasks', task);
         return response.data;
     },
 
     updateTask: async (id: string, task: Partial<TaskItem>): Promise<TaskItem> => {
-<<<<<<< HEAD
-=======
         if (task.assignedUsers && task.assignedUsers.length > 0) {
             task.assignedUserIds = task.assignedUsers.map(user => user.id);
         }
         
->>>>>>> newdb1
         const response = await axiosInstance.put(`/tasks/${id}`, task);
         return response.data;
     },
 
     deleteTask: async (id: string): Promise<void> => {
         await axiosInstance.delete(`/tasks/${id}`);
-<<<<<<< HEAD
-=======
     },
 
     getTasksByAssignedUserId: async (userId: string): Promise<TaskItem[]> => {
@@ -121,7 +103,6 @@ const taskService = {
             console.error('Overdue durum kontrolü sırasında hata:', error);
             throw error;
         }
->>>>>>> newdb1
     }
 };
 

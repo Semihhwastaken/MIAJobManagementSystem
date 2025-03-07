@@ -31,21 +31,15 @@ export interface Task {
     priority: 'low' | 'medium' | 'high';
     category: string;
     dueDate: string;
-<<<<<<< HEAD
-=======
     isLocked?: boolean;
     teamId?: string;
->>>>>>> newdb1
     assignedUsers: User[];
     subTasks: SubTask[];
     dependencies: string[]; // Bağımlı olduğu task ID'leri
     attachments: Attachment[];
     createdAt: string;
     updatedAt: string;
-<<<<<<< HEAD
-=======
     completedDate?: Date | null;
->>>>>>> newdb1
 }
 
 export type NewTask = Omit<Task, 'id' | 'createdAt' | 'updatedAt'>;

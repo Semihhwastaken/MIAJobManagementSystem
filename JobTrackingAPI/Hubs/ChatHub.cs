@@ -1,10 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using JobTrackingAPI.Models;
 using JobTrackingAPI.Services;
-<<<<<<< HEAD
-using JobTrackingAPI.Enums;
-=======
->>>>>>> newdb1
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 
@@ -71,8 +67,6 @@ namespace JobTrackingAPI.Hubs
             }
         }
 
-<<<<<<< HEAD
-=======
         public async Task JoinUserGroupToChat(string userId)
         {
             if (!string.IsNullOrEmpty(userId))
@@ -85,7 +79,6 @@ namespace JobTrackingAPI.Hubs
             return UserConnections.Count;
         }
 
->>>>>>> newdb1
         // Chat Methods
         public async Task SendDirectMessage(string senderId, string receiverId, string content)
         {
@@ -184,36 +177,6 @@ namespace JobTrackingAPI.Hubs
             }
         }
 
-<<<<<<< HEAD
-        // Notification Methods
-        public async Task SendNotification(string userId, string title, string message, NotificationType type, string? relatedJobId = null)
-        {
-            var notification = new Notification(
-                userId: userId,
-                title: title,
-                message: message,
-                type: type,
-                relatedJobId: relatedJobId
-            );
-
-            await Clients.User(userId).SendAsync("ReceiveNotification", notification);
-        }
-
-        public async Task SendTestNotification(string userId)
-        {
-            var notification = new Notification(
-                userId: userId,
-                title: "Test Bildirimi",
-                message: "Bu bir test bildirimidir. Bildirim sistemi başarıyla çalışıyor!",
-                type: NotificationType.TaskAssigned,
-                relatedJobId: "test-job-123"
-            );
-
-            await Clients.User(userId).SendAsync("ReceiveNotification", notification);
-        }
-
-=======
->>>>>>> newdb1
         public async Task RegisterUser(string userId)
         {
             try

@@ -110,15 +110,12 @@ namespace JobTrackingAPI.Services
                     throw new InvalidOperationException("Event end time must be after start time.");
                 }
 
-<<<<<<< HEAD
-=======
                 // Set default category if not provided
                 if (string.IsNullOrEmpty(calendarEvent.Category))
                 {
                     calendarEvent.Category = "task";
                 }
 
->>>>>>> newdb1
                 calendarEvent.CreatedAt = DateTime.UtcNow;
                 calendarEvent.UpdatedAt = DateTime.UtcNow;
 
@@ -170,8 +167,4 @@ namespace JobTrackingAPI.Services
             }
         }
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> newdb1

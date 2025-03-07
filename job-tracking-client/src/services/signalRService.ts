@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 /* eslint-disable @typescript-eslint/no-explicit-any */
->>>>>>> newdb1
 import * as signalR from "@microsoft/signalr";
 import { Message } from "../types/message";
 import { Notification } from "../types/notification";
@@ -17,28 +14,6 @@ class SignalRService {
     private messageReadCallbacks: ((messageId: string) => void)[] = [];
     private userConnectedCallbacks: ((userId: string) => void)[] = [];
     private userDisconnectedCallbacks: ((userId: string) => void)[] = [];
-<<<<<<< HEAD
-
-    private constructor() {
-        
-        
-        // Chat Hub bağlantısı
-        this.hubConnection = new signalR.HubConnectionBuilder()
-            .withUrl("http://localhost:5193/chatHub", {
-                accessTokenFactory: () => localStorage.getItem('token') || ''
-            })
-            .withAutomaticReconnect()
-            .configureLogging(signalR.LogLevel.Information)
-            .build();
-
-        // Notification Hub bağlantısı
-        this.notificationHubConnection = new signalR.HubConnectionBuilder()
-            .withUrl("http://localhost:5193/notificationHub", {
-                accessTokenFactory: () => localStorage.getItem('token') || ''
-            })
-            .withAutomaticReconnect()
-            .configureLogging(signalR.LogLevel.Information)
-=======
     private notificationCallbacks: ((notification: Notification) => void)[] = [];
     private reconnectInterval: any = null;
     private lastMessageSentTime: number | null = null;
@@ -64,7 +39,6 @@ class SignalRService {
                 0, 2000, 5000, 10000, 15000, 30000 // More aggressive reconnection strategy
             ])
             .configureLogging(signalR.LogLevel.Warning)
->>>>>>> newdb1
             .build();
 
         // Chat event listeners
@@ -73,18 +47,10 @@ class SignalRService {
         });
 
         this.hubConnection.on("UserConnected", (userId: string) => {
-<<<<<<< HEAD
-            console.log(`User connected: ${userId}`);
-=======
->>>>>>> newdb1
             this.userConnectedCallbacks.forEach(callback => callback(userId));
         });
 
         this.hubConnection.on("UserDisconnected", (userId: string) => {
-<<<<<<< HEAD
-            console.log(`User disconnected: ${userId}`);
-=======
->>>>>>> newdb1
             this.userDisconnectedCallbacks.forEach(callback => callback(userId));
         });
 
@@ -100,8 +66,6 @@ class SignalRService {
             this.messageReadCallbacks.forEach(callback => callback(messageId));
         });
 
-<<<<<<< HEAD
-=======
         // Notification event listener
         this.notificationHubConnection.on("ReceiveNotification", (notification: Notification) => {
             console.log("Received notification:", notification);
@@ -128,14 +92,11 @@ class SignalRService {
         });
 
         // Error handlers
->>>>>>> newdb1
         this.hubConnection.on("ErrorOccurred", (error: string) => {
             console.error("SignalR Error:", error);
         });
     }
 
-<<<<<<< HEAD
-=======
     private setupReconnection() {
         // Clear any existing interval
         if (this.reconnectInterval) {
@@ -163,7 +124,6 @@ class SignalRService {
         }, 5000);
     }
 
->>>>>>> newdb1
     public static getInstance(): SignalRService {
         if (!SignalRService.instance) {
             SignalRService.instance = new SignalRService();
@@ -178,22 +138,12 @@ class SignalRService {
             // Start Chat Hub connection
             if (this.hubConnection.state === signalR.HubConnectionState.Disconnected) {
                 await this.hubConnection.start();
-<<<<<<< HEAD
-                console.log("Chat Hub Connected!");
-=======
                 console.log("Chat Hub connection started with userId: ", userId, "with url: ", this.hubConnection.baseUrl);
->>>>>>> newdb1
             }
 
             // Start Notification Hub connection
             if (this.notificationHubConnection.state === signalR.HubConnectionState.Disconnected) {
                 await this.notificationHubConnection.start();
-<<<<<<< HEAD
-                console.log("Notification Hub Connected!");
-            }
-        } catch (err) {
-            console.error("Error while establishing connection: ", err);
-=======
                 console.log("Notification Hub connection started with userId: ", userId, "with url: ", this.notificationHubConnection.baseUrl);
                 
                 // Explicitly join the user's group for notifications
@@ -203,22 +153,12 @@ class SignalRService {
         } catch (err) {
             console.error("Error while establishing connection: ", err);
             this.setupReconnection();
->>>>>>> newdb1
             throw err;
         }
     }
 
     async stopConnection(): Promise<void> {
         try {
-<<<<<<< HEAD
-            if (this.hubConnection.state === signalR.HubConnectionState.Connected) {
-                await this.hubConnection.stop();
-                console.log("Chat Hub Disconnected!");
-            }
-            if (this.notificationHubConnection.state === signalR.HubConnectionState.Connected) {
-                await this.notificationHubConnection.stop();
-                console.log("Notification Hub Disconnected!");
-=======
             // Clear reconnection interval if it exists
             if (this.reconnectInterval) {
                 clearInterval(this.reconnectInterval);
@@ -230,7 +170,6 @@ class SignalRService {
             }
             if (this.notificationHubConnection.state === signalR.HubConnectionState.Connected) {
                 await this.notificationHubConnection.stop();
->>>>>>> newdb1
             }
         } catch (err) {
             console.error("Error while stopping connection: ", err);
@@ -241,9 +180,6 @@ class SignalRService {
     // Chat Methods
     async sendMessage(receiverId: string, content: string): Promise<void> {
         if (!this.userId) throw new Error("User not authenticated");
-<<<<<<< HEAD
-        await this.hubConnection.invoke("SendDirectMessage", this.userId, receiverId, content);
-=======
         
         // Debounce message sending
         if (this.lastMessageSentTime && Date.now() - this.lastMessageSentTime < 500) {
@@ -258,7 +194,6 @@ class SignalRService {
             console.error("Error sending message:", error);
             throw error;
         }
->>>>>>> newdb1
     }
 
     async markMessageAsRead(messageId: string): Promise<void> {
@@ -309,10 +244,6 @@ class SignalRService {
         }
     }
 
-<<<<<<< HEAD
-    // Event Listeners
-    onReceiveMessage(callback: (message: Message) => void): void {
-=======
     public isChatConnected(): boolean {
         return this.hubConnection.state === signalR.HubConnectionState.Connected;
     }
@@ -336,7 +267,6 @@ class SignalRService {
         // Remove any existing callbacks first
         this.messageCallbacks = [];
         // Add the new callback
->>>>>>> newdb1
         this.messageCallbacks.push(callback);
     }
 
@@ -362,9 +292,6 @@ class SignalRService {
 
     // Notification Methods
     onReceiveNotification(callback: (notification: Notification) => void): void {
-<<<<<<< HEAD
-        this.notificationHubConnection.on("ReceiveNotification", callback);
-=======
         // Remove any existing callback with the same reference to avoid duplicates
         this.removeNotificationCallback(callback);
         
@@ -413,13 +340,10 @@ class SignalRService {
 
     isConnected(): boolean {
         return this.notificationHubConnection.state === signalR.HubConnectionState.Connected;
->>>>>>> newdb1
     }
 
     async sendTestNotification(): Promise<void> {
         if (!this.userId) throw new Error("User not authenticated");
-<<<<<<< HEAD
-=======
         
         if (this.notificationHubConnection.state !== signalR.HubConnectionState.Connected) {
             console.warn("Notification hub not connected, attempting to reconnect...");
@@ -432,7 +356,6 @@ class SignalRService {
             }
         }
         
->>>>>>> newdb1
         await this.notificationHubConnection.invoke("SendTestNotification", this.userId);
     }
 }

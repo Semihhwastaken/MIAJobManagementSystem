@@ -22,26 +22,6 @@ namespace JobTrackingAPI.Models
         [Required]
         public string Email { get; set; } = null!;
 
-<<<<<<< HEAD
-        [BsonElement("fullName")]
-        public string? FullName { get; set; }
-
-        [BsonElement("department")]
-        public string? Department { get; set; }
-
-        [BsonElement("password")]
-        public string Password { get; set; } = null!;
-
-        [BsonElement("title")]
-        public string? Title { get; set; }
-
-        [BsonElement("phone")]
-        public string? Phone { get; set; }
-
-        [BsonElement("position")]
-        public string? Position { get; set; }
-
-=======
         [BsonElement("passwordHash")]
         public byte[] PasswordHash { get; set; } = Array.Empty<byte>();
 
@@ -71,43 +51,12 @@ namespace JobTrackingAPI.Models
         [BsonElement("userStatus")]
         public string UserStatus { get; set; } = "active";
 
->>>>>>> newdb1
         [BsonElement("assignedJobs")]
         public List<string> AssignedJobs { get; set; } = new List<string>();
 
         [BsonElement("profileImage")]
         public string? ProfileImage { get; set; }
 
-<<<<<<< HEAD
-        [BsonElement("createdDate")]
-        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
-        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
-
-        [BsonElement("updatedDate")]
-        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
-        public DateTime? UpdatedDate { get; set; }
-
-        public User()
-        {
-        }
-
-
-        public User(string username, string email, string fullName, string department, string password, string profileImage, string title, string phone, string position)
-
-        {
-            Username = username;
-            Email = email;
-            FullName = fullName;
-            Department = department;
-            Password = password;
-            CreatedDate = DateTime.UtcNow;
-            ProfileImage = profileImage;
-            Title = title;
-            Phone = phone;
-            Position = position;
-
-        }
-=======
         [BsonElement("expertise")]
         public List<string> Expertise { get; set; } = new List<string>();
 
@@ -146,6 +95,5 @@ namespace JobTrackingAPI.Models
 
         [BsonElement("taskHistory")]
         public List<string> TaskHistory { get; set; } = new List<string>();
->>>>>>> newdb1
     }
 }

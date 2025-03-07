@@ -9,10 +9,7 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-<<<<<<< HEAD
-=======
 .windsurfrules
->>>>>>> newdb1
 
 # .NET
 bin/
@@ -33,8 +30,5 @@ nupkg/
 # IDE
 .idea/
 *.sln.iml
-<<<<<<< HEAD
-=======
 
 /JobTrackingAPI/wwwroot
->>>>>>> newdb1

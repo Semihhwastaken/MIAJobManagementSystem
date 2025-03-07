@@ -17,18 +17,6 @@ const App: React.FC = () => {
         navigate("/login");
     };
 
-<<<<<<< HEAD
-    // Otomatik slider için useEffect
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
-        }, 5000); // Her 5 saniyede bir değişecek
-
-        return () => clearInterval(timer);
-    }, []);
-
-=======
->>>>>>> newdb1
     const testimonials = [
         {
             name: "Alexandra Thompson",
@@ -80,8 +68,6 @@ const App: React.FC = () => {
         },
     ];
 
-<<<<<<< HEAD
-=======
     // Otomatik slider için useEffect
     useEffect(() => {
         const timer = setInterval(() => {
@@ -91,7 +77,6 @@ const App: React.FC = () => {
         return () => clearInterval(timer);
     }, [testimonials.length]);
     
->>>>>>> newdb1
     const nextTestimonial = () => {
         setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
     };

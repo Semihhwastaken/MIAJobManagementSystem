@@ -40,14 +40,11 @@ namespace JobTrackingAPI.Models
         [RegularExpression("^(High|Medium|Low)$", ErrorMessage = "Priority must be High, Medium, or Low")]
         public string Priority { get; set; } = "Medium";
 
-<<<<<<< HEAD
-=======
         [BsonElement("category")]
         [Required]
         [RegularExpression("^(meeting|task|deadline)$", ErrorMessage = "Category must be meeting, task, or deadline")]
         public string Category { get; set; } = "task";
 
->>>>>>> newdb1
         [BsonElement("participants")]
         public List<string> Participants { get; set; } = new List<string>();
 
@@ -60,8 +57,4 @@ namespace JobTrackingAPI.Models
         [BsonElement("updatedAt")]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> newdb1

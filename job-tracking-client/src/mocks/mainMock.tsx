@@ -1,10 +1,6 @@
 // The exported code uses Tailwind CSS. Install Tailwind CSS in your dev environment to ensure all styles work.
 
-<<<<<<< HEAD
-import React, { useState, useEffect } from "react";
-=======
 import React, { useState  } from "react";
->>>>>>> newdb1
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Pagination, Autoplay } from "swiper/modules";
 

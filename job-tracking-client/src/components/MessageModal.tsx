@@ -4,10 +4,7 @@ import { useDispatch } from 'react-redux';
 import { sendMessage } from '../redux/features/messageSlice';
 import { useTheme } from '../context/ThemeContext';
 import { XMarkIcon } from '@heroicons/react/24/outline';
-<<<<<<< HEAD
-=======
 import { AppDispatch } from '../redux/store';
->>>>>>> newdb1
 
 interface MessageModalProps {
     isOpen: boolean;
@@ -17,10 +14,6 @@ interface MessageModalProps {
     receiverName: string;
 }
 
-<<<<<<< HEAD
-const MessageModal = ({ isOpen, onClose, senderId, receiverId, receiverName }: MessageModalProps) => {
-    const dispatch = useDispatch();
-=======
 interface MessagePayload {
     senderId: string;
     receiverId: string;
@@ -30,7 +23,6 @@ interface MessagePayload {
 
 const MessageModal = ({ isOpen, onClose, senderId, receiverId, receiverName }: MessageModalProps) => {
     const dispatch = useDispatch<AppDispatch>();
->>>>>>> newdb1
     const { isDarkMode } = useTheme();
     const [subject, setSubject] = useState('');
     const [content, setContent] = useState('');
@@ -39,9 +31,6 @@ const MessageModal = ({ isOpen, onClose, senderId, receiverId, receiverName }: M
         if (!content.trim()) return;
 
         try {
-<<<<<<< HEAD
-            await dispatch(sendMessage({ senderId, receiverId, content, subject }) as any);
-=======
             const messageData: MessagePayload = {
                 senderId,
                 receiverId,
@@ -49,7 +38,6 @@ const MessageModal = ({ isOpen, onClose, senderId, receiverId, receiverName }: M
                 subject
             };
             await dispatch(sendMessage(messageData));
->>>>>>> newdb1
             setContent('');
             setSubject('');
             onClose();

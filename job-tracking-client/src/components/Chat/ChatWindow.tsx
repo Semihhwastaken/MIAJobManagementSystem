@@ -13,42 +13,24 @@ import {
     Avatar,
     CircularProgress,
     Alert,
-<<<<<<< HEAD
-=======
     Menu,
     MenuItem,
     Fade,
->>>>>>> newdb1
 } from '@mui/material';
 import { 
     Send as SendIcon,
     AttachFile as AttachFileIcon,
-<<<<<<< HEAD
-    
-} from '@mui/icons-material';
-import { motion } from 'framer-motion';
-
-interface Attachment {
-    url: string;
-    fileName: string;
-}
-
-=======
     Delete as DeleteIcon,
     MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 
->>>>>>> newdb1
 interface ChatWindowProps {
     currentUserId: string;
     selectedUser: {
         id: string;
         name: string;
-<<<<<<< HEAD
-=======
         profilImage?: string;
->>>>>>> newdb1
     };
 }
 
@@ -58,17 +40,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
     const [isTyping, setIsTyping] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-<<<<<<< HEAD
-    const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(true);
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [isReceiverOnline, setIsReceiverOnline] = useState(false);
-=======
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isReceiverOnline, setIsReceiverOnline] = useState(false);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
->>>>>>> newdb1
     
     const typingTimeoutRef = useRef<number | undefined>(undefined);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -76,11 +51,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
     const currentUser = useSelector((state: RootState) => state.auth.user);
     const signalRService = SignalRService.getInstance();
 
-<<<<<<< HEAD
-    const loadMessages = async () => {
-=======
     const loadMessages = useCallback(async () => {
->>>>>>> newdb1
         if (!currentUser?.id) return;
 
         try {
@@ -90,11 +61,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
             const response = await axiosInstance.get(`/Messages/conversation/${currentUserId}/${selectedUser.id}`);
             if (response.data) {
                 setMessages(response.data.reverse());
-<<<<<<< HEAD
-=======
                 
                 
->>>>>>> newdb1
             }
         } catch (err) {
             console.error('Error loading messages:', err);
@@ -102,22 +70,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
         } finally {
             setLoading(false);
         }
-<<<<<<< HEAD
-    };
-
-    const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-        const element = e.currentTarget;
-        if (element.scrollTop === 0 && hasMore && !loading) {
-            loadMessages();
-        }
-    }, [hasMore, loadMessages, loading]);
-
-    useEffect(() => {
-        loadMessages();
-    }, [selectedUser.id]);
-
-    const checkOnlineStatus = async () => {
-=======
     }, [currentUser?.id, currentUserId, selectedUser.id]);
 
 
@@ -152,47 +104,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
     }, [selectedUser.id, loadMessages]);
 
     const checkOnlineStatus = useCallback(async () => {
->>>>>>> newdb1
         try {
             const response = await axiosInstance.get(`/users/${selectedUser.id}/online`);
             setIsReceiverOnline(response.data.isOnline);
         } catch (err) {
             console.error('Error checking online status:', err);
         }
-<<<<<<< HEAD
-    };
-
-    useEffect(() => {
-        checkOnlineStatus();
-        const statusInterval = setInterval(checkOnlineStatus, 30000);
-        return () => clearInterval(statusInterval);
-    }, [selectedUser.id]);
-
-    useEffect(() => {
-        const handleNewMessage = (message: Message) => {
-            if (message.senderId === selectedUser.id || message.senderId === currentUserId) {
-                if (messages.some(m => m.id === message.id)) {
-                    return;
-                }
-                setMessages(prev => [...prev, message]);
-                scrollToBottom();
-            }
-        };
-
-        signalRService.onReceiveMessage(handleNewMessage);
-
-        return () => {
-            signalRService.removeMessageCallback(handleNewMessage);
-        };
-    }, [currentUserId, selectedUser.id, messages]);
-=======
     }, [selectedUser.id]);
 
     useEffect(() => {
         checkOnlineStatus();
         
     }, [selectedUser.id, checkOnlineStatus]);
->>>>>>> newdb1
 
     useEffect(() => {
         const initializeSignalR = async () => {
@@ -205,15 +128,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                             setIsTyping(true);
                         }
                     });
-<<<<<<< HEAD
-
-=======
                     if (signalRService.isChatConnected()) {
                         signalRService.getConnectedUsersCountToChat().then(count => {
                             console.log('Connected users count to chat:', count);
                         });
                     }
->>>>>>> newdb1
                     signalRService.onUserStoppedTyping((userId: string) => {
                         if (userId === selectedUser.id) {
                             setIsTyping(false);
@@ -228,11 +147,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                         );
                     });
 
-<<<<<<< HEAD
-=======
                     
 
->>>>>>> newdb1
                 } catch (error) {
                     console.error('SignalR connection error:', error);
                     setError('Failed to establish real-time connection. Messages may be delayed.');
@@ -247,25 +163,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                 clearTimeout(typingTimeoutRef.current);
             }
         };
-<<<<<<< HEAD
-    }, [currentUser?.id, selectedUser.id]);
-=======
     }, [currentUser?.id, selectedUser.id, signalRService]);
->>>>>>> newdb1
 
     const handleTyping = () => {
         if (typingTimeoutRef.current) {
             window.clearTimeout(typingTimeoutRef.current);
         }
 
-<<<<<<< HEAD
-        axiosInstance.post(`/messages/typing/${currentUser?.id}/${selectedUser.id}`)
-            .catch(err => console.error('Error sending typing notification:', err));
-
-        typingTimeoutRef.current = window.setTimeout(() => {
-            setIsTyping(false);
-        }, 3000);
-=======
         signalRService.sendTypingIndicator(selectedUser.id)
             .catch(err => console.error('Error sending typing notification:', err));
 
@@ -273,7 +177,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
             signalRService.sendStoppedTypingIndicator(selectedUser.id)
                 .catch(err => console.error('Error sending stopped typing notification:', err));
         }, 4000);
->>>>>>> newdb1
     };
 
     const scrollToBottom = () => {
@@ -289,38 +192,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
         if (!newMessage.trim() && !selectedFile) return;
 
         try {
-<<<<<<< HEAD
-            let attachments: Attachment[] = [];
-            
-            if (selectedFile) {
-                const formData = new FormData();
-                formData.append('file', selectedFile);
-                
-                const uploadResponse = await axiosInstance.post('/Messages/upload', formData);
-                attachments = [{
-                    url: uploadResponse.data.url,
-                    fileName: selectedFile.name
-                }];
-            }
-
-            const messageDto = {
-                receiverId: selectedUser.id,
-                content: newMessage,
-                subject: 'Chat Message' // Required by the backend
-            };
-
-            const response = await axiosInstance.post(`/Messages/send/${currentUserId}`, messageDto);
-            
-            if (response.data) {
-                setMessages(prev => [...prev, response.data]);
-                setNewMessage('');
-                setSelectedFile(null);
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                }
-                scrollToBottom();
-            }
-=======
             setNewMessage('');
             setSelectedFile(null);
             if (fileInputRef.current) {
@@ -331,7 +202,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
             await signalRService.sendMessage(selectedUser.id, newMessage);
             
             scrollToBottom();
->>>>>>> newdb1
         } catch (error) {
             console.error('Error sending message:', error);
             setError('Failed to send message. Please try again.');
@@ -340,15 +210,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
 
     const handleDeleteMessage = async (messageId: string) => {
         try {
-<<<<<<< HEAD
-            await axiosInstance.delete(`/message/${messageId}`, {
-                params: { userId: currentUser?.id }
-            });
-            setMessages(prev => prev.filter(msg => msg.id !== messageId));
-        } catch (err) {
-            setError('Failed to delete message. Please try again.');
-            console.error('Error deleting message:', err);
-=======
             // Make sure we have both the message ID and current user ID
             if (!messageId || !currentUserId) {
                 throw new Error('Missing required parameters for message deletion');
@@ -375,7 +236,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
             
             // Show error for 3 seconds then clear it
             setTimeout(() => setError(null), 3000);
->>>>>>> newdb1
         }
     };
 
@@ -390,26 +250,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
         }
     };
 
-<<<<<<< HEAD
-    return (
-        <Paper className="flex flex-col h-full" elevation={0}>
-            {/* Header */}
-            <Box className="p-3 border-b flex items-center justify-between">
-                <Box className="flex items-center">
-                    <Avatar className="mr-2">{selectedUser.name[0]}</Avatar>
-                    <Box>
-                        <Typography variant="h6">{selectedUser.name}</Typography>
-                        {isReceiverOnline && (
-                            <Typography variant="caption" className="text-green-500">
-                                Online
-                            </Typography>
-                        )}
-                        {isTyping && (
-                            <Typography variant="caption" className="text-gray-500">
-                                typing...
-                            </Typography>
-                        )}
-=======
     const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, messageId: string) => {
         event.stopPropagation();
         setAnchorEl(event.currentTarget);
@@ -510,78 +350,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                                 )}
                             </Box>
                         </Box>
->>>>>>> newdb1
                     </Box>
                 </Box>
             </Box>
 
             {/* Messages */}
             <Box 
-<<<<<<< HEAD
-                className="flex-1 overflow-y-auto p-3"
-                sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    height: '100%'
-=======
                 className="flex-1 overflow-y-auto p-4"
                 sx={{
                     backgroundImage: 'linear-gradient(to bottom, rgba(0,0,0,0.02), rgba(0,0,0,0))',
->>>>>>> newdb1
                 }}
             >
                 {loading ? (
                     <Box className="flex justify-center items-center h-full">
-<<<<<<< HEAD
-                        <CircularProgress />
-                    </Box>
-                ) : error ? (
-                    <Alert severity="error">{error}</Alert>
-                ) : (
-                    <div className="flex flex-col space-y-4">
-                        {messages.map((message) => (
-                            <motion.div
-                                key={message.id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                className={`flex ${message.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}
-                            >
-                                <Box
-                                    className={`max-w-[70%] p-3 rounded-lg ${
-                                        message.senderId === currentUserId
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-100 dark:bg-gray-700'
-                                    }`}
-                                >
-                                    <Typography>{message.content}</Typography>
-                                    {message.attachments?.map((attachment, index) => (
-                                        <Box key={index} className="mt-2">
-                                            <a
-                                                href={attachment.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-sm underline"
-                                            >
-                                                {attachment.fileName || 'Attached File'}
-                                            </a>
-                                        </Box>
-                                    ))}
-                                    <Typography variant="caption" className="block mt-1 opacity-70">
-                                        {new Date(message.sentAt).toLocaleTimeString()}
-                                    </Typography>
-                                </Box>
-                            </motion.div>
-                        ))}
-                        <div ref={messagesEndRef} style={{ height: 1 }} />
-                    </div>
-                )}
-            </Box>
-
-            {/* Message Input */}
-            <Box className="p-3 border-t">
-                <Box className="flex items-center gap-2">
-=======
                         <CircularProgress size={40} />
                     </Box>
                 ) : error ? (
@@ -772,7 +553,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                         borderColor: 'divider',
                     }}
                 >
->>>>>>> newdb1
                     <input
                         type="file"
                         ref={fileInputRef}
@@ -782,10 +562,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                     <IconButton
                         onClick={() => fileInputRef.current?.click()}
                         size="small"
-<<<<<<< HEAD
-=======
                         sx={{ color: 'text.secondary' }}
->>>>>>> newdb1
                     >
                         <AttachFileIcon />
                     </IconButton>
@@ -805,9 +582,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                         }}
                         multiline
                         maxRows={4}
-<<<<<<< HEAD
-                        size="small"
-=======
                         variant="standard"
                         InputProps={{
                             disableUnderline: true,
@@ -817,15 +591,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                                 padding: '4px 8px',
                             }
                         }}
->>>>>>> newdb1
                     />
                     <IconButton
                         onClick={handleSendMessage}
                         color="primary"
                         disabled={!newMessage.trim() && !selectedFile}
                         size="small"
-<<<<<<< HEAD
-=======
                         sx={{
                             backgroundColor: 'primary.main',
                             color: 'white',
@@ -837,7 +608,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                                 color: 'action.disabled',
                             }
                         }}
->>>>>>> newdb1
                     >
                         <SendIcon />
                     </IconButton>
@@ -845,8 +615,4 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
             </Box>
         </Paper>
     );
-<<<<<<< HEAD
 };
-=======
-};
->>>>>>> newdb1

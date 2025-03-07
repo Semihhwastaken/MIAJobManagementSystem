@@ -1,27 +1,17 @@
 import { User } from '../types/task';
-<<<<<<< HEAD
-import axios from 'axios';
-=======
 import axiosInstance from './axiosInstance';
->>>>>>> newdb1
 
 const API_URL = 'http://localhost:5193/api';
 
 const userService = {
     getAllUsers: async (): Promise<User[]> => {
         try {
-<<<<<<< HEAD
-            const response = await axios.get(`${API_URL}/users`);
-=======
             const response = await axiosInstance.get(`${API_URL}/users`);
->>>>>>> newdb1
             return response.data;
         } catch (error) {
             console.error('Error fetching users:', error);
             throw error;
         }
-<<<<<<< HEAD
-=======
     },
     
     // Belirli ID'ye sahip kullanıcıları getir
@@ -103,7 +93,6 @@ const userService = {
             console.error('Error removing assigned job:', error);
             throw error;
         }
->>>>>>> newdb1
     }
 };
 

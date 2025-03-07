@@ -3,31 +3,16 @@ import { AuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { NotificationCenter } from '../Notifications/NotificationCenter';
-<<<<<<< HEAD
-=======
 import { invalidateCache } from '../../redux/features/teamSlice';
 import { logout as logoutAction } from '../../redux/features/authSlice';
 import { resetState } from '../../redux/features/actions';
 import { useDispatch } from 'react-redux';
->>>>>>> newdb1
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-<<<<<<< HEAD
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { isAuthenticated, setIsAuthenticated } = useContext(AuthContext);
-  const { isDarkMode, toggleTheme } = useTheme();
-  const isAuthPage = location.pathname === '/auth';
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    setIsAuthenticated(false);
-    navigate('/auth');
-=======
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, setIsAuthenticated } = useContext(AuthContext);
@@ -93,7 +78,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       setIsAuthenticated(false);
       navigate('/auth', { replace: true });
     }
->>>>>>> newdb1
   };
 
   const navItems = [

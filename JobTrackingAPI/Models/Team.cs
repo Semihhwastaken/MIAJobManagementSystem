@@ -33,30 +33,18 @@ public class Team
     /// Takımı oluşturan kullanıcının ID'si
     /// </summary>
     [BsonRepresentation(BsonType.ObjectId)]
-<<<<<<< HEAD
-    public string CreatedById { get; set; }
-=======
     [Required(ErrorMessage = "Takım oluşturan kullanıcı zorunludur")]
     public string CreatedById { get; set; } = string.Empty;
->>>>>>> newdb1
 
     /// <summary>
     /// Takıma katılmak için kullanılacak davet linki
     /// </summary>
-<<<<<<< HEAD
-    public string? InviteLink { get; set; }
-=======
     public string? InviteLink { get; set; } = string.Empty;
->>>>>>> newdb1
 
     /// <summary>
     /// Takıma katılmak için kullanılacak davet kodu
     /// </summary>
-<<<<<<< HEAD
-    public string? InviteCode { get; set; }
-=======
     public string? InviteCode { get; set; } = string.Empty;
->>>>>>> newdb1
 
     /// <summary>
     /// Davet linkinin geçerlilik süresi
@@ -77,11 +65,6 @@ public class Team
     public DateTime? UpdatedAt { get; set; }
 
     /// <summary>
-<<<<<<< HEAD
-    /// Takıma ait üyeler
-    /// </summary>
-    public List<TeamMember> Members { get; set; } = new List<TeamMember>();
-=======
     /// Takımın durumu (active, archived, deleted)
     /// </summary>
     public string Status { get; set; } = "active";
@@ -131,7 +114,6 @@ public class Team
     /// </summary>
     [BsonElement("Comments")]
     public List<Comment> Comments { get; set; } = new List<Comment>();
->>>>>>> newdb1
 
     /// <summary>
     /// Takım departmanları
@@ -164,19 +146,12 @@ public class TeamMember
     
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
     public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
-<<<<<<< HEAD
-=======
 
     public MemberMetricsUpdateDto Metrics { get; set; } = new MemberMetricsUpdateDto();
->>>>>>> newdb1
 }
 
 public class AvailabilitySchedule
 {
-<<<<<<< HEAD
-    public string StartTime { get; set; }
-    public string EndTime { get; set; }
-=======
     public WorkingHours WorkingHours { get; set; }
     public List<string> WorkingDays { get; set; }
 }
@@ -185,7 +160,6 @@ public class WorkingHours
 {
     public string Start { get; set; }
     public string End { get; set; }
->>>>>>> newdb1
 }
 
 public class DepartmentStats

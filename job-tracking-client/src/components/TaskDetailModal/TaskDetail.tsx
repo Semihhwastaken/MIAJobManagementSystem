@@ -1,16 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Task } from '../../types/task';
 import { useDispatch, useSelector } from 'react-redux';
-<<<<<<< HEAD
-import { updateTask } from '../../redux/features/tasksSlice';
-import { RootState, AppDispatch } from '../../redux/store';
-=======
 import { updateTaskStatus, completeTask, updateTask, downloadFile } from '../../redux/features/tasksSlice';
 import { RootState, AppDispatch } from '../../redux/store';
 import { updateMemberPerformance, getTeamMembersByTeamId } from '../../redux/features/teamSlice';
 import axiosInstance from '../../services/axiosInstance';
 import axios from 'axios';
->>>>>>> newdb1
 
 interface TaskDetailModalProps {
     task: Task;
@@ -21,13 +16,9 @@ interface TaskDetailModalProps {
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose }) => {
     const dispatch: AppDispatch = useDispatch();
     const allTasks = useSelector((state: RootState) => state.tasks.items);
-<<<<<<< HEAD
-    const [localTask, setLocalTask] = useState(task);
-=======
     const [localTask, setLocalTask] = useState<Task>(task);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDownloading, setIsDownloading] = useState<{[key: string]: boolean}>({});
->>>>>>> newdb1
 
     useEffect(() => {
         setLocalTask(task);
@@ -35,8 +26,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
 
     if (!isOpen) return null;
 
-<<<<<<< HEAD
-=======
     // Check if all dependencies are completed
     const areAllDependenciesCompleted = () => {
         return localTask.dependencies?.every(depId => {
@@ -45,7 +34,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
         }) ?? true;
     };
 
->>>>>>> newdb1
     const getPriorityColor = (priority: string) => {
         switch (priority) {
             case 'high':
@@ -59,27 +47,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
         }
     };
 
-<<<<<<< HEAD
-    const handleSubTaskToggle = (subTaskId: string) => {
-        // Eğer task overdue ise, subtask'ları değiştirmeye izin verme
-        if (localTask.status === 'overdue') {
-            alert('Bu görev süresi dolduğu için alt görevler tamamlanamaz!');
-            return;
-        }
-
-        const updatedTask = {
-            ...localTask,
-            subTasks: localTask.subTasks.map(st =>
-                st.id === subTaskId ? { ...st, completed: !st.completed } : st
-            )
-        };
-        setLocalTask(updatedTask);
-        dispatch(updateTask(updatedTask));
-    };
-
-    const progressPercentage = localTask.subTasks.length > 0
-        ? Math.round((localTask.subTasks.filter(st => st.completed).length / localTask.subTasks.length) * 100)
-=======
     const handleSubTaskToggle = async (subTaskId: string) => {
         // Check if task is overdue by comparing due date with current date
         const isDueDate = new Date(localTask.dueDate);
@@ -225,7 +192,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
 
     const progressPercentage = localTask.subTasks.length > 0
         ? Math.floor((localTask.subTasks.filter(st => st.completed).length / localTask.subTasks.length) * 100)
->>>>>>> newdb1
         : 0;
 
     // Bağlı görevlerin başlıklarını bul
@@ -234,8 +200,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
         return dependentTask?.title || 'Silinmiş Görev';
     };
 
-<<<<<<< HEAD
-=======
     // Check if a dependency is completed
     const isDependencyCompleted = (depId: string) => {
         const dependentTask = allTasks.find(t => t.id === depId);
@@ -248,7 +212,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                            progressPercentage === 100 &&
                            areAllDependenciesCompleted();
 
->>>>>>> newdb1
     return (
         <div className="fixed inset-y-0 right-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
             <div className={`fixed inset-y-0 right-0 w-96 bg-white shadow-xl transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
@@ -269,12 +232,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                         <span className={`inline-block px-2 py-1 rounded-md text-sm font-medium ${getPriorityColor(localTask.priority)}`}>
                             {localTask.priority.charAt(0).toUpperCase() + localTask.priority.slice(1)}
                         </span>
-<<<<<<< HEAD
-=======
                         <span className={`ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${localTask.status === 'todo' ? 'bg-blue-100 text-blue-800' : localTask.status === 'in-progress' ? 'bg-purple-100 text-purple-800' : localTask.status === 'overdue' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
                             {localTask.status}
                         </span>
->>>>>>> newdb1
                     </div>
 
                     <div className="space-y-6">
@@ -307,19 +267,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                                             type="checkbox"
                                             checked={subTask.completed}
                                             onChange={() => handleSubTaskToggle(subTask.id!)}
-<<<<<<< HEAD
-                                            disabled={localTask.status === 'overdue'}
-                                            className={`h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 
-                                                ${localTask.status === 'overdue' ? 'cursor-not-allowed opacity-50' : ''}`}
-                                        />
-                                        <label className={`ml-2 text-sm ${localTask.status === 'overdue' ? 'text-gray-400' : 'text-gray-700'}`}>
-=======
                                             disabled={localTask.status === 'overdue' || localTask.status === 'completed'}
                                             className={`h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 
                                                 ${(localTask.status === 'overdue' || localTask.status === 'completed') ? 'cursor-not-allowed opacity-50' : ''}`}
                                         />
                                         <label className={`ml-2 text-sm ${(localTask.status === 'overdue' || localTask.status === 'completed') ? 'text-gray-400' : 'text-gray-700'}`}>
->>>>>>> newdb1
                                             {subTask.title}
                                         </label>
                                     </div>
@@ -331,13 +283,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                             <h4 className="text-sm font-medium text-gray-900">Bağlı Görevler</h4>
                             <div className="mt-2 space-y-2">
                                 {localTask.dependencies.map((depId, index) => (
-<<<<<<< HEAD
-                                    <div key={index} className="text-sm text-gray-500 flex items-center">
-                                        <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                                        </svg>
-                                        {getDependencyTitle(depId)}
-=======
                                     <div key={index} className="text-sm text-gray-500 flex items-center justify-between">
                                         <div className="flex items-center">
                                             <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -348,7 +293,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                                         <span className={`text-xs px-2 py-1 rounded-full ${isDependencyCompleted(depId) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                                             {isDependencyCompleted(depId) ? 'Tamamlandı' : 'Bekliyor'}
                                         </span>
->>>>>>> newdb1
                                     </div>
                                 ))}
                             </div>
@@ -357,28 +301,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                         <div>
                             <h4 className="text-sm font-medium text-gray-900">Dosyalar</h4>
                             <div className="mt-2 space-y-2">
-<<<<<<< HEAD
-                                {localTask.attachments.map((attachment, index) => (
-                                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg">
-                                        <div className="flex items-center text-sm text-gray-500">
-                                            <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                            </svg>
-                                            <a 
-                                                href={attachment.fileUrl} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="text-indigo-600 hover:text-indigo-800"
-                                            >
-                                                {attachment.fileName}
-                                            </a>
-                                        </div>
-                                        <span className="text-xs text-gray-400">
-                                            {new Date(attachment.uploadDate).toLocaleDateString()}
-                                        </span>
-                                    </div>
-                                ))}
-=======
                                 {!localTask.attachments || localTask.attachments.length === 0 ? (
                                     <p className="text-sm italic text-gray-500">Bu göreve eklenmiş dosya bulunmamaktadır.</p>
                                 ) : (
@@ -402,7 +324,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                                         </div>
                                     ))
                                 )}
->>>>>>> newdb1
                             </div>
                         </div>
 
@@ -439,8 +360,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                             </div>
                         </div>
                     </div>
-<<<<<<< HEAD
-=======
 
                     {/* Warning Message for Incomplete Dependencies */}
                     {localTask.status !== 'completed' && 
@@ -515,7 +434,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                             </div>
                         </div>
                     )}
->>>>>>> newdb1
                 </div>
             </div>
         </div>

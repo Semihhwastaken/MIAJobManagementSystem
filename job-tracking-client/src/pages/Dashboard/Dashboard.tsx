@@ -3,11 +3,8 @@ import { Line, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, ChartOptions, Filler } from 'chart.js';
 import { useTheme } from '../../context/ThemeContext';
 import Footer from "../../components/Footer/Footer";
-<<<<<<< HEAD
-=======
 import { useState, useEffect } from 'react';
 import  axiosInstance  from '../../services/axiosInstance';
->>>>>>> newdb1
 
 // Register ChartJS components
 ChartJS.register(
@@ -22,60 +19,6 @@ ChartJS.register(
   Filler
 );
 
-<<<<<<< HEAD
-const Dashboard = () => {
-  const { isDarkMode } = useTheme();
-
-  // Mock data for task statistics
-  const taskStats = {
-    total: 248,
-    completed: 182,
-    inProgress: 45,
-    overdue: 21,
-    totalGrowth: '+12%',
-    completedGrowth: '+8%',
-    inProgressGrowth: '+5%',
-    overdueGrowth: '+2%',
-  };
-
-  // Mock data for line chart
-  const lineChartData = {
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    datasets: [
-      {
-        label: 'Completed',
-        data: [12, 14, 8, 10, 13, 9, 12],
-        borderColor: 'rgb(99, 102, 241)',
-        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-        fill: true,
-        tension: 0.4,
-      },
-      {
-        label: 'New Tasks',
-        data: [8, 9, 7, 12, 14, 8, 10],
-        borderColor: 'rgb(74, 222, 128)',
-        backgroundColor: 'rgba(74, 222, 128, 0.1)',
-        fill: true,
-        tension: 0.4,
-      },
-    ],
-  };
-
-  // Mock data for team performance
-  const doughnutData = {
-    labels: ['Development', 'Design', 'Marketing', 'Research'],
-    datasets: [{
-      data: [35, 25, 20, 20],
-      backgroundColor: [
-        'rgb(99, 102, 241)',
-        'rgb(74, 222, 128)',
-        'rgb(250, 204, 21)',
-        'rgb(248, 113, 113)',
-      ],
-      borderWidth: 0,
-    }],
-  };
-=======
 interface TaskStats {
   total: number;
   completed: number;
@@ -197,7 +140,6 @@ const Dashboard = () => {
   
     fetchDashboardData();
   }, []);
->>>>>>> newdb1
 
   const chartOptions: ChartOptions<'line'> = {
     responsive: true,

@@ -8,11 +8,7 @@ using JobTrackingAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-<<<<<<< HEAD
-
-=======
 using JobTrackingAPI.Enums;
->>>>>>> newdb1
 namespace JobTrackingAPI.Controllers
 {
     [Authorize]
@@ -22,15 +18,6 @@ namespace JobTrackingAPI.Controllers
     {
         private readonly CalendarEventService _calendarEventService;
         private readonly ILogger<CalendarEventsController> _logger;
-<<<<<<< HEAD
-
-        public CalendarEventsController(
-            CalendarEventService calendarEventService,
-            ILogger<CalendarEventsController> logger)
-        {
-            _calendarEventService = calendarEventService;
-            _logger = logger;
-=======
         private readonly IUserService _userService; // Change to interface
         private readonly INotificationService _notificationService;
 
@@ -44,7 +31,6 @@ namespace JobTrackingAPI.Controllers
             _logger = logger;
             _userService = userService;
             _notificationService = notificationService;
->>>>>>> newdb1
         }
 
         /// <summary>
@@ -172,15 +158,12 @@ namespace JobTrackingAPI.Controllers
                     return BadRequest(new { error = "End time must be after start time on the same day." });
                 }
 
-<<<<<<< HEAD
-=======
                 // Validate category
                 if (!new[] { "meeting", "task", "deadline" }.Contains(calendarEvent.Category))
                 {
                     return BadRequest(new { error = "Invalid category. Must be meeting, task, or deadline." });
                 }
 
->>>>>>> newdb1
                 // Get the user ID from claims
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
@@ -194,8 +177,6 @@ namespace JobTrackingAPI.Controllers
                 var createdEvent = await _calendarEventService.CreateEventAsync(calendarEvent);
                 _logger.LogInformation("Event created successfully: {@CreatedEvent}", createdEvent);
 
-<<<<<<< HEAD
-=======
                 // Send notifications to all participants
                 foreach (var participantEmail in calendarEvent.Participants)
                 {
@@ -217,7 +198,6 @@ namespace JobTrackingAPI.Controllers
                     }
                 }
 
->>>>>>> newdb1
                 return CreatedAtAction(nameof(GetEvent), new { id = createdEvent.Id }, createdEvent);
             }
             catch (Exception ex)
@@ -276,8 +256,6 @@ namespace JobTrackingAPI.Controllers
                 calendarEvent.CreatedAt = existingEvent.CreatedAt;
 
                 var updatedEvent = await _calendarEventService.UpdateEventAsync(id, calendarEvent);
-<<<<<<< HEAD
-=======
 
                 // Send notifications to all participants
                 foreach (var participantEmail in calendarEvent.Participants)
@@ -300,7 +278,6 @@ namespace JobTrackingAPI.Controllers
                     }
                 }
 
->>>>>>> newdb1
                 return Ok(updatedEvent);
             }
             catch (Exception ex)
@@ -331,8 +308,6 @@ namespace JobTrackingAPI.Controllers
                     return Forbid();
                 }
 
-<<<<<<< HEAD
-=======
                 // Send notifications to all participants before deleting
                 foreach (var participantEmail in existingEvent.Participants)
                 {
@@ -354,7 +329,6 @@ namespace JobTrackingAPI.Controllers
                     }
                 }
 
->>>>>>> newdb1
                 await _calendarEventService.DeleteEventAsync(id);
                 return NoContent();
             }
@@ -365,8 +339,4 @@ namespace JobTrackingAPI.Controllers
             }
         }
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> newdb1

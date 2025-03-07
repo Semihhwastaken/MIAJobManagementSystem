@@ -1,22 +1,12 @@
-<<<<<<< HEAD
-import React, { useState, useEffect } from 'react';
-import * as echarts from 'echarts';
-import TaskCard from '../../components/TaskCard/TaskCard';
-import TaskDetail from '../../components/TaskDetailModal/TaskDetail';
-import TaskForm from '../../components/TaskForm/TaskForm';
-=======
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import * as echarts from 'echarts';
 import TaskDetail from '../../components/TaskDetailModal/TaskDetail';
 import TaskForm from '../../components/TaskForm/TaskForm';
 import TaskHistory from '../../components/TaskHistory/TaskHistory';
->>>>>>> newdb1
 import { Task } from '../../types/task';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchTasks, createTask, updateTask, deleteTask } from '../../redux/features/tasksSlice';
 import { RootState, AppDispatch } from '../../redux/store';
-<<<<<<< HEAD
-=======
 import Footer from '../../components/Footer/Footer';
 import { getTeamMembersByTeamId } from '../../redux/features/teamSlice';
 
@@ -25,17 +15,10 @@ interface GroupedTask extends Task {
   linkedTasks?: Task[];
 }
 import { useTheme } from '../../context/ThemeContext';
->>>>>>> newdb1
 
 const Tasks: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { items: tasks, status, error } = useSelector((state: RootState) => state.tasks);
-<<<<<<< HEAD
-
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All Tasks');
-=======
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const [taskOwnerStatus, setTaskOwnerStatus] = useState<{[key: string]: boolean}>({});
   const [isValidationLoading, setIsValidationLoading] = useState(true);
@@ -44,7 +27,6 @@ const Tasks: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Cases');
->>>>>>> newdb1
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -52,10 +34,7 @@ const Tasks: React.FC = () => {
   const [isDateFilterModalOpen, setIsDateFilterModalOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState<{ startDate: string, endDate: string }>({ startDate: '', endDate: '' });
   const [isFilterActive, setIsFilterActive] = useState(false);
-<<<<<<< HEAD
-=======
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
->>>>>>> newdb1
 
   const priorityOrder = {
     'high': 3,
@@ -63,48 +42,6 @@ const Tasks: React.FC = () => {
     'low': 1
   };
 
-<<<<<<< HEAD
-  useEffect(() => {
-    if (status === 'idle') {
-      dispatch(fetchTasks());
-    }
-  }, [status, dispatch]);
-
-  useEffect(() => {
-    const chartDom = document.getElementById('taskProgressChart');
-    if (chartDom) {
-      const myChart = echarts.init(chartDom);
-      const option = {
-        animation: false,
-        tooltip: {
-          trigger: 'item'
-        },
-        series: [
-          {
-            name: 'Task Status',
-            type: 'pie',
-            radius: ['60%', '80%'],
-            data: [
-              { value: tasks.filter(t => t.status === 'todo').length, name: 'To Do' },
-              { value: tasks.filter(t => t.status === 'in-progress').length, name: 'In Progress' },
-              { value: tasks.filter(t => t.status === 'completed').length, name: 'Completed' }
-            ],
-            emphasis: {
-              itemStyle: {
-                shadowBlur: 10,
-                shadowOffsetX: 0,
-                shadowColor: 'rgba(0, 0, 0, 0.5)'
-              }
-            }
-          }
-        ]
-      };
-      myChart.setOption(option);
-    }
-  }, [tasks]);
-
-  const handleTaskClick = (task: Task) => {
-=======
   // Optimize task owner validation
   const checkOwnerStatus = useCallback(async (tasks: Task[]) => {
     setIsValidationLoading(true);
@@ -237,28 +174,10 @@ const Tasks: React.FC = () => {
       e.stopPropagation();
     }
     
->>>>>>> newdb1
     if (task.id) {
       setSelectedTask(task);
       setIsDetailModalOpen(true);
     }
-<<<<<<< HEAD
-  };
-
-  const handleCloseModal = () => {
-    setIsDetailModalOpen(false);
-    setSelectedTask(null);
-  };
-
-  const handleEditClick = (task: Task) => {
-    if (task.id) {
-      setSelectedTask(task);
-      setIsEditModalOpen(true);
-    }
-  };
-
-  const handleUpdateTask = async (updatedTaskData: Omit<Task, 'id'>) => {
-=======
   }, []);
 
   const handleCloseModal = useCallback(() => {
@@ -286,7 +205,6 @@ const Tasks: React.FC = () => {
   }, []);
 
   const handleUpdateTask = useCallback(async (updatedTaskData: Omit<Task, 'id'>) => {
->>>>>>> newdb1
     if (selectedTask?.id) {
       try {
         const updatedTask = {
@@ -295,32 +213,15 @@ const Tasks: React.FC = () => {
         };
         await dispatch(updateTask(updatedTask));
         setIsEditModalOpen(false);
-<<<<<<< HEAD
-        setSelectedTask(null);
-=======
         
         // Add a slight delay to improve UX
         setTimeout(() => {
           setSelectedTask(null);
         }, 300);
->>>>>>> newdb1
       } catch (error) {
         console.error('Görev güncellenirken hata oluştu:', error);
       }
     }
-<<<<<<< HEAD
-  };
-
-  const handleDeleteTask = async (taskId: string) => {
-    try {
-      await dispatch(deleteTask(taskId));
-    } catch (error) {
-      console.error('Görev silinirken hata oluştu:', error);
-    }
-  };
-
-  const handleCreateTask = async (newTask: Omit<Task, 'id'>) => {
-=======
   }, [dispatch, selectedTask]);
 
   const handleDeleteTask = useCallback(async (taskId: string | undefined, e?: React.MouseEvent) => {
@@ -343,45 +244,12 @@ const Tasks: React.FC = () => {
   }, [dispatch]);
 
   const handleCreateTask = useCallback(async (newTask: Omit<Task, 'id'>) => {
->>>>>>> newdb1
     try {
       await dispatch(createTask(newTask));
       setIsNewTaskModalOpen(false);
     } catch (error) {
       console.error('Görev oluşturulurken hata oluştu:', error);
     }
-<<<<<<< HEAD
-  };
-
-  const categories = ['All Tasks', 'Personal', 'Work', 'Shopping', 'Health'];
-
-  const filteredTasks = tasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'All Tasks' || task.category === selectedCategory;
-    const matchesDateFilter = !isFilterActive || (
-      task.dueDate >= dateFilter.startDate &&
-      task.dueDate <= dateFilter.endDate
-    );
-    return matchesSearch && matchesCategory && matchesDateFilter;
-  }).sort((a, b) => {
-    if (sortByPriority) {
-      return priorityOrder[b.priority as keyof typeof priorityOrder] - priorityOrder[a.priority as keyof typeof priorityOrder];
-    }
-    return 0;
-  });
-
-  if (status === 'loading') {
-    return <div className="flex justify-center items-center h-full">Yükleniyor...</div>;
-  }
-
-  if (status === 'failed') {
-    return <div className="text-red-600">Hata: {error}</div>;
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-=======
   }, [dispatch]);
 
   const categories = ['All Cases', 'Bug', 'Development', 'Documentation', 'Testing', 'Maintenance'];
@@ -465,29 +333,11 @@ const Tasks: React.FC = () => {
   
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
->>>>>>> newdb1
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-<<<<<<< HEAD
-            <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
-            <p className="text-gray-600">Track and manage your tasks efficiently</p>
-          </div>
-          <button
-            onClick={() => setIsNewTaskModalOpen(true)}
-            className="!rounded-button bg-indigo-600 text-white px-4 py-2 flex items-center space-x-2 hover:bg-indigo-700 transition-colors"
-          >
-            <i className="fas fa-plus"></i>
-            <span>Add New Task</span>
-          </button>
-        </div>
-
-        {/* Task Management Tools */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <div className="flex items-center justify-between mb-6">
-=======
             <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>My Tasks</h1>
             <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Track and manage your tasks efficiently</p>
           </div>
@@ -497,31 +347,21 @@ const Tasks: React.FC = () => {
         <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-sm p-6 mb-8`}>
           <div className="flex items-center justify-between mb-6">
             {/* Search Input */}
->>>>>>> newdb1
             <div className="relative flex-1 max-w-md">
               <input
                 type="text"
                 placeholder="Search tasks..."
-<<<<<<< HEAD
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-=======
                 className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
                   isDarkMode 
                     ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
                     : 'border-gray-300 text-gray-900'
                 }`}
->>>>>>> newdb1
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
               <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
             </div>
 
-<<<<<<< HEAD
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setSortByPriority(!sortByPriority)}
-=======
             {/* Action Buttons */}
             <div className="flex items-center space-x-4">
               <button
@@ -538,21 +378,16 @@ const Tasks: React.FC = () => {
                   e.preventDefault();
                   setSortByPriority(!sortByPriority);
                 }}
->>>>>>> newdb1
                 className={`!rounded-button flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors ${sortByPriority ? 'bg-indigo-100 border-indigo-300' : ''}`}
               >
                 <i className="fas fa-sort text-gray-600"></i>
                 <span className="text-gray-600">Sort</span>
               </button>
               <button
-<<<<<<< HEAD
-                onClick={() => setIsDateFilterModalOpen(true)}
-=======
                 onClick={(e) => {
                   e.preventDefault();
                   setIsDateFilterModalOpen(true);
                 }}
->>>>>>> newdb1
                 className={`!rounded-button flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors ${isFilterActive ? 'bg-indigo-100 border-indigo-300' : ''}`}
               >
                 <i className="fas fa-filter text-gray-600"></i>
@@ -570,14 +405,10 @@ const Tasks: React.FC = () => {
                   ? 'bg-indigo-600 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
-<<<<<<< HEAD
-                onClick={() => setSelectedCategory(category)}
-=======
                 onClick={(e) => {
                   e.preventDefault();
                   setSelectedCategory(category);
                 }}
->>>>>>> newdb1
               >
                 {category}
               </button>
@@ -585,18 +416,6 @@ const Tasks: React.FC = () => {
           </div>
 
           {/* Task List */}
-<<<<<<< HEAD
-          <div className="space-y-4">
-            {filteredTasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                onClick={() => handleTaskClick(task)}
-                onEdit={handleEditClick}
-                onDelete={handleDeleteTask}
-              />
-            ))}
-=======
           <div className={`overflow-x-auto rounded-lg shadow-sm border ${
             isDarkMode ? 'border-gray-700' : 'border-gray-200'
           }`}>
@@ -781,32 +600,10 @@ const Tasks: React.FC = () => {
                 ))}
               </tbody>
             </table>
->>>>>>> newdb1
           </div>
         </div>
       </div>
 
-<<<<<<< HEAD
-      {/* Task Form Modal */}
-      <TaskForm
-        isOpen={isNewTaskModalOpen}
-        onClose={() => setIsNewTaskModalOpen(false)}
-        onSave={handleCreateTask}
-        existingTasks={tasks}
-      />
-
-      {/* Edit Task Modal */}
-      <TaskForm
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        onSave={handleUpdateTask}
-        existingTasks={tasks}
-        task={selectedTask || undefined}
-      />
-
-      {/* Task Detail Modal */}
-      {selectedTask && (
-=======
       {/* Task Form Modal - Only render when needed */}
       {isNewTaskModalOpen && (
         <TaskForm
@@ -831,7 +628,6 @@ const Tasks: React.FC = () => {
 
       {/* Task Detail Modal - Only render when needed */}
       {isDetailModalOpen && selectedTask && (
->>>>>>> newdb1
         <TaskDetail
           isOpen={isDetailModalOpen}
           onClose={handleCloseModal}
@@ -839,17 +635,10 @@ const Tasks: React.FC = () => {
         />
       )}
 
-<<<<<<< HEAD
-      {/* Date Filter Modal */}
-      {isDateFilterModalOpen && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white/90 backdrop-blur-md p-6 rounded-lg shadow-xl w-96">
-=======
       {/* Date Filter Modal - Only render when needed */}
       {isDateFilterModalOpen && (
         <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
           <div className="bg-white/90 backdrop-blur-md p-6 rounded-lg shadow-xl w-96" onClick={e => e.stopPropagation()}>
->>>>>>> newdb1
             <h2 className="text-xl font-semibold mb-4 text-gray-900">Tarih Aralığı Seçin</h2>
             <div className="space-y-4">
               <div>
@@ -872,12 +661,8 @@ const Tasks: React.FC = () => {
               </div>
               <div className="flex justify-end space-x-3 mt-6">
                 <button
-<<<<<<< HEAD
-                  onClick={() => {
-=======
                   onClick={(e) => {
                     e.preventDefault();
->>>>>>> newdb1
                     setDateFilter({ startDate: '', endDate: '' });
                     setIsFilterActive(false);
                     setIsDateFilterModalOpen(false);
@@ -887,12 +672,8 @@ const Tasks: React.FC = () => {
                   Filtreyi Temizle
                 </button>
                 <button
-<<<<<<< HEAD
-                  onClick={() => {
-=======
                   onClick={(e) => {
                     e.preventDefault();
->>>>>>> newdb1
                     if (dateFilter.startDate && dateFilter.endDate) {
                       setIsFilterActive(true);
                       setIsDateFilterModalOpen(false);
@@ -908,8 +689,6 @@ const Tasks: React.FC = () => {
           </div>
         </div>
       )}
-<<<<<<< HEAD
-=======
 
       {/* Task History Modal - Only render when needed */}
       {isHistoryModalOpen && (
@@ -920,7 +699,6 @@ const Tasks: React.FC = () => {
       )}
 
       <Footer />
->>>>>>> newdb1
     </div>
   );
 };

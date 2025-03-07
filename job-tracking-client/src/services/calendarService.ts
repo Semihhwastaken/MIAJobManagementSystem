@@ -29,14 +29,10 @@ export const calendarService = {
    * @returns Promise containing the created event
    */
   async createEvent(event: Omit<CalendarEvent, 'id'>): Promise<CalendarEvent> {
-<<<<<<< HEAD
-    const response = await axiosInstance.post(`${API_URL}/calendar/events`, event, {
-=======
     const response = await axiosInstance.post(`${API_URL}/calendar/events`, {
       ...event,
       category: event.category || 'task', // Add default category if not provided
     }, {
->>>>>>> newdb1
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`,
       },
@@ -70,8 +66,4 @@ export const calendarService = {
       },
     });
   },
-<<<<<<< HEAD
 };
-=======
-};
->>>>>>> newdb1

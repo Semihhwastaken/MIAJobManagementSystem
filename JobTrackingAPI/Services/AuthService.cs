@@ -10,10 +10,7 @@ using JobTrackingAPI.Settings;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
-<<<<<<< HEAD
-=======
 using Microsoft.Extensions.Logging;
->>>>>>> newdb1
 
 namespace JobTrackingAPI.Services
 {
@@ -22,43 +19,29 @@ namespace JobTrackingAPI.Services
         private readonly IMongoCollection<User> _users;
         private readonly IMongoCollection<VerificationCode> _verificationCodes;
         private readonly EmailService _emailService;
-<<<<<<< HEAD
-        private readonly Random _random;
-        private readonly string _jwtSecret;
-=======
         private readonly CacheService _cacheService;
         private readonly Random _random;
         private readonly string _jwtSecret;
         private readonly ILogger<AuthService> _logger;
         private readonly IOptions<MongoDbSettings> _settings;
->>>>>>> newdb1
 
         public AuthService(
             IOptions<MongoDbSettings> settings,
             IOptions<JwtSettings> jwtSettings,
-<<<<<<< HEAD
-            EmailService emailService)
-=======
             EmailService emailService,
             CacheService cacheService,
             ILogger<AuthService> logger)
->>>>>>> newdb1
         {
             var client = new MongoClient(settings.Value.ConnectionString);
             var database = client.GetDatabase(settings.Value.DatabaseName);
             _users = database.GetCollection<User>(settings.Value.UsersCollectionName);
             _verificationCodes = database.GetCollection<VerificationCode>(settings.Value.VerificationCodesCollectionName);
             _emailService = emailService;
-<<<<<<< HEAD
-            _random = new Random();
-            _jwtSecret = jwtSettings.Value.Secret;
-=======
             _cacheService = cacheService;
             _random = new Random();
             _jwtSecret = jwtSettings.Value.Secret;
             _logger = logger;
             _settings = settings;
->>>>>>> newdb1
         }
 
         private string GenerateVerificationCode()
@@ -140,13 +123,8 @@ namespace JobTrackingAPI.Services
                 return (false, "Geçersiz veya süresi dolmuş doğrulama kodu.", null);
             }
 
-<<<<<<< HEAD
-            // Hash password
-            var hashedPassword = HashPassword(password);
-=======
             // Create password hash and salt
             var (passwordHash, passwordSalt) = CreatePasswordHash(password);
->>>>>>> newdb1
 
             var now = DateTime.UtcNow;
 
@@ -155,12 +133,8 @@ namespace JobTrackingAPI.Services
             {
                 Username = username,
                 Email = email,
-<<<<<<< HEAD
-                Password = hashedPassword,
-=======
                 PasswordHash = passwordHash,
                 PasswordSalt = passwordSalt,
->>>>>>> newdb1
                 FullName = fullName,
                 Department = department,
                 Title = title,
@@ -192,12 +166,6 @@ namespace JobTrackingAPI.Services
             if (user == null)
                 return null;
 
-<<<<<<< HEAD
-            var hashedPassword = HashPassword(password);
-            if (user.Password != hashedPassword)
-                return null;
-
-=======
             // Password hash ve salt kullanarak doğrulama yapma
             if (user.PasswordHash != null && user.PasswordHash.Length > 0 && 
                 user.PasswordSalt != null && user.PasswordSalt.Length > 0)
@@ -235,22 +203,11 @@ namespace JobTrackingAPI.Services
                 return null; // Geçerli hash ve salt bilgisi olmadığı için kimlik doğrulama başarısız
             }
 
->>>>>>> newdb1
             return user;
         }
 
         public async Task<(bool success, string message, string? token, User? user)> LoginAsync(string username, string password)
         {
-<<<<<<< HEAD
-            var user = await AuthenticateAsync(username, password);
-            if (user == null)
-            {
-                return (false, "Kullanıcı adı veya şifre hatalı.", null, null);
-            }
-
-            var token = GenerateJwtToken(user);
-            return (true, "Giriş başarılı.", token, user);
-=======
             try
             {
                 // Check if username exists
@@ -396,7 +353,6 @@ namespace JobTrackingAPI.Services
                 _logger.LogError(ex, $"Error loading teams for user {userId}");
                 return new List<Team>();
             }
->>>>>>> newdb1
         }
 
         public async Task<User?> GetUserByIdAsync(string userId)
@@ -411,8 +367,6 @@ namespace JobTrackingAPI.Services
             return Convert.ToBase64String(hashedBytes);
         }
 
-<<<<<<< HEAD
-=======
         private (byte[] hash, byte[] salt) CreatePasswordHash(string password)
         {
             using var hmac = new HMACSHA512();
@@ -421,7 +375,6 @@ namespace JobTrackingAPI.Services
             return (hash, salt);
         }
 
->>>>>>> newdb1
         public string GenerateJwtToken(User user)
         {
             if (user == null)
@@ -436,13 +389,8 @@ namespace JobTrackingAPI.Services
                     new Claim(ClaimTypes.NameIdentifier, user.Id),
                     new Claim(ClaimTypes.Name, user.Username),
                     new Claim(ClaimTypes.Email, user.Email),
-<<<<<<< HEAD
-                    new Claim("FullName", user.FullName),
-                    new Claim("Department", user.Department)
-=======
                     new Claim("FullName", user.FullName ?? string.Empty),
                     new Claim("Department", user.Department ?? string.Empty)
->>>>>>> newdb1
                 }),
                 Expires = DateTime.UtcNow.AddDays(7),
                 SigningCredentials = new SigningCredentials(
@@ -453,8 +401,6 @@ namespace JobTrackingAPI.Services
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
         }
-<<<<<<< HEAD
-=======
 
         private bool VerifyPassword(string password, byte[] storedHash, byte[] storedSalt)
         {
@@ -484,6 +430,5 @@ namespace JobTrackingAPI.Services
                 return true;
             }
         }
->>>>>>> newdb1
     }
 }

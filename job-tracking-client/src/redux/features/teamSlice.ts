@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { TeamState, TeamMember, Team } from '../../types/team';
-import axiosInstance from '../../services/axiosInstance';
-
-const initialState: TeamState & { teams: Team[] } = {
-=======
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, createAsyncThunk, createAction, isPending, isRejected } from '@reduxjs/toolkit';
 import { TeamState, TeamMember, Team } from '../../types/team';
@@ -33,7 +26,6 @@ interface ActiveTasksData {
 }
 
 const initialState: TeamState = {
->>>>>>> newdb1
     members: [],
     teams: [],
     departments: [],
@@ -47,12 +39,6 @@ const initialState: TeamState = {
         department: []
     },
     sortBy: 'name',
-<<<<<<< HEAD
-    sortOrder: 'asc'
-};
-
-// Response tipleri
-=======
     sortOrder: 'asc',
     activeTasksData: {},
     performanceScores: {},
@@ -64,7 +50,6 @@ const initialState: TeamState = {
 };
 
 // Response types
->>>>>>> newdb1
 interface DeleteTeamResponse {
     teamId: string;
     message: string;
@@ -76,13 +61,6 @@ interface RemoveTeamMemberResponse {
     message: string;
 }
 
-<<<<<<< HEAD
-export const fetchTeamMembers = createAsyncThunk(
-    'Team/fetchTeamMembers',
-    async () => {
-        const response = await axiosInstance.get('/Team/members');
-        return response.data;
-=======
 // Helper function to check if cache is valid (5 minutes)
 const isCacheValid = (lastCacheTime: number): boolean => {
     return lastCacheTime > 0 && Date.now() - lastCacheTime < 5 * 60 * 1000; // 5 minutes
@@ -116,17 +94,11 @@ export const fetchTeamMembers = createAsyncThunk(
             pendingRequests['fetchTeamMembers'] = false;
             return rejectWithValue(error.response?.data?.message || 'Ekip üyeleri yüklenirken bir hata oluştu');
         }
->>>>>>> newdb1
     }
 );
 
 export const fetchDepartments = createAsyncThunk(
     'Team/fetchDepartments',
-<<<<<<< HEAD
-    async () => {
-        const response = await axiosInstance.get('/Team/departments');
-        return response.data;
-=======
     async (_, { getState, rejectWithValue }) => {
         const state = getState() as { team: TeamState };
         
@@ -150,17 +122,11 @@ export const fetchDepartments = createAsyncThunk(
             pendingRequests['fetchDepartments'] = false;
             return rejectWithValue(error.response?.data?.message || 'Departmanlar yüklenirken bir hata oluştu');
         }
->>>>>>> newdb1
     }
 );
 
 export const fetchTeamMembersByDepartment = createAsyncThunk(
     'Team/fetchTeamMembersByDepartment',
-<<<<<<< HEAD
-    async (department: string) => {
-        const response = await axiosInstance.get(`/Team/members/department/${department}`);
-        return response.data;
-=======
     async (department: string, { rejectWithValue }) => {
         try {
             // Create a request key using the department
@@ -177,17 +143,11 @@ export const fetchTeamMembersByDepartment = createAsyncThunk(
             pendingRequests[`fetchTeamMembersByDepartment_${department}`] = false;
             return rejectWithValue(error.response?.data?.message || 'Departman üyeleri yüklenirken bir hata oluştu');
         }
->>>>>>> newdb1
     }
 );
 
 export const updateMemberStatus = createAsyncThunk(
     'Team/updateMemberStatus',
-<<<<<<< HEAD
-    async ({ memberId, status }: { memberId: string; status: string }) => {
-        const response = await axiosInstance.patch(`/Team/members/${memberId}/status`, { status });
-        return response.data;
-=======
     async ({ memberId, status }: { memberId: string; status: string }, { rejectWithValue }) => {
         try {
             const response = await axiosInstance.patch(`/Team/members/${memberId}/status`, { status });
@@ -195,17 +155,11 @@ export const updateMemberStatus = createAsyncThunk(
         } catch (error: any) {
             return rejectWithValue(error.response?.data?.message || 'Üye durumu güncellenirken bir hata oluştu');
         }
->>>>>>> newdb1
     }
 );
 
 export const updateMemberProfile = createAsyncThunk(
     'Team/updateMemberProfile',
-<<<<<<< HEAD
-    async ({ memberId, profileData }: { memberId: string; profileData: Partial<TeamMember> }) => {
-        const response = await axiosInstance.patch(`/Team/members/${memberId}`, profileData);
-        return response.data;
-=======
     async ({ memberId, profileData }: { memberId: string; profileData: Partial<TeamMember> }, { rejectWithValue }) => {
         try {
             const response = await axiosInstance.patch(`/Team/members/${memberId}`, profileData);
@@ -213,24 +167,11 @@ export const updateMemberProfile = createAsyncThunk(
         } catch (error: any) {
             return rejectWithValue(error.response?.data?.message || 'Üye profili güncellenirken bir hata oluştu');
         }
->>>>>>> newdb1
     }
 );
 
 export const createTeam = createAsyncThunk(
     'Team/createTeam',
-<<<<<<< HEAD
-    async ({ name, description }: { name: string; description?: string }, { rejectWithValue }) => {
-        try {
-            console.log('Gönderilen veri:', { name, description: description || '' }); // Debug için
-            const response = await axiosInstance.post('/Team/create', {
-                name,
-                description: description || ''
-            });
-            return response.data;
-        } catch (error: any) {
-            console.error('API Hatası:', error.response?.data); // Debug için
-=======
     async ({ name, description, department }: {
         name: string;
         description?: string;
@@ -248,7 +189,6 @@ export const createTeam = createAsyncThunk(
             
             return response.data;
         } catch (error: any) {
->>>>>>> newdb1
             return rejectWithValue(error.response?.data || error.message);
         }
     }
@@ -267,31 +207,6 @@ export const generateTeamInviteLink = createAsyncThunk(
     }
 );
 
-<<<<<<< HEAD
-export const joinTeamWithInviteLink = createAsyncThunk(
-    'Team/joinWithInviteLink',
-    async (inviteCode: string) => {
-        const response = await axiosInstance.post(`${axiosInstance.defaults.baseURL}/Team/join-with-code/${inviteCode}`);
-        return response.data;
-    }
-);
-
-export const fetchTeams = createAsyncThunk(
-    'Team/fetchTeams',
-    async () => {
-        const response = await axiosInstance.get('/Team');
-        return response.data;
-    }
-);
-
-export const deleteTeam = createAsyncThunk<DeleteTeamResponse, string>(
-    'Team/deleteTeam',
-    async (teamId: string, { rejectWithValue }) => {
-        try {
-            const response = await axiosInstance.delete(`/Team/${teamId}`);
-            return { teamId, ...response.data };
-        } catch (error: any) {
-=======
 export const getTeamInviteLink = createAsyncThunk(
     'Team/getInviteLink',
     async (teamId: string, { rejectWithValue }) => {
@@ -301,22 +216,11 @@ export const getTeamInviteLink = createAsyncThunk(
             return response.data.inviteLink;
         } catch (error: any) {
             console.error('Davet linki alma hatası:', error.response?.data);
->>>>>>> newdb1
             return rejectWithValue(error.response?.data || error.message);
         }
     }
 );
 
-<<<<<<< HEAD
-// Remove team member action
-export const removeTeamMember = createAsyncThunk<RemoveTeamMemberResponse, { teamId: string; memberId: string }>(
-    'Team/removeTeamMember',
-    async ({ teamId, memberId }, { rejectWithValue }) => {
-        try {
-            const response = await axiosInstance.delete(`/Team/${teamId}/members/${memberId}`);
-            return { teamId, memberId, ...response.data };
-        } catch (error: any) {
-=======
 export const setTeamInviteLink = createAsyncThunk(
     'Team/setInviteLink',
     async ({ teamId, inviteLink }: { teamId: string; inviteLink: string }, { rejectWithValue }) => {
@@ -330,14 +234,11 @@ export const setTeamInviteLink = createAsyncThunk(
         }
         catch (error: any) {
             console.error('Davet linki atama hatası:', error.response?.data);
->>>>>>> newdb1
             return rejectWithValue(error.response?.data || error.message);
         }
     }
 );
 
-<<<<<<< HEAD
-=======
 export const clearInviteLink = createAsyncThunk(
     'Team/clearInviteLink',
     async (teamId: string, { rejectWithValue }) => {
@@ -686,7 +587,6 @@ export const updateMemberStatuses = createAsyncThunk(
     }
 );
 
->>>>>>> newdb1
 const teamSlice = createSlice({
     name: 'team',
     initialState,
@@ -713,8 +613,6 @@ const teamSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-<<<<<<< HEAD
-=======
             // Global reset state action
             .addCase(RESET_STATE, () => {
                 return initialState;
@@ -733,16 +631,12 @@ const teamSlice = createSlice({
                 }
             })
             // Team members
->>>>>>> newdb1
             .addCase(fetchTeamMembers.pending, (state) => {
                 state.loading = true;
                 state.error = null;
             })
             .addCase(fetchTeamMembers.fulfilled, (state, action) => {
                 state.loading = false;
-<<<<<<< HEAD
-                state.members = action.payload;
-=======
                 // Make sure each team member has default values for missing fields
                 const membersWithDefaults = action.payload.map((member: TeamMember) => ({
                     ...member,
@@ -756,20 +650,11 @@ const teamSlice = createSlice({
                 }));
                 state.members = membersWithDefaults;
                 state.lastCacheTimes.members = Date.now();
->>>>>>> newdb1
             })
             .addCase(fetchTeamMembers.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.error.message || 'Ekip üyeleri yüklenirken bir hata oluştu';
             })
-<<<<<<< HEAD
-            .addCase(fetchDepartments.fulfilled, (state, action) => {
-                state.departments = action.payload;
-            })
-            .addCase(fetchTeamMembersByDepartment.fulfilled, (state, action) => {
-                state.members = action.payload;
-            })
-=======
             // Departments
             .addCase(fetchDepartments.fulfilled, (state, action) => {
                 state.departments = action.payload;
@@ -781,16 +666,12 @@ const teamSlice = createSlice({
                 state.lastCacheTimes.members = Date.now();
             })
             // Member status
->>>>>>> newdb1
             .addCase(updateMemberStatus.fulfilled, (state, action) => {
                 const updatedMember = action.payload;
                 const index = state.members.findIndex(m => m.id === updatedMember.id);
                 if (index !== -1) {
                     state.members[index] = updatedMember;
                 }
-<<<<<<< HEAD
-            })
-=======
                 
                 // Also update in teams if present
                 state.teams.forEach(team => {
@@ -804,16 +685,12 @@ const teamSlice = createSlice({
                 });
             })
             // Member profile
->>>>>>> newdb1
             .addCase(updateMemberProfile.fulfilled, (state, action) => {
                 const updatedMember = action.payload;
                 const index = state.members.findIndex(m => m.id === updatedMember.id);
                 if (index !== -1) {
                     state.members[index] = updatedMember;
                 }
-<<<<<<< HEAD
-            })
-=======
                 
                 // Also update in teams if present
                 state.teams.forEach(team => {
@@ -827,48 +704,26 @@ const teamSlice = createSlice({
                 });
             })
             // Team creation
->>>>>>> newdb1
             .addCase(createTeam.pending, (state) => {
                 state.loading = true;
             })
             .addCase(createTeam.fulfilled, (state, action) => {
                 state.loading = false;
                 state.teams.push(action.payload);
-<<<<<<< HEAD
-=======
                 // Reset teams cache time to force re-fetch
                 state.lastCacheTimes.teams = 0;
->>>>>>> newdb1
             })
             .addCase(createTeam.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
             })
-<<<<<<< HEAD
-            .addCase(generateTeamInviteLink.fulfilled, (state, action) => {
-                // İsteğe bağlı olarak state'i güncelleyebilirsiniz
-            })
-            .addCase(joinTeamWithInviteLink.fulfilled, (state, action) => {
-                // Takıma katılma başarılı olduğunda teams listesini güncelle
-                fetchTeams();
-            })
-=======
             // Team list
->>>>>>> newdb1
             .addCase(fetchTeams.pending, (state) => {
                 state.loading = true;
                 state.error = null;
             })
             .addCase(fetchTeams.fulfilled, (state, action) => {
                 state.loading = false;
-<<<<<<< HEAD
-                state.teams = action.payload;
-            })
-            .addCase(fetchTeams.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.error.message || 'Bir hata oluştu';
-            })
-=======
                 
                 // Process team data and ensure all members have default values
                 const teamsWithDefaults = action.payload.map((team: Team) => {
@@ -901,7 +756,6 @@ const teamSlice = createSlice({
                 state.error = action.payload as string;
             })
             // Team deletion
->>>>>>> newdb1
             .addCase(deleteTeam.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -910,32 +764,13 @@ const teamSlice = createSlice({
                 state.loading = false;
                 // Takımı listeden çıkar
                 state.teams = state.teams.filter(team => team.id !== action.payload.teamId);
-<<<<<<< HEAD
-=======
                 // Reset teams cache time
                 state.lastCacheTimes.teams = 0;
->>>>>>> newdb1
             })
             .addCase(deleteTeam.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
             })
-<<<<<<< HEAD
-            // Remove team member reducers
-            .addCase(removeTeamMember.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(removeTeamMember.fulfilled, (state, action) => {
-                state.loading = false;
-                // Üyeyi teams listesinden çıkar
-                const team = state.teams.find(t => t.id === action.payload.teamId);
-                if (team) {
-                    team.members = team.members.filter(m => m.id !== action.payload.memberId);
-                }
-            })
-            .addCase(removeTeamMember.rejected, (state, action) => {
-=======
             // Team members by team ID
             .addCase(getTeamMembersByTeamId.pending, (state) => {
                 state.loading = true;
@@ -987,7 +822,6 @@ const teamSlice = createSlice({
                 }
             })
             .addCase(updateMemberPerformance.rejected, (state, action) => {
->>>>>>> newdb1
                 state.loading = false;
                 state.error = action.payload as string;
             });

@@ -5,15 +5,12 @@ using System.Threading.Tasks;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
-<<<<<<< HEAD
-=======
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using System.Linq;
 using System.Collections.Generic;
 using MongoDB.Driver;
 using System;
->>>>>>> newdb1
 
 namespace JobTrackingAPI.Controllers
 {
@@ -22,12 +19,6 @@ namespace JobTrackingAPI.Controllers
     public class AuthController : ControllerBase
     {
         private readonly AuthService _authService;
-<<<<<<< HEAD
-
-        public AuthController(AuthService authService)
-        {
-            _authService = authService;
-=======
         private readonly ILogger<AuthController> _logger;
         private readonly CacheService _cacheService;
         private readonly IMongoCollection<User> _usersCollection;
@@ -51,7 +42,6 @@ namespace JobTrackingAPI.Controllers
             _tasksService = tasksService;
             _teamService = teamService;
             _dashboardService = dashboardService;
->>>>>>> newdb1
         }
 
         [HttpPost("register/initiate")]
@@ -94,15 +84,6 @@ namespace JobTrackingAPI.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-<<<<<<< HEAD
-            var (success, message, token, user) = await _authService.LoginAsync(request.Username, request.Password);
-            if (!success || token == null || user == null)
-            {
-                return BadRequest(new { Message = message });
-            }
-
-            return Ok(new { Token = token, User = user });
-=======
             try
             {
                 _logger.LogInformation($"Login attempt with username: {request?.Username}");
@@ -203,7 +184,6 @@ namespace JobTrackingAPI.Controllers
                 _logger.LogError(ex, "Login error");
                 return BadRequest(new { message = ex.Message });
             }
->>>>>>> newdb1
         }
 
 
@@ -225,9 +205,6 @@ namespace JobTrackingAPI.Controllers
                     return NotFound(new { message = "Kullanıcı bulunamadı" });
                 }
 
-<<<<<<< HEAD
-                return Ok(new { user });
-=======
                 return Ok(new { 
                     user = new
                     {
@@ -255,7 +232,6 @@ namespace JobTrackingAPI.Controllers
                         lastLoginDate = user.LastLoginDate
                     } 
                 });
->>>>>>> newdb1
             }
             catch (Exception ex)
             {
@@ -263,8 +239,6 @@ namespace JobTrackingAPI.Controllers
             }
         }
 
-<<<<<<< HEAD
-=======
         [Authorize]
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
@@ -320,7 +294,6 @@ namespace JobTrackingAPI.Controllers
             }
         }
 
->>>>>>> newdb1
     }
 
     public class RegisterRequest
@@ -342,16 +315,4 @@ namespace JobTrackingAPI.Controllers
         [Required]
         public required string Department { get; set; }
     }
-<<<<<<< HEAD
-
-    public class LoginRequest
-    {
-        [Required]
-        public required string Username { get; set; }
-
-        [Required]
-        public required string Password { get; set; }
-    }
-=======
->>>>>>> newdb1
 }
