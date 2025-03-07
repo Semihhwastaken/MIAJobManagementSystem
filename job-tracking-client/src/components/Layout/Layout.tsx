@@ -3,8 +3,6 @@ import { AuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { NotificationCenter } from '../Notifications/NotificationCenter';
-import { invalidateCache } from '../../redux/features/teamSlice';
-import { logout as logoutAction } from '../../redux/features/authSlice';
 import { resetState } from '../../redux/features/actions';
 import { useDispatch } from 'react-redux';
 

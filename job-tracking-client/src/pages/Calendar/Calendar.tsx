@@ -38,7 +38,6 @@ const Calendar: React.FC = () => {
   const [showEventModal, setShowEventModal] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [deleteConfirmation, setDeleteConfirmation] = useState<{ isOpen: boolean; eventId: string | null }>({isOpen: false, eventId: null});
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<TeamFilter>('all');
   const [userTeams, setUserTeams] = useState<Team[]>([]);
   const events = useSelector((state: RootState) => state.calendar.events);

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import * as echarts from 'echarts';
 import TaskDetail from '../../components/TaskDetailModal/TaskDetail';
 import TaskForm from '../../components/TaskForm/TaskForm';
 import TaskHistory from '../../components/TaskHistory/TaskHistory';

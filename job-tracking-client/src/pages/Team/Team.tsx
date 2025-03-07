@@ -14,8 +14,6 @@ import {
     fetchTeams,
     deleteTeam,
     removeTeamMember,
-    getTeamInviteLink,
-    setTeamInviteLink,
     addExperties,
     fetchMemberActiveTasks,
     joinTeamWithInviteCode
@@ -23,15 +21,12 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { TeamMember } from '../../types/team';
 import {
-    ChatBubbleLeftIcon,
-    ClipboardDocumentListIcon,
     MagnifyingGlassIcon,
     PlusIcon,
     ClipboardDocumentIcon,
     UserMinusIcon,
     ChatBubbleOvalLeftEllipsisIcon
 } from '@heroicons/react/24/outline';
-import axiosInstance from '../../services/axiosInstance';
 import { useSnackbar } from 'notistack';
 import { DEPARTMENTS } from '../../constants/departments';
 import TaskForm from '../../components/TaskForm/TaskForm';
@@ -42,7 +37,6 @@ import { toast } from 'react-hot-toast';
 const Team: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
     const navigate = useNavigate();
-    const location = useLocation();
     const { isDarkMode } = useTheme();
     const { enqueueSnackbar } = useSnackbar();
     const {
@@ -57,13 +51,11 @@ const Team: React.FC = () => {
     const [teamName, setTeamName] = useState('');
     const [teamDescription, setTeamDescription] = useState('');
     const [teamDepartment, setTeamDepartment] = useState('');
-    const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
     const [creatingTeam, setCreatingTeam] = useState(false);
     const [inviteLink, setInviteLink] = useState('');
     const [inviteLinkLoading, setInviteLinkLoading] = useState(false);
     const [showInviteLinkModal, setShowInviteLinkModal] = useState(false);
     const [inviteCode, setInviteCode] = useState('');
-    const [joinTeamDialogOpen, setJoinTeamDialogOpen] = useState(false);
     const [joiningTeam, setJoiningTeam] = useState(false);
     const [showTaskForm, setShowTaskForm] = useState(false);
     const [currentTeamId, setCurrentTeamId] = useState('');
@@ -79,7 +71,6 @@ const Team: React.FC = () => {
     const [showExpertiesModal, setShowExpertiesModal] = useState(false);
     const [selectedMemberId, setSelectedMemberId] = useState<string>('');
     const [newExpertise, setNewExpertise] = useState('');
-    const [newTeamDepartment, setNewTeamDepartment] = useState('');
     const [copySuccess, setCopySuccess] = useState(false);
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [teamToDelete, setTeamToDelete] = useState<string>('');
