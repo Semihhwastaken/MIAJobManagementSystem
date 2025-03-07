@@ -18,6 +18,7 @@ namespace JobTrackingAPI.Services
         Task<string> AddFileToMessageAsync(string messageId, IFormFile file);
         Task<List<string>> GetOnlineUsersAsync();
         Task NotifyUserTypingAsync(string userId, string receiverId);
+        Task<Message> CreateMessageWithFileAsync(Message message, IFormFile file);
     }
 
     public class ConversationDto

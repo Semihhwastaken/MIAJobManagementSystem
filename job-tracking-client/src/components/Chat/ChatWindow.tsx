@@ -44,6 +44,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
     const [isReceiverOnline, setIsReceiverOnline] = useState(false);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
     
     const typingTimeoutRef = useRef<number | undefined>(undefined);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -192,14 +193,26 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
         if (!newMessage.trim() && !selectedFile) return;
 
         try {
+            if (selectedFile) {
+                // Dosya seçilmişse SignalR üzerinden gönder
+                await signalRService.sendMessageWithFile(
+                    selectedUser.id, 
+                    newMessage, 
+                    selectedFile
+                );
+            } else {
+                // Normal mesaj gönder
+                await signalRService.sendMessage(
+                    selectedUser.id,
+                    newMessage
+                );
+            }
+
             setNewMessage('');
             setSelectedFile(null);
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
-
-            // Actually send the message
-            await signalRService.sendMessage(selectedUser.id, newMessage);
             
             scrollToBottom();
         } catch (error) {
@@ -247,6 +260,39 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                 return;
             }
             setSelectedFile(file);
+            // Dosya seçildiğinde kullanıcıya bildir
+            setNewMessage(` ${file.name}`);
+        }
+    };
+
+    const handleFileClick = async (messageId: string) => {
+        try {
+            const response = await axiosInstance.get(`/Messages/file/${messageId}`, {
+                responseType: 'blob'
+            });
+
+            // Get filename from Content-Disposition header or use a fallback
+            const contentDisposition = response.headers['content-disposition'];
+            let filename = 'downloaded-file';
+            
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                if (filenameMatch && filenameMatch[1]) {
+                    filename = filenameMatch[1].replace(/['"]/g, '');
+                }
+            }
+
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url); // Clean up the URL object
+        } catch (error) {
+            console.error('Error downloading file:', error);
+            setError('Failed to download file. Please try again.');
         }
     };
 
@@ -268,6 +314,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
         handleMenuClose();
     };
 
+    const handleImageClick = (imageUrl: string) => {
+        setPreviewImage(imageUrl);
+    };
+
+    const closeImagePreview = () => {
+        setPreviewImage(null);
+    };
+
     const groupMessagesByDate = (messages: Message[]) => {
         return messages.reduce((groups, message) => {
             const date = new Date(message.sentAt).toLocaleDateString();
@@ -280,6 +334,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
     };
 
     const groupedMessages = groupMessagesByDate(messages);
+
+    const isImageFile = (contentType: string) => {
+        return contentType.startsWith('image/');
+    };
 
     return (
         <Paper 
@@ -458,25 +516,50 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                                                     )}
                                                 </Box>
 
-                                                {message.attachments?.map((attachment, index) => (
+                                                {message.fileAttachment && (
                                                     <Box 
-                                                        key={index} 
-                                                        className="mt-2 p-2 rounded"
+                                                        className="mt-2 p-2 rounded cursor-pointer hover:bg-gray-100"
                                                         sx={{
                                                             backgroundColor: 'rgba(0,0,0,0.1)',
+                                                            transition: 'background-color 0.2s',
+                                                            '&:hover': {
+                                                                backgroundColor: 'rgba(0,0,0,0.15)',
+                                                            }
                                                         }}
                                                     >
-                                                        <a
-                                                            href={attachment.url}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-sm flex items-center gap-1"
-                                                        >
-                                                            <AttachFileIcon fontSize="small" />
-                                                            {attachment.fileName || 'Attached File'}
-                                                        </a>
+                                                        {isImageFile(message.fileAttachment.contentType) ? (
+                                                            <Box>
+                                                                <img 
+                                                                    src={`http://localhost:5193/${message.fileAttachment.filePath}`}
+                                                                    alt={message.fileAttachment.fileName}
+                                                                    onClick={() => handleImageClick(`http://localhost:5193/${message.fileAttachment?.filePath}`)}
+                                                                    style={{ 
+                                                                        maxWidth: '200px', 
+                                                                        maxHeight: '200px',
+                                                                        borderRadius: '8px',
+                                                                        objectFit: 'cover',
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                />
+                                                                <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
+                                                                    {message.fileAttachment.fileName}
+                                                                </Typography>
+                                                            </Box>
+                                                        ) : (
+                                                            <Box 
+                                                                className="flex items-center gap-2" 
+                                                                onClick={() => window.open(`http://localhost:5193/${message.fileAttachment?.filePath}`, '_blank')}
+                                                            >
+                                                                <AttachFileIcon fontSize="small" />
+                                                                <Typography variant="body2">
+                                                                    {message.fileAttachment.fileName}
+                                                                    {' '}
+                                                                    ({(message.fileAttachment.fileSize / 1024).toFixed(1)} KB)
+                                                                </Typography>
+                                                            </Box>
+                                                        )}
                                                     </Box>
-                                                ))}
+                                                )}
                                                 <Typography 
                                                     variant="caption" 
                                                     sx={{ 
@@ -498,6 +581,35 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                     </Box>
                 )}
             </Box>
+
+            {/* Image Preview Modal */}
+            {previewImage && (
+                <Box
+                    onClick={closeImagePreview}
+                    sx={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.9)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 9999,
+                    }}
+                >
+                    <img
+                        src={previewImage}
+                        alt="Preview"
+                        style={{
+                            maxWidth: '90%',
+                            maxHeight: '90%',
+                            objectFit: 'contain',
+                        }}
+                    />
+                </Box>
+            )}
 
             {/* Dropdown Menu */}
             <Menu
@@ -533,8 +645,27 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                         py: 1,
                     }}
                 >
-                   <DeleteIcon/>Delete Message 
+                   <DeleteIcon fontSize="small" sx={{ mr: 1 }}/>Delete Message 
                 </MenuItem>
+                {selectedMessageId && messages.find(msg => msg.id === selectedMessageId)?.fileAttachment && (
+                    <MenuItem 
+                        onClick={() => {
+                            handleFileClick(selectedMessageId!);
+                            handleMenuClose();
+                        }}
+                        sx={{
+                            color: 'primary.main',
+                            '&:hover': {
+                                backgroundColor: 'primary.lighter',
+                            },
+                            fontSize: '0.875rem',
+                            py: 1,
+                        }}
+                    >
+                        <AttachFileIcon fontSize="small" sx={{ mr: 1 }}/>
+                        Download File
+                    </MenuItem>
+                )}
             </Menu>
 
             {/* Message Input */}
