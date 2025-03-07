@@ -20,6 +20,27 @@ interface TaskFormProps {
   teamName?: string;
 }
 
+type TaskStatus = 'todo' | 'in-progress' | 'completed' | 'overdue';
+type TaskPriority = 'low' | 'medium' | 'high';
+
+interface FormData {
+  title: string;
+  description: string;
+  dueDate: string;
+  priority: TaskPriority;
+  status: TaskStatus;
+  category: string;
+  dependencies: string[];
+  attachments: Attachment[];
+  subTasks: SubTask[];
+  assignedUsers: User[];
+  assignedUserIds: string[];
+  teamId: string | undefined;
+  createdAt: string;
+  updatedAt: string;
+  completedDate: Date | null;
+}
+
 const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTasks = [], task, selectedUser, isDarkMode, teamId, teamName }) => {
   const dispatch = useAppDispatch();
   const allTasks = useAppSelector(state => state.tasks.items);
@@ -32,21 +53,25 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     return date.toISOString().split('T')[0];
   };
 
-  const [formData, setFormData] = useState({
+  const initialFormData: FormData = {
     title: task?.title || '',
     description: task?.description || '',
-    dueDate: task?.dueDate ? formatDateForInput(task.dueDate) : formatDateForInput(new Date().toISOString()),
-    priority: task?.priority || 'medium',
-    status: task?.status || 'todo',
-    category: task?.category || 'Bug',
-    teamId: undefined as string | undefined,
-    assignedUsers: task?.assignedUsers || [] as TeamMember[],
-    subTasks: task?.subTasks || [] as SubTask[],
-    dependencies: task?.dependencies || [] as string[],
-    attachments: task?.attachments || [] as Attachment[],
-    completedDate: null as Date | null,
-  });
+    dueDate: task?.dueDate || new Date().toISOString().split('T')[0],
+    priority: (task?.priority || 'medium') as TaskPriority,
+    status: (task?.status || 'todo') as TaskStatus,
+    category: task?.category || 'Task',
+    dependencies: task?.dependencies || [],
+    attachments: task?.attachments || [],
+    subTasks: task?.subTasks || [],
+    assignedUsers: task?.assignedUsers || [],
+    assignedUserIds: task?.assignedUserIds || [],
+    teamId: task?.teamId || teamId,
+    createdAt: task?.createdAt || new Date().toISOString(),
+    updatedAt: task?.updatedAt || new Date().toISOString(),
+    completedDate: task?.completedDate || null
+  };
 
+  const [formData, setFormData] = useState<FormData>(initialFormData);
   const [newSubTask, setNewSubTask] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -55,7 +80,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(teamId || null);
   const [selectedTeamName, setSelectedTeamName] = useState<string | null>(teamName || null);
   const [dragActive, setDragActive] = useState<boolean>(false);
-  const [fileError, setFileError] = useState<string>('');
+  const [fileError, setFileError] = useState<string | null>(null);
 
   // Fetch tasks if not provided as props
   useEffect(() => {
@@ -356,7 +381,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Temel Bilgiler */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={`block text-sm font-medium mb-1 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>
               Başlık
             </label>
             <input
@@ -364,26 +391,38 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+              className={`w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-300 text-gray-900'
+              }`}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={`block text-sm font-medium mb-1 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>
               Açıklama
             </label>
             <textarea
               required
               value={formData.description}
               onChange={handleDescriptionChange}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+              className={`w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-300 text-gray-900'
+              }`}
               rows={3}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className={`block text-sm font-medium mb-1 ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+              }`}>
                 Bitiş Tarihi
               </label>
               <input
@@ -392,18 +431,28 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
                 value={formData.dueDate}
                 min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                className={`w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                  isDarkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white' 
+                    : 'bg-white border-gray-300 text-gray-900'
+                }`}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className={`block text-sm font-medium mb-1 ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+              }`}>
                 Öncelik
               </label>
               <select
                 value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value as TaskType['priority'] })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                onChange={(e) => setFormData({ ...formData, priority: e.target.value as TaskPriority })}
+                className={`w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                  isDarkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white' 
+                    : 'bg-white border-gray-300 text-gray-900'
+                }`}
               >
                 <option value="low">Düşük</option>
                 <option value="medium">Orta</option>
@@ -412,25 +461,59 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Kategori
-            </label>
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
-            >
-              <option value="Bug">Bug</option>
-              <option value="Development">Development</option>
-              <option value="Documentation">Documentation</option>
-              <option value="Testing">Testing</option>
-              <option value="Maintenance">Maintenance</option>
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+              }`}>
+                Durum
+              </label>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as TaskStatus })}
+                className={`w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                  isDarkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white' 
+                    : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              >
+                <option value="todo">Yapılacak</option>
+                <option value="in_progress">Devam Ediyor</option>
+                <option value="review">İncelemede</option>
+                <option value="completed">Tamamlandı</option>
+              </select>
+            </div>
+
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+              }`}>
+                Kategori
+              </label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className={`w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                  isDarkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white' 
+                    : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              >
+                <option value="Bug">Hata</option>
+                <option value="Feature">Özellik</option>
+                <option value="Improvement">İyileştirme</option>
+                <option value="Task">Görev</option>
+                <option value="Other">Diğer</option>
+              </select>
+            </div>
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Ekip</label>
+            <label className={`block text-sm font-medium mb-1 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>
+              Ekip
+            </label>
             <div className={`mt-1 block w-full py-3 px-4 rounded-md border-gray-300 shadow-sm text-base ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
               }`}>
               {selectedTeam?.name || selectedTeamName || 'Ekip seçildi'}
@@ -439,7 +522,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
 
           {/* Alt Görevler */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={`block text-sm font-medium mb-1 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>
               Alt Görevler
             </label>
             <div className="flex space-x-2 mb-2">
@@ -455,7 +540,11 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
                   }
                 }}
                 placeholder="Alt görev ekle..."
-                className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                className={`flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                  isDarkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white' 
+                    : 'bg-white border-gray-300 text-gray-900'
+                }`}
               />
               <button
                 type="button"
@@ -485,7 +574,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
 
           {/* Kişi Atama */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={`block text-sm font-medium mb-1 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>
               Görevli Kişiler
             </label>
             <div className="space-y-2">
@@ -601,7 +692,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
 
           {/* Bağımlı Görevler */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={`block text-sm font-medium mb-1 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>
               Bağımlı Görevler
             </label>
             <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
@@ -633,7 +726,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
 
           {/* Modern Dosya Yükleme */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={`block text-sm font-medium mb-1 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>
               Dosya Ekle
             </label>
             <div 

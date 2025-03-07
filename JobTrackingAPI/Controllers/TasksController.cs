@@ -234,6 +234,13 @@ namespace JobTrackingAPI.Controllers
                     // Return success even if performance update fails, since the task was completed
                 }
                 
+                // Ekibe ait önbelleği temizle
+                if (!string.IsNullOrEmpty(task?.TeamId))
+                {
+                    _logger.LogInformation("Invalidating team caches for TeamId={TeamId}", task.TeamId);
+                    _cacheService.InvalidateTeamCaches(task.TeamId);
+                }
+                
                 // Invalidate task-related caches
                 InvalidateTaskRelatedCaches(task);
                 
@@ -645,6 +652,13 @@ namespace JobTrackingAPI.Controllers
                 }
                 
                 _logger.LogInformation("Task {TaskId} status updated from {OldStatus} to {NewStatus}", id, oldStatus, status);
+                
+                // Ekibe ait önbelleği temizle
+                if (!string.IsNullOrEmpty(task?.TeamId))
+                {
+                    _logger.LogInformation("Invalidating team caches for TeamId={TeamId}", task.TeamId);
+                    _cacheService.InvalidateTeamCaches(task.TeamId);
+                }
                 
                 // Invalidate task-related caches
                 InvalidateTaskRelatedCaches(task);

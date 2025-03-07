@@ -308,7 +308,7 @@ const Tasks: React.FC = () => {
       >
         <div className="flex justify-between items-center">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">{task.title}</h3>
+            <h3 className={isDarkMode ? "text-lg font-semibold text-white-900" : "text-lg font-semibold text-gray-900"}>{task.title}</h3>
             <p className="text-gray-600 mt-1">{task.description}</p>
           </div>
           <div className="flex items-center space-x-4">

@@ -4,6 +4,7 @@ import { Fragment } from 'react';
 import axiosInstance from '../../services/axiosInstance';
 import { toast } from 'react-hot-toast';
 import { PaperClipIcon, TagIcon } from '@heroicons/react/24/outline';
+import { useTheme } from '../../context/ThemeContext';
 
 interface UserTaskCommentModalProps {
     isOpen: boolean;
@@ -18,6 +19,7 @@ interface Task {
 }
 
 const UserTaskCommentModal: React.FC<UserTaskCommentModalProps> = ({ isOpen, onClose, userId }) => {
+    const { isDarkMode } = useTheme();
     const [userTasks, setUserTasks] = useState<Task[]>([]);
     const [selectedTaskId, setSelectedTaskId] = useState<string>('');
     const [comment, setComment] = useState<string>('');
@@ -151,20 +153,28 @@ const UserTaskCommentModal: React.FC<UserTaskCommentModalProps> = ({ isOpen, onC
                             leaveFrom="opacity-100 scale-100"
                             leaveTo="opacity-0 scale-95"
                         >
-                            <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                                <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-4">
+                            <Dialog.Panel className={`w-full max-w-md transform overflow-hidden rounded-2xl p-6 text-left align-middle shadow-xl transition-all ${
+                                isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+                            }`}>
+                                <Dialog.Title as="h3" className={`text-lg font-medium leading-6 mb-4 ${
+                                    isDarkMode ? 'text-white' : 'text-gray-900'
+                                }`}>
                                     Göreve Yorum Ekle
                                 </Dialog.Title>
 
                                 <form onSubmit={handleSubmit} className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className={`block text-sm font-medium mb-1 ${
+                                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                        }`}>
                                             Görev Seçin
                                         </label>
                                         <select
                                             value={selectedTaskId}
                                             onChange={(e) => setSelectedTaskId(e.target.value)}
-                                            className="w-full rounded-lg border border-gray-300 p-2"
+                                            className={`w-full rounded-lg border p-2 ${
+                                                isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
+                                            }`}
                                             required
                                         >
                                             <option value="">Görev seçin</option>
@@ -177,13 +187,17 @@ const UserTaskCommentModal: React.FC<UserTaskCommentModalProps> = ({ isOpen, onC
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className={`block text-sm font-medium mb-1 ${
+                                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                        }`}>
                                             Yorum
                                         </label>
                                         <textarea
                                             value={comment}
                                             onChange={(e) => setComment(e.target.value)}
-                                            className="w-full rounded-lg border border-gray-300 p-2"
+                                            className={`w-full rounded-lg border p-2 ${
+                                                isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
+                                            }`}
                                             rows={4}
                                             required
                                             placeholder="Yorumunuzu yazın..."
@@ -191,13 +205,17 @@ const UserTaskCommentModal: React.FC<UserTaskCommentModalProps> = ({ isOpen, onC
                                     </div>
                                     
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className={`block text-sm font-medium mb-1 ${
+                                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                        }`}>
                                             Önem Derecesi
                                         </label>
                                         <select
                                             value={priority}
                                             onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}
-                                            className="w-full rounded-lg border border-gray-300 p-2"
+                                            className={`w-full rounded-lg border p-2 ${
+                                                isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
+                                            }`}
                                         >
                                             <option value="low">Düşük</option>
                                             <option value="medium">Orta</option>
@@ -206,19 +224,25 @@ const UserTaskCommentModal: React.FC<UserTaskCommentModalProps> = ({ isOpen, onC
                                     </div>
                                     
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className={`block text-sm font-medium mb-1 ${
+                                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                        }`}>
                                             Tarih (İsteğe Bağlı)
                                         </label>
                                         <input
                                             type="date"
                                             value={dueDate}
                                             onChange={(e) => setDueDate(e.target.value)}
-                                            className="w-full rounded-lg border border-gray-300 p-2"
+                                            className={`w-full rounded-lg border p-2 ${
+                                                isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
+                                            }`}
                                         />
                                     </div>
                                     
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className={`block text-sm font-medium mb-1 ${
+                                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                        }`}>
                                             Etiketler
                                         </label>
                                         <div className="flex">
@@ -227,7 +251,9 @@ const UserTaskCommentModal: React.FC<UserTaskCommentModalProps> = ({ isOpen, onC
                                                 value={newTag}
                                                 onChange={(e) => setNewTag(e.target.value)}
                                                 placeholder="Yeni etiket ekle"
-                                                className="flex-grow rounded-l-lg border border-gray-300 p-2"
+                                                className={`flex-grow rounded-l-lg border p-2 ${
+                                                    isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
+                                                }`}
                                             />
                                             <button
                                                 type="button"
@@ -242,13 +268,15 @@ const UserTaskCommentModal: React.FC<UserTaskCommentModalProps> = ({ isOpen, onC
                                                 {tags.map(tag => (
                                                     <span 
                                                         key={tag} 
-                                                        className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center"
+                                                        className={`text-xs px-2 py-1 rounded-full flex items-center ${
+                                                            isDarkMode ? 'bg-blue-900 text-blue-100' : 'bg-blue-100 text-blue-800'
+                                                        }`}
                                                     >
                                                         {tag}
                                                         <button 
                                                             type="button"
                                                             onClick={() => handleRemoveTag(tag)}
-                                                            className="ml-1 text-blue-800 hover:text-blue-900"
+                                                            className="ml-1 text-red-500 hover:text-red-700"
                                                         >
                                                             &times;
                                                         </button>
@@ -259,35 +287,53 @@ const UserTaskCommentModal: React.FC<UserTaskCommentModalProps> = ({ isOpen, onC
                                     </div>
                                     
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Dosya Ekle
+                                        <label className={`block text-sm font-medium mb-1 ${
+                                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                        }`}>
+                                            Dosya Ekle (İsteğe Bağlı)
                                         </label>
-                                        <div className="flex items-center">
-                                            <label className="cursor-pointer flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg">
-                                                <PaperClipIcon className="h-5 w-5 text-gray-500" />
-                                                <span className="text-sm">Dosya Seç</span>
-                                                <input
-                                                    type="file"
-                                                    onChange={handleFileChange}
-                                                    className="hidden"
-                                                    multiple
-                                                />
-                                            </label>
-                                            <span className="ml-3 text-sm text-gray-500">
-                                                {files.length} dosya seçildi
-                                            </span>
+                                        <div 
+                                            className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer ${
+                                                isDarkMode ? 'border-gray-600 hover:border-gray-500' : 'border-gray-300 hover:border-gray-400'
+                                            }`}
+                                            onClick={() => document.getElementById('file-upload')?.click()}
+                                        >
+                                            <PaperClipIcon className={`h-6 w-6 mx-auto ${
+                                                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                                            }`} />
+                                            <p className={`mt-1 text-sm ${
+                                                isDarkMode ? 'text-gray-300' : 'text-gray-500'
+                                            }`}>
+                                                Dosya eklemek için tıklayın veya sürükleyip bırakın
+                                            </p>
+                                            <input
+                                                id="file-upload"
+                                                type="file"
+                                                multiple
+                                                onChange={handleFileChange}
+                                                className="hidden"
+                                            />
                                         </div>
+                                        
                                         {files.length > 0 && (
-                                            <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                                            <div className="mt-3 space-y-2">
                                                 {files.map((file, index) => (
-                                                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                                                        <span className="text-sm truncate max-w-[200px]">{file.name}</span>
+                                                    <div 
+                                                        key={index} 
+                                                        className={`flex items-center justify-between p-2 rounded ${
+                                                            isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center">
+                                                            <DocumentIcon className="h-5 w-5 mr-2" />
+                                                            <span className="text-sm truncate">{file.name}</span>
+                                                        </div>
                                                         <button
                                                             type="button"
                                                             onClick={() => handleRemoveFile(file)}
                                                             className="text-red-500 hover:text-red-700"
                                                         >
-                                                            &times;
+                                                            <XMarkIcon className="h-5 w-5" />
                                                         </button>
                                                     </div>
                                                 ))}
@@ -295,18 +341,22 @@ const UserTaskCommentModal: React.FC<UserTaskCommentModalProps> = ({ isOpen, onC
                                         )}
                                     </div>
 
-                                    <div className="mt-6 flex justify-end space-x-3">
+                                    <div className="flex justify-end space-x-3 mt-6">
                                         <button
                                             type="button"
                                             onClick={onClose}
-                                            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
+                                            className={`px-4 py-2 rounded-lg ${
+                                                isDarkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                                            }`}
                                         >
                                             İptal
                                         </button>
                                         <button
                                             type="submit"
                                             disabled={loading}
-                                            className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                                            className={`px-4 py-2 rounded-lg ${
+                                                loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                                            } text-white`}
                                         >
                                             {loading ? 'Gönderiliyor...' : 'Yorum Ekle'}
                                         </button>
