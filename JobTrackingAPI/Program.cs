@@ -125,6 +125,7 @@ namespace JobTrackingAPI
             builder.Services.AddScoped<ITasksService, TasksService>();
             builder.Services.AddScoped<TasksService>(); // TasksService'i doğrudan enjekte edebilmek için
             builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<UserService>(); // Add this line to register concrete UserService
             builder.Services.AddScoped<AuthService>();
             builder.Services.AddScoped<NotificationService>();
             builder.Services.AddScoped<ITeamService, TeamService>();

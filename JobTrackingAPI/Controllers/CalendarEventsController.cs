@@ -18,13 +18,13 @@ namespace JobTrackingAPI.Controllers
     {
         private readonly CalendarEventService _calendarEventService;
         private readonly ILogger<CalendarEventsController> _logger;
-        private readonly UserService _userService;
+        private readonly IUserService _userService; // Change to interface
         private readonly INotificationService _notificationService;
 
         public CalendarEventsController(
             CalendarEventService calendarEventService,
             ILogger<CalendarEventsController> logger,
-            UserService userService,
+            IUserService userService, // Change to interface
             INotificationService notificationService)
         {
             _calendarEventService = calendarEventService;

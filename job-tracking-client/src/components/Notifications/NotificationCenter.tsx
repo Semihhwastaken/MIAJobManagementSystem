@@ -128,9 +128,11 @@ export const NotificationCenter: React.FC = () => {
       if (user?.id) {
         await signalRService.startConnection(user.id);
         signalRService.onReceiveNotification(handleNewNotification);
-        signalRService.getConnectedUsersCount().then(count => {
-          console.log('Connected users count:', count);
-        });
+        if (signalRService.isNotificationConnected()) {
+          signalRService.getConnectedUsersCount().then(count => {
+            console.log('Connected users count:', count);
+          });
+        }
       }
     } catch (error) {
       console.error('SignalR connection error:', error);

@@ -324,9 +324,14 @@ const Calendar: React.FC = () => {
                     );
                   })
                   .map((event) => (
-                    <div key={event.id} className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${isDarkMode ? 'border-gray-700' : 'border-gray-200'} ${isOverdue(new Date(event.startDate)) ? 'border-red-500 opacity-70' : ''}`}>
+                    <div key={event.id} className={`border rounded-lg p-4 hover:shadow-md transition-shadow relative ${isDarkMode ? 'border-gray-700' : 'border-gray-200'} ${isOverdue(new Date(event.startDate)) ? 'border-red-500 opacity-70' : ''}`}>
+                      {isOverdue(new Date(event.startDate)) && (
+                        <div className="absolute bottom-0 right-0 bg-red-500 text-white text-xs px-2 py-1 rounded-tr-lg rounded-bl-lg">
+                          Süresi Dolmuş
+                        </div>
+                      )}
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold">{event.startTime}</span>
+                        <span className="font-semibold">{event.startTime} - {event.endTime}</span>
                         <div className="flex items-center space-x-2">
                           <span className={`${getEventColor(event.priority)} text-white text-xs px-2 py-1 rounded`}>
                             {event.category}

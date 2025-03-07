@@ -16,6 +16,7 @@ class SignalRService {
     private userDisconnectedCallbacks: ((userId: string) => void)[] = [];
     private notificationCallbacks: ((notification: Notification) => void)[] = [];
     private reconnectInterval: any = null;
+    private lastMessageSentTime: number | null = null;
 
     private constructor() {
         // Chat Hub bağlantısı (JobTrackingAPI - 5173)
@@ -179,7 +180,20 @@ class SignalRService {
     // Chat Methods
     async sendMessage(receiverId: string, content: string): Promise<void> {
         if (!this.userId) throw new Error("User not authenticated");
-        await this.hubConnection.invoke("SendDirectMessage", this.userId, receiverId, content);
+        
+        // Debounce message sending
+        if (this.lastMessageSentTime && Date.now() - this.lastMessageSentTime < 500) {
+            throw new Error("Please wait before sending another message");
+        }
+        
+        this.lastMessageSentTime = Date.now();
+
+        try {
+            await this.hubConnection.invoke("SendDirectMessage", this.userId, receiverId, content);
+        } catch (error) {
+            console.error("Error sending message:", error);
+            throw error;
+        }
     }
 
     async markMessageAsRead(messageId: string): Promise<void> {
@@ -230,8 +244,29 @@ class SignalRService {
         }
     }
 
+    public isChatConnected(): boolean {
+        return this.hubConnection.state === signalR.HubConnectionState.Connected;
+    }
+
+    public isNotificationConnected(): boolean {
+        return this.notificationHubConnection.state === signalR.HubConnectionState.Connected;
+    }
+
+    // Bağlantıları kapatmak için
+    public async stopConnections() {
+        if (this.hubConnection.state === signalR.HubConnectionState.Connected) {
+            await this.hubConnection.stop();
+        }
+        if (this.notificationHubConnection.state === signalR.HubConnectionState.Connected) {
+            await this.notificationHubConnection.stop();
+        }
+    }
+
     // Event Listeners
     onReceiveMessage(callback: (message: Message) => void): void {
+        // Remove any existing callbacks first
+        this.messageCallbacks = [];
+        // Add the new callback
         this.messageCallbacks.push(callback);
     }
 
@@ -285,6 +320,22 @@ class SignalRService {
             }
         }
         return await this.notificationHubConnection.invoke("GetConnectedUsersCount");
+    }
+
+    async getConnectedUsersCountToChat(): Promise<number> {
+        if(this.hubConnection.state!== signalR.HubConnectionState.Connected) {
+            console.warn("Chat hub not connected, attempting to reconnect...");
+            try {
+                await this.hubConnection.start();
+                if(this.userId) {
+                    await this.hubConnection.invoke("JoinUserGroupToChat", this.userId);
+                }
+            } catch (err) {
+                console.error("Failed to reconnect to chat hub:", err);
+                throw new Error("Connection is not established");
+            }
+        }
+        return await this.hubConnection.invoke("GetConnectedUsersCountToChat");
     }
 
     isConnected(): boolean {

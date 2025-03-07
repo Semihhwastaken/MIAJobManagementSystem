@@ -67,6 +67,18 @@ namespace JobTrackingAPI.Hubs
             }
         }
 
+        public async Task JoinUserGroupToChat(string userId)
+        {
+            if (!string.IsNullOrEmpty(userId))
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, userId);
+            }
+        }
+
+        public int GetConnectedUsersCountToChat() {
+            return UserConnections.Count;
+        }
+
         // Chat Methods
         public async Task SendDirectMessage(string senderId, string receiverId, string content)
         {

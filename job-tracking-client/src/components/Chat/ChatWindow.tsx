@@ -25,11 +25,6 @@ import {
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 
-interface Attachment {
-    url: string;
-    fileName: string;
-}
-
 interface ChatWindowProps {
     currentUserId: string;
     selectedUser: {
@@ -79,6 +74,32 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
 
 
     useEffect(() => {
+        const handleReceiveMessage = (message: Message) => {
+            setMessages(prev => {
+                // Check if message already exists
+                const messageExists = prev.some(m => m.id === message.id);
+                if (messageExists) {
+                    return prev;
+                }
+                
+                // Only add if it's relevant to current chat
+                if (message.senderId === selectedUser.id || message.receiverId === selectedUser.id) {
+                    scrollToBottom();
+                    return [...prev, message];
+                }
+                return prev;
+            });
+        };
+
+        signalRService.onReceiveMessage(handleReceiveMessage);
+
+        // Clean up
+        return () => {
+            signalRService.removeMessageCallback(handleReceiveMessage);
+        };
+    }, [selectedUser.id,signalRService]);
+
+    useEffect(() => {
         loadMessages();
     }, [selectedUser.id, loadMessages]);
 
@@ -93,27 +114,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
 
     useEffect(() => {
         checkOnlineStatus();
-        const statusInterval = setInterval(checkOnlineStatus, 30000);
-        return () => clearInterval(statusInterval);
+        
     }, [selectedUser.id, checkOnlineStatus]);
-
-    useEffect(() => {
-        const handleNewMessage = (message: Message) => {
-            if (message.senderId === selectedUser.id || message.senderId === currentUserId) {
-                if (messages.some(m => m.id === message.id)) {
-                    return;
-                }
-                setMessages(prev => [...prev, message]);
-                scrollToBottom();
-            }
-        };
-
-        signalRService.onReceiveMessage(handleNewMessage);
-
-        return () => {
-            signalRService.removeMessageCallback(handleNewMessage);
-        };
-    }, [currentUserId, selectedUser.id, messages, signalRService]);
 
     useEffect(() => {
         const initializeSignalR = async () => {
@@ -126,7 +128,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                             setIsTyping(true);
                         }
                     });
-
+                    if (signalRService.isChatConnected()) {
+                        signalRService.getConnectedUsersCountToChat().then(count => {
+                            console.log('Connected users count to chat:', count);
+                        });
+                    }
                     signalRService.onUserStoppedTyping((userId: string) => {
                         if (userId === selectedUser.id) {
                             setIsTyping(false);
@@ -140,6 +146,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                             )
                         );
                     });
+
+                    
 
                 } catch (error) {
                     console.error('SignalR connection error:', error);
@@ -162,12 +170,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
             window.clearTimeout(typingTimeoutRef.current);
         }
 
-        axiosInstance.post(`/messages/typing/${currentUser?.id}/${selectedUser.id}`)
+        signalRService.sendTypingIndicator(selectedUser.id)
             .catch(err => console.error('Error sending typing notification:', err));
 
         typingTimeoutRef.current = window.setTimeout(() => {
-            setIsTyping(false);
-        }, 3000);
+            signalRService.sendStoppedTypingIndicator(selectedUser.id)
+                .catch(err => console.error('Error sending stopped typing notification:', err));
+        }, 4000);
     };
 
     const scrollToBottom = () => {
@@ -183,37 +192,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
         if (!newMessage.trim() && !selectedFile) return;
 
         try {
-            let attachments: Attachment[] = [];
-            
-            if (selectedFile) {
-                const formData = new FormData();
-                formData.append('file', selectedFile);
-                
-                const uploadResponse = await axiosInstance.post('/Messages/upload', formData);
-                attachments = [{
-                    url: uploadResponse.data.url,
-                    fileName: selectedFile.name
-                }];
+            setNewMessage('');
+            setSelectedFile(null);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
             }
 
-            const messageDto = {
-                receiverId: selectedUser.id,
-                content: newMessage,
-                subject: 'Chat Message', // Required by the backend
-                attachments: attachments
-            };
-
-            const response = await axiosInstance.post(`/Messages/send/${currentUserId}`, messageDto);
+            // Actually send the message
+            await signalRService.sendMessage(selectedUser.id, newMessage);
             
-            if (response.data) {
-                setMessages(prev => [...prev, response.data]);
-                setNewMessage('');
-                setSelectedFile(null);
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                }
-                scrollToBottom();
-            }
+            scrollToBottom();
         } catch (error) {
             console.error('Error sending message:', error);
             setError('Failed to send message. Please try again.');
@@ -343,15 +331,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                                     </Box>
                                 )}
                                 {isTyping && (
-                                    <Typography 
-                                        variant="caption" 
-                                        sx={{ 
-                                            color: 'text.secondary',
-                                            animation: 'pulse 2s infinite'
-                                        }}
-                                    >
-                                        typing...
-                                    </Typography>
+                                    <Box className="flex items-center gap-1">
+                                        <Typography 
+                                            variant="caption" 
+                                            sx={{ 
+                                                color: 'text.secondary',
+                                                animation: 'pulse 2s infinite'
+                                            }}
+                                        >
+                                            yazıyor...
+                                        </Typography>
+                                        <span className="flex space-x-1">
+                                            <span className="animate-bounce h-1 w-1 bg-gray-400 rounded-full"/>
+                                            <span className="animate-bounce h-1 w-1 bg-gray-400 rounded-full" style={{ animationDelay: '0.2s' }}/>
+                                            <span className="animate-bounce h-1 w-1 bg-gray-400 rounded-full" style={{ animationDelay: '0.4s' }}/>
+                                        </span>
+                                    </Box>
                                 )}
                             </Box>
                         </Box>

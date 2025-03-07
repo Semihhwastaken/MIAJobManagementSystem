@@ -10,7 +10,7 @@ export interface Message {
     receiverId: string;
     content: string;
     subject?: string;
-    sentAt: Date;
+    sentAt: string;
     isRead: boolean;
     senderName?: string;
     receiverName?: string;

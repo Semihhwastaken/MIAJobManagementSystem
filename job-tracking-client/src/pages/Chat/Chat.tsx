@@ -85,13 +85,7 @@ const Chat: React.FC = () => {
 
         fetchConversations();
 
-        // Set up polling for new messages and updates
-        const pollInterval = setInterval(() => {
-            fetchConversations();
-            fetchUnreadCounts();
-        }, 30000); // Poll every 30 seconds
-
-        return () => clearInterval(pollInterval);
+       
     }, [currentUser?.id, fetchUnreadCounts]);
 
     // Fetch available users
