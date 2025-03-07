@@ -20,11 +20,19 @@ namespace JobTrackingAPI.Controllers
     [Route("api/[controller]")]
     public class UsersController : ControllerBase
     {
+<<<<<<< HEAD
         private readonly UserService _userService;
         private readonly IHubContext<ChatHub> _hubContext;
         private static readonly Dictionary<string, DateTime> _lastSeen = new();
 
         public UsersController(UserService userService, IHubContext<ChatHub> hubContext)
+=======
+        private readonly IUserService _userService;
+        private readonly IHubContext<ChatHub> _hubContext;
+        private static readonly Dictionary<string, DateTime> _lastSeen = new();
+
+        public UsersController(IUserService userService, IHubContext<ChatHub> hubContext)
+>>>>>>> newdb1
         {
             _userService = userService;
             _hubContext = hubContext;
@@ -33,14 +41,22 @@ namespace JobTrackingAPI.Controllers
         [HttpGet]
         public async Task<ActionResult<List<User>>> GetAll()
         {
+<<<<<<< HEAD
             var users = await _userService.GetAllAsync();
+=======
+            var users = await _userService.GetAllUsers();
+>>>>>>> newdb1
             return Ok(users);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<User>> Get(string id)
         {
+<<<<<<< HEAD
             var user = await _userService.GetByIdAsync(id);
+=======
+            var user = await _userService.GetUserById(id);
+>>>>>>> newdb1
             if (user == null)
             {
                 return NotFound();
@@ -51,14 +67,22 @@ namespace JobTrackingAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<User>> Create(User user)
         {
+<<<<<<< HEAD
             await _userService.CreateAsync(user);
+=======
+            await _userService.UpdateUser(user.Id, user);
+>>>>>>> newdb1
             return CreatedAtAction(nameof(Get), new { id = user.Id }, user);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(string id, [FromBody] UpdateUserRequest request)
         {
+<<<<<<< HEAD
             var currentUser = await _userService.GetByIdAsync(id);
+=======
+            var currentUser = await _userService.GetUserById(id);
+>>>>>>> newdb1
             if (currentUser == null)
             {
                 return NotFound();
@@ -75,27 +99,43 @@ namespace JobTrackingAPI.Controllers
             }
             currentUser.UpdatedDate = System.DateTime.UtcNow;
 
+<<<<<<< HEAD
             await _userService.UpdateAsync(id, currentUser);
+=======
+            await _userService.UpdateUser(id, currentUser);
+>>>>>>> newdb1
             return Ok(currentUser);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(string id)
         {
+<<<<<<< HEAD
             var user = await _userService.GetByIdAsync(id);
+=======
+            var user = await _userService.GetUserById(id);
+>>>>>>> newdb1
             if (user == null)
             {
                 return NotFound();
             }
 
+<<<<<<< HEAD
             await _userService.DeleteAsync(id);
+=======
+            await _userService.DeleteUser(id);
+>>>>>>> newdb1
             return NoContent();
         }
 
         [HttpGet("username/{username}")]
         public async Task<ActionResult<User>> GetByUsername(string username)
         {
+<<<<<<< HEAD
             var user = await _userService.GetByUsernameAsync(username);
+=======
+            var user = await _userService.GetUserByEmail(username);
+>>>>>>> newdb1
             if (user == null)
             {
                 return NotFound();
@@ -116,7 +156,11 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized("Kullanıcı kimliği bulunamadı");
                 }
 
+<<<<<<< HEAD
                 var user = await _userService.GetByIdAsync(userId);
+=======
+                var user = await _userService.GetUserById(userId);
+>>>>>>> newdb1
                 if (user == null)
                 {
                     return NotFound("Kullanıcı bulunamadı");
@@ -156,13 +200,20 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized("Kullanıcı kimliği bulunamadı");
                 }
 
+<<<<<<< HEAD
                 var user = await _userService.GetByIdAsync(userId);
+=======
+                var user = await _userService.GetUserById(userId);
+>>>>>>> newdb1
                 if (user == null)
                 {
                     return NotFound("Kullanıcı bulunamadı");
                 }
 
+<<<<<<< HEAD
                 // Güvenlik nedeniyle sadece belirli alanları güncelliyoruz
+=======
+>>>>>>> newdb1
                 user.FullName = request.FullName;
                 user.Department = request.Department;
                 user.Title = request.Title;
@@ -171,7 +222,11 @@ namespace JobTrackingAPI.Controllers
                 user.ProfileImage = request.ProfileImage;
                 user.UpdatedDate = DateTime.UtcNow;
 
+<<<<<<< HEAD
                 await _userService.UpdateAsync(userId, user);
+=======
+                await _userService.UpdateUser(userId, user);
+>>>>>>> newdb1
 
                 return Ok(new { message = "Profil başarıyla güncellendi" });
             }
@@ -194,23 +249,40 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized("Kullanıcı kimliği bulunamadı");
                 }
 
+<<<<<<< HEAD
                 var user = await _userService.GetByIdAsync(userId);
+=======
+                var user = await _userService.GetUserById(userId);
+>>>>>>> newdb1
                 if (user == null)
                 {
                     return NotFound("Kullanıcı bulunamadı");
                 }
 
+<<<<<<< HEAD
                 // Mevcut şifre kontrolü
                 if (!VerifyPassword(request.CurrentPassword, user.Password))
+=======
+                if (!VerifyPasswordWithHashAndSalt(request.CurrentPassword, user.PasswordHash, user.PasswordSalt))
+>>>>>>> newdb1
                 {
                     return BadRequest("Mevcut şifre yanlış");
                 }
 
+<<<<<<< HEAD
                 // Yeni şifre güncelleme
                 user.Password = HashPassword(request.NewPassword);
                 user.UpdatedDate = DateTime.UtcNow;
 
                 await _userService.UpdateAsync(userId, user);
+=======
+                var (newHash, newSalt) = CreatePasswordHash(request.NewPassword);
+                user.PasswordHash = newHash;
+                user.PasswordSalt = newSalt;
+                user.UpdatedDate = DateTime.UtcNow;
+
+                await _userService.UpdateUser(userId, user);
+>>>>>>> newdb1
 
                 return Ok(new { message = "Şifre başarıyla güncellendi" });
             }
@@ -220,6 +292,7 @@ namespace JobTrackingAPI.Controllers
             }
         }
 
+<<<<<<< HEAD
         /// <summary>
         /// Kullanıcı profil resmini yükler
         /// </summary>
@@ -233,6 +306,11 @@ namespace JobTrackingAPI.Controllers
         [HttpPost("profile/image")]
         [Consumes("multipart/form-data")]
 
+=======
+        [Authorize]
+        [HttpPost("profile/image")]
+        [Consumes("multipart/form-data")]
+>>>>>>> newdb1
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -247,7 +325,11 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized("Kullanıcı kimliği bulunamadı");
                 }
 
+<<<<<<< HEAD
                 var user = await _userService.GetByIdAsync(userId);
+=======
+                var user = await _userService.GetUserById(userId);
+>>>>>>> newdb1
                 if (user == null)
                 {
                     return NotFound("Kullanıcı bulunamadı");
@@ -258,7 +340,10 @@ namespace JobTrackingAPI.Controllers
                     return BadRequest("Dosya seçilmedi");
                 }
 
+<<<<<<< HEAD
                 // Dosya uzantısını kontrol et
+=======
+>>>>>>> newdb1
                 var extension = Path.GetExtension(request.File.FileName).ToLowerInvariant();
                 string[] allowedExtensions = { ".jpg", ".jpeg", ".png", ".gif" };
                 if (!allowedExtensions.Contains(extension))
@@ -266,13 +351,19 @@ namespace JobTrackingAPI.Controllers
                     return BadRequest("Sadece .jpg, .jpeg, .png ve .gif uzantılı dosyalar yüklenebilir");
                 }
 
+<<<<<<< HEAD
                 // Dosya boyutunu kontrol et (max 5MB)
+=======
+>>>>>>> newdb1
                 if (request.File.Length > 5 * 1024 * 1024)
                 {
                     return BadRequest("Dosya boyutu 5MB'dan büyük olamaz");
                 }
 
+<<<<<<< HEAD
                 // Dosyayı Base64'e çevir
+=======
+>>>>>>> newdb1
                 using (var ms = new MemoryStream())
                 {
                     await request.File.CopyToAsync(ms);
@@ -282,7 +373,11 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 user.UpdatedDate = DateTime.UtcNow;
+<<<<<<< HEAD
                 await _userService.UpdateAsync(userId, user);
+=======
+                await _userService.UpdateUser(userId, user);
+>>>>>>> newdb1
 
                 return Ok(new { message = "Profil resmi başarıyla güncellendi", profileImage = user.ProfileImage });
             }
@@ -325,6 +420,39 @@ namespace JobTrackingAPI.Controllers
             var hashedInput = HashPassword(password);
             return hashedInput == hashedPassword;
         }
+<<<<<<< HEAD
+=======
+
+        private (byte[] Hash, byte[] Salt) CreatePasswordHash(string password)
+        {
+            using (var hmac = new HMACSHA512())
+            {
+                var salt = hmac.Key;
+                var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+                
+                return (hash, salt);
+            }
+        }
+
+        private bool VerifyPasswordWithHashAndSalt(string password, byte[] storedHash, byte[] storedSalt)
+        {
+            if (storedHash.Length == 0 || storedSalt.Length == 0)
+                return false;
+            
+            using (var hmac = new HMACSHA512(storedSalt))
+            {
+                var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+                
+                for (int i = 0; i < computedHash.Length; i++)
+                {
+                    if (computedHash[i] != storedHash[i])
+                        return false;
+                }
+            }
+            
+            return true;
+        }
+>>>>>>> newdb1
     }
 
     public class UpdateUserRequest

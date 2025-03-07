@@ -1,7 +1,11 @@
 // The exported code uses Tailwind CSS. Install Tailwind CSS in your dev environment to ensure all styles work.
 
 import React, { useState } from "react";
+<<<<<<< HEAD
 import * as echarts from "echarts";
+=======
+
+>>>>>>> newdb1
 
 const App: React.FC = () => {
     const [activeAccordion, setActiveAccordion] = useState<number | null>(null);

@@ -21,6 +21,10 @@
     "@react-oauth/google": "^0.12.1",
     "@reduxjs/toolkit": "^2.5.1",
     "@tailwindcss/vite": "^4.0.7",
+<<<<<<< HEAD
+=======
+    "@types/k6": "^0.57.1",
+>>>>>>> newdb1
     "@types/react-redux": "^7.1.34",
     "antd": "^5.24.2",
     "axios": "^1.7.9",
@@ -29,6 +33,10 @@
     "date-fns": "^4.1.0",
     "echarts": "^5.6.0",
     "framer-motion": "^12.4.4",
+<<<<<<< HEAD
+=======
+    "k6": "^0.0.0",
+>>>>>>> newdb1
     "moment": "^2.30.1",
     "notistack": "^3.0.2",
     "react": "^19.0.0",
@@ -39,6 +47,10 @@
     "react-icons": "^5.5.0",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.2.0",
+<<<<<<< HEAD
+=======
+    "react-virtualized": "^9.22.6",
+>>>>>>> newdb1
     "recharts": "^2.15.1",
     "sonner": "^2.0.0",
     "swiper": "^11.2.4",
@@ -47,8 +59,15 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
+<<<<<<< HEAD
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
+=======
+    "@types/lodash": "^4.17.16",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@types/react-virtualized": "^9.22.2",
+>>>>>>> newdb1
     "@vitejs/plugin-react-swc": "^3.5.0",
     "eslint": "^9.19.0",
     "eslint-plugin-react-hooks": "^5.0.0",

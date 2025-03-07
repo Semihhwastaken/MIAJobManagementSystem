@@ -10,7 +10,11 @@ export interface Message {
     receiverId: string;
     content: string;
     subject?: string;
+<<<<<<< HEAD
     sentAt: Date;
+=======
+    sentAt: string;
+>>>>>>> newdb1
     isRead: boolean;
     senderName?: string;
     receiverName?: string;

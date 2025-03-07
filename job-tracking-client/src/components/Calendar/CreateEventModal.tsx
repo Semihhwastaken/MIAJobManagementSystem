@@ -4,6 +4,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { useDispatch } from 'react-redux';
 import { setError } from '../../redux/features/calendarSlice';
 import type { CalendarEvent } from '../../redux/features/calendarSlice';
+import { teamService } from '../../services';
+import type { TeamMember } from '../../types/team';
 
 type EventFormData = Omit<CalendarEvent, 'id'>;
 
@@ -25,6 +27,10 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
   const { isDarkMode } = useTheme();
   const dispatch = useDispatch();
 
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
   const [formData, setFormData] = useState<EventFormData>({
     title: '',
     description: '',
@@ -33,13 +39,30 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
     startTime: '09:00',
     endTime: '10:00',
     priority: 'Medium' as 'High' | 'Medium' | 'Low',
-    participants: []
+    participants: [],
+    category: initialData?.category || 'task',
   });
 
-  // Reset form data when initialData changes
+  useEffect(() => {
+    const loadTeamMembers = async () => {
+      try {
+        const teams = await teamService.getMyTeams();
+        if (teams.length > 0) {
+          const members = await teamService.getTeamMembers(teams[0].id);
+          setTeamMembers(members);
+        }
+      } catch (error) {
+        console.error('Error loading team members:', error);
+        dispatch(setError('Failed to load team members'));
+      }
+    };
+
+    loadTeamMembers();
+  }, [dispatch]);
+
   useEffect(() => {
     if (initialData) {
-      const { id, ...rest } = initialData;
+      const {  ...rest } = initialData;
       setFormData(rest);
     } else {
       setFormData({
@@ -50,10 +73,27 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
         startTime: '09:00',
         endTime: '10:00',
         priority: 'Medium',
-        participants: []
+        participants: [],
+        category: 'task',
       });
     }
   }, [initialData]);
+
+  const filteredMembers = teamMembers.filter(member =>
+    (member.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    (member.fullName?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+  );
+
+  const handleAddParticipant = (email: string) => {
+    if (!formData.participants.includes(email)) {
+      setFormData({
+        ...formData,
+        participants: [...formData.participants, email]
+      });
+    }
+    setSearchTerm('');
+    setIsDropdownOpen(false);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +133,8 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
         startTime: '09:00',
         endTime: '10:00',
         priority: 'Medium',
-        participants: []
+        participants: [],
+        category: 'task',
       });
     }
   };
@@ -283,48 +324,96 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
                         </div>
                       ))}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="relative">
                       <input
-                        type="email"
-                        placeholder="Add participant email"
-                        className={`flex-1 rounded-lg border p-2 
+                        type="text"
+                        placeholder="Search team members..."
+                        value={searchTerm}
+                        onChange={(e) => {
+                          setSearchTerm(e.target.value);
+                          setIsDropdownOpen(true);
+                        }}
+                        onFocus={() => setIsDropdownOpen(true)}
+                        className={`w-full rounded-lg border p-2 
                           ${isDarkMode 
                             ? 'bg-gray-700 border-gray-600 text-white' 
                             : 'bg-white border-gray-300 text-gray-900'
                           }`}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const input = e.target as HTMLInputElement;
-                            const email = input.value.trim();
-                            if (email && !formData.participants.includes(email)) {
-                              setFormData({
-                                ...formData,
-                                participants: [...formData.participants, email]
-                              });
-                              input.value = '';
-                            }
-                          }
-                        }}
                       />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const input = document.querySelector('input[type="email"]') as HTMLInputElement;
-                          const email = input.value.trim();
-                          if (email && !formData.participants.includes(email)) {
-                            setFormData({
-                              ...formData,
-                              participants: [...formData.participants, email]
-                            });
-                            input.value = '';
-                          }
-                        }}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                      >
-                        Add
-                      </button>
+                      {isDropdownOpen && searchTerm && (
+                        <div 
+                          className={`absolute z-10 w-full mt-1 rounded-md shadow-lg
+                            ${isDarkMode ? 'bg-gray-700' : 'bg-white'} border
+                            ${isDarkMode ? 'border-gray-600' : 'border-gray-300'}`}
+                        >
+                          {filteredMembers.length > 0 ? (
+                            <ul className="max-h-60 overflow-auto py-1">
+                              {filteredMembers.map((member) => (
+                                <li
+                                  key={member.id}
+                                  className={`px-4 py-2 cursor-pointer hover:bg-gray-100
+                                    ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'}`}
+                                  onClick={() => handleAddParticipant(member.email)}
+                                >
+                                  <div className="flex items-center">
+                                    <div>
+                                      <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        {member.fullName}
+                                      </div>
+                                      <div className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                                        {member.email}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <div className="px-4 py-2 text-sm text-gray-500">
+                              No team members found
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Priority
+                    </label>
+                    <select
+                      name="priority"
+                      value={formData.priority}
+                      onChange={(e) => setFormData({ ...formData, priority: e.target.value as 'High' | 'Medium' | 'Low' })}
+                      className={`mt-1 block w-full rounded-md border p-2 
+                        ${isDarkMode 
+                          ? 'bg-gray-700 border-gray-600 text-white' 
+                          : 'bg-white border-gray-300 text-gray-900'}`}
+                    >
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Category
+                    </label>
+                    <select
+                      name="category"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value as 'meeting' | 'task' | 'deadline' })}
+                      className={`mt-1 block w-full rounded-md border p-2 
+                        ${isDarkMode 
+                          ? 'bg-gray-700 border-gray-600 text-white' 
+                          : 'bg-white border-gray-300 text-gray-900'}`}
+                    >
+                      <option value="task">Task</option>
+                      <option value="meeting">Meeting</option>
+                      <option value="deadline">Deadline</option>
+                    </select>
                   </div>
 
                   <div className="mt-6 flex justify-end space-x-3">

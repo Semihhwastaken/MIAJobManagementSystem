@@ -3,6 +3,11 @@ import { Line, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, ChartOptions, Filler } from 'chart.js';
 import { useTheme } from '../../context/ThemeContext';
 import Footer from "../../components/Footer/Footer";
+<<<<<<< HEAD
+=======
+import { useState, useEffect } from 'react';
+import  axiosInstance  from '../../services/axiosInstance';
+>>>>>>> newdb1
 
 // Register ChartJS components
 ChartJS.register(
@@ -17,6 +22,7 @@ ChartJS.register(
   Filler
 );
 
+<<<<<<< HEAD
 const Dashboard = () => {
   const { isDarkMode } = useTheme();
 
@@ -69,6 +75,129 @@ const Dashboard = () => {
       borderWidth: 0,
     }],
   };
+=======
+interface TaskStats {
+  total: number;
+  completed: number;
+  inProgress: number;
+  overdue: number;
+  totalGrowth: string;
+  completedGrowth: string;
+  inProgressGrowth: string;
+  overdueGrowth: string;
+}
+
+interface LineChartData {
+  labels: string[];
+  datasets: {
+    label: string;
+    data: number[];
+    borderColor: string;
+    backgroundColor: string;
+    fill: boolean;
+    tension: number;
+  }[];
+}
+
+interface DoughnutData {
+  labels: string[];
+  datasets: {
+    data: number[];
+    backgroundColor: string[];
+    borderWidth: number;
+  }[];
+}
+
+const Dashboard = () => {
+  const { isDarkMode } = useTheme();
+  const [taskStats, setTaskStats] = useState<TaskStats>({
+    total: 0,
+    completed: 0,
+    inProgress: 0,
+    overdue: 0,
+    totalGrowth: '+0%',
+    completedGrowth: '+0%',
+    inProgressGrowth: '+0%',
+    overdueGrowth: '+0%',
+  });
+  const [lineChartData, setLineChartData] = useState<LineChartData>({
+    labels: [],
+    datasets: [],
+  });
+  const [doughnutData, setDoughnutData] = useState<DoughnutData>({
+    labels: [],
+    datasets: [],
+  });
+
+  const calculateGrowth = (current: number, previous: number): string => {
+    if (previous === 0) return '+0%';
+    const growth = ((current - previous) / previous) * 100;
+    return `${growth > 0 ? '+' : ''}${growth.toFixed(2)}%`;
+  };
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const response = await axiosInstance.get(`/tasks/dashboard`);
+        if (response.status !== 200) {
+          throw new Error(`Failed to fetch dashboard data: ${response.statusText}`);
+        }
+  
+        const data = response.data;
+        console.log(data);
+  
+        setTaskStats({
+          total: data.totalTasks,
+          completed: data.completedTasks,
+          inProgress: data.inProgressTasks,
+          overdue: data.overdueTasks,
+          totalGrowth: calculateGrowth(data.totalTasks, data.previousTotalTasks),
+          completedGrowth: calculateGrowth(data.completedTasks, data.previousCompletedTasks),
+          inProgressGrowth: calculateGrowth(data.inProgressTasks, data.previousInProgressTasks),
+          overdueGrowth: calculateGrowth(data.overdueTasks, data.previousOverdueTasks),
+        });
+        setLineChartData({
+          labels: Array.isArray(data.lineChartData) ? data.lineChartData.map((item: { Date: string }) => new Date(item.Date).toLocaleDateString()) : [],
+          datasets: Array.isArray(data.lineChartData) ? [
+            {
+              label: 'Completed',
+              data: data.lineChartData.map((item: { Date: string; Completed: number; NewTasks: number }) => item.Completed),
+              borderColor: 'rgb(99, 102, 241)',
+              backgroundColor: 'rgba(99, 102, 241, 0.1)',
+              fill: true,
+              tension: 0.4,
+            },
+            {
+              label: 'New Tasks',
+              data: data.lineChartData.map((item: { Date: string; Completed: number; NewTasks: number }) => item.NewTasks),
+              borderColor: 'rgb(74, 222, 128)',
+              backgroundColor: 'rgba(74, 222, 128, 0.1)',
+              fill: true,
+              tension: 0.4,
+            },
+          ] : [],
+        });
+        setDoughnutData({
+          labels: ['Completed', 'In Progress', 'Overdue'],
+          datasets: [{
+            data: [data.completedTasks, data.inProgressTasks, data.overdueTasks],
+            backgroundColor: [
+              'rgb(99, 102, 241)',
+              'rgb(74, 222, 128)',
+              'rgb(248, 113, 113)',
+            ],
+            borderWidth: 0,
+          }],
+        });
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        alert('Failed to fetch dashboard data. Please ensure the backend is running and try again.');
+      }
+    };
+  
+    fetchDashboardData();
+  }, []);
+>>>>>>> newdb1
 
   const chartOptions: ChartOptions<'line'> = {
     responsive: true,

@@ -3,12 +3,20 @@ import { AuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { NotificationCenter } from '../Notifications/NotificationCenter';
+<<<<<<< HEAD
+=======
+import { invalidateCache } from '../../redux/features/teamSlice';
+import { logout as logoutAction } from '../../redux/features/authSlice';
+import { resetState } from '../../redux/features/actions';
+import { useDispatch } from 'react-redux';
+>>>>>>> newdb1
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
+<<<<<<< HEAD
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, setIsAuthenticated } = useContext(AuthContext);
@@ -19,6 +27,73 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     localStorage.removeItem('token');
     setIsAuthenticated(false);
     navigate('/auth');
+=======
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { isAuthenticated, setIsAuthenticated } = useContext(AuthContext);
+  const dispatch = useDispatch();
+  const { isDarkMode, toggleTheme } = useTheme();
+  const isAuthPage = location.pathname === '/auth';
+
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Oturum bilgisi bulunamadı');
+      }
+
+      // Tüm Redux state'i sıfırla
+      dispatch(resetState());
+
+      // Önce storage'ı temizle
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // IndexedDB önbelleklerini temizle
+      if ('caches' in window) {
+        try {
+          const cacheNames = await window.caches.keys();
+          await Promise.all(
+            cacheNames.map(cacheName => window.caches.delete(cacheName))
+          );
+          console.log('Browser cache temizlendi');
+        } catch (e) {
+          console.error('Browser cache temizlenirken hata:', e);
+        }
+      }
+
+      // Sonra state'i güncelle
+      setIsAuthenticated(false);
+
+      // API çağrısını yap
+      try {
+        await fetch('http://localhost:5193/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include'
+        });
+      } catch (error) {
+        console.error('Logout API error:', error);
+      }
+
+      // En son yönlendirmeyi yap
+      setTimeout(() => {
+        navigate('/auth', { replace: true });
+      }, 100);
+    } catch (error) {
+      console.error('Logout error:', error);
+      
+      // Hata durumunda da temizlik yap
+      dispatch(resetState());
+      localStorage.clear();
+      sessionStorage.clear();
+      setIsAuthenticated(false);
+      navigate('/auth', { replace: true });
+    }
+>>>>>>> newdb1
   };
 
   const navItems = [

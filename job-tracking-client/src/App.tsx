@@ -1,10 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material';
-import { useDispatch } from 'react-redux';
-import { setUser,setToken } from './redux/features/authSlice';
+import { useDispatch, useSelector } from 'react-redux';
+import { setUser, setToken, setDataPreloaded } from './redux/features/authSlice';
 import { getCurrentUser } from './services/api';
-
-
 import { CssBaseline } from '@mui/material';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
@@ -22,14 +20,18 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Profile from './pages/Profile/Profile';
 import TeamInvite from './pages/TeamInvite/TeamInvite';
 import Main from './pages/Main/Main';
-
+import { SnackbarProvider } from 'notistack';
+import { RootState } from './redux/store';
+import { fetchTasks } from './redux/features/tasksSlice';
+import { AppDispatch } from './redux/store';
 
 const AppContent: React.FC = () => {
   const { isDarkMode } = useTheme();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const [isAuthenticated, setIsAuthenticated] = useState(
     localStorage.getItem('token') !== null
   );
+  const { user, dataPreloaded } = useSelector((state: RootState) => state.auth);
 
   // Load stored auth data on startup
   useEffect(() => {
@@ -48,8 +50,6 @@ const AppContent: React.FC = () => {
         localStorage.removeItem('user');
         setIsAuthenticated(false);
       }
-    } else {
-      console.log('No stored auth data found');
     }
   }, [dispatch]);
 
@@ -93,6 +93,20 @@ const AppContent: React.FC = () => {
 
     loadUserData();
   }, [dispatch]);
+
+  useEffect(() => {
+    if (isAuthenticated && user && !dataPreloaded) {
+      // Preload işlemini başlat
+      Promise.all([
+        dispatch(fetchTasks()),
+        // Diğer gerekli verileri yükle
+      ]).then(() => {
+        dispatch(setDataPreloaded(true));
+      }).catch((error) => {
+        console.error('Veri ön yükleme hatası:', error);
+      });
+    }
+  }, [isAuthenticated, user, dataPreloaded, dispatch]);
 
   const theme = useMemo(
     () =>
@@ -258,6 +272,16 @@ const AppContent: React.FC = () => {
                   path="/analytics"
                   element={<div>Raporlar Sayfası (Yapım aşamasında)</div>}
                 />
+                <Route
+                  path="/team-invite"
+                  element={
+                    isAuthenticated ? (
+                      <TeamInvite />
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
               </Routes>
             </Layout>
           </Router>
@@ -278,13 +302,8 @@ const App: React.FC = () => {
     
     if (token && userDataStr) {
       try {
-        console.log('Initializing auth state from localStorage');
         const userData = JSON.parse(userDataStr);
-        
-        // Set token first
         dispatch(setToken(token));
-        
-        // Then set user data
         dispatch(setUser({
           id: userData.id,
           username: userData.username,
@@ -292,23 +311,26 @@ const App: React.FC = () => {
           fullName: userData.fullName,
           department: userData.department
         }));
-
-        console.log('Auth state initialized successfully');
       } catch (error) {
         console.error('Error initializing auth state:', error);
-        // Clear invalid data
         localStorage.removeItem('user');
         localStorage.removeItem('token');
       }
-    } else {
-      console.log('No stored auth data found');
     }
   }, [dispatch]);
 
   return (
     <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID">
       <ThemeProvider>
-        <AppContent />
+        <SnackbarProvider 
+          maxSnack={3} 
+          anchorOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+        >
+          <AppContent />
+        </SnackbarProvider>
       </ThemeProvider>
     </GoogleOAuthProvider>
   );

@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.SignalR;
 using JobTrackingAPI.Models;
 using JobTrackingAPI.Services;
+<<<<<<< HEAD
 using JobTrackingAPI.Enums;
+=======
+>>>>>>> newdb1
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 
@@ -68,6 +71,21 @@ namespace JobTrackingAPI.Hubs
             }
         }
 
+<<<<<<< HEAD
+=======
+        public async Task JoinUserGroupToChat(string userId)
+        {
+            if (!string.IsNullOrEmpty(userId))
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, userId);
+            }
+        }
+
+        public int GetConnectedUsersCountToChat() {
+            return UserConnections.Count;
+        }
+
+>>>>>>> newdb1
         // Chat Methods
         public async Task SendDirectMessage(string senderId, string receiverId, string content)
         {
@@ -166,6 +184,7 @@ namespace JobTrackingAPI.Hubs
             }
         }
 
+<<<<<<< HEAD
         // Notification Methods
         public async Task SendNotification(string userId, string title, string message, NotificationType type, string? relatedJobId = null)
         {
@@ -193,6 +212,8 @@ namespace JobTrackingAPI.Hubs
             await Clients.User(userId).SendAsync("ReceiveNotification", notification);
         }
 
+=======
+>>>>>>> newdb1
         public async Task RegisterUser(string userId)
         {
             try

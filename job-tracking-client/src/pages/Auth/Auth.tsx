@@ -138,6 +138,7 @@ const Auth: React.FC = () => {
     const [verificationStep, setVerificationStep] = useState<'initiate' | 'verify' | null>(null);
     const theme = useTheme();
     const navigate = useNavigate();
+    const {showSuccess, showError } = useNotification();
     const { setIsAuthenticated } = useContext(AuthContext);
 
     const [formData, setFormData] = useState({
@@ -170,7 +171,7 @@ const Auth: React.FC = () => {
     const signalRService = SignalRService.getInstance();
 
     const validateForm = () => {
-        let tempErrors = {
+        const tempErrors = {
             username: '',
             email: '',
             password: '',
@@ -279,11 +280,13 @@ const Auth: React.FC = () => {
 
                     if (response.ok) {
                         setVerificationStep('verify');
+                        showSuccess('Doğrulama kodu e-postanına gönderildi.');
                         setErrors({});
                     } else {
                         const errorMessage = data.errors ? Object.values(data.errors).flat().join(', ') :
                             data.Message || data.message || 'An error occurred';
                         setErrors({ general: errorMessage });
+                        showError('Başarısız.');
                     }
                 } else if (verificationStep === 'verify') {
                     // Step 2: Complete registration with verification
@@ -325,64 +328,83 @@ const Auth: React.FC = () => {
                         const signalRService = SignalRService.getInstance();
                         await signalRService.startConnection(data.user.id);
 
+                        showSuccess('Başarıyla kayıt olundu.');
                         // Navigate to home page
                         navigate('/');
                     } else {
                         const errorMessage = data.Message || data.message || 'An error occurred';
                         setErrors({ general: errorMessage });
+                        showError('Doğrulama başarısız.');
                     }
                 }
             } else {
                 // Login flow
-                const response = await fetch('http://localhost:5193/api/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        username: formData.username,
-                        password: formData.password
-                    })
-                });
+                try {
+                    const response = await fetch('http://localhost:5193/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            username: formData.username,
+                            password: formData.password
+                        })
+                    });
 
-                const data = await response.json();
-                console.log('Login Response:', data);
-
-                if (response.ok) {
-                    if (!data.token || !data.user) {
-                        throw new Error('Invalid response format from server');
-
-                    }
-                    try {
-                        // Store auth data
-                        localStorage.setItem('token', data.token);
-                        localStorage.setItem('user', JSON.stringify(data.user));
-
-                        // Update Redux state
-                        dispatch(setToken(data.token));
-                        dispatch(setUser(data.user));
-
-                        // Update authentication context
-                        setIsAuthenticated(true);
-
-                        // Initialize SignalR connections
-                        const signalRService = SignalRService.getInstance();
-                        await signalRService.startConnection(data.user.id);
-
-                        // Only navigate if everything is successful
-                        navigate('/');
-                    } catch (error) {
-                        console.error('Error during post-login setup:', error);
-                        setErrors({ general: 'Error during login setup. Please try again.' });
-                        // Clear any partial auth state
-                        localStorage.removeItem('token');
-                        localStorage.removeItem('user');
-                        setIsAuthenticated(false);
-                    }
-                } else {
+                    // response.json()'ı bir kez çağırıp sonucu saklıyoruz
                     const data = await response.json();
-                    const errorMessage = data.message || 'An error occurred';
-                    setErrors({ general: errorMessage });
+                    console.log('Login Response:', data);
+
+                    if (response.ok) {
+                        if (!data.token || !data.user) {
+                            throw new Error('Sunucudan geçersiz yanıt formatı alındı');
+                        }
+                        try {
+                            // Store auth data
+                            localStorage.setItem('token', data.token);
+                            localStorage.setItem('user', JSON.stringify(data.user));
+
+                            // Update Redux state
+                            dispatch(setToken(data.token));
+                            dispatch(setUser(data.user));
+
+                            // Update authentication context
+                            setIsAuthenticated(true);
+
+                            // Initialize SignalR connections
+                            const signalRService = SignalRService.getInstance();
+                            await signalRService.startConnection(data.user.id);
+
+                            // Only navigate if everything is successful
+                            showSuccess('Başarıyla giriş yaptınız.');
+                            navigate('/');
+                        } catch (error) {
+                            console.error('Giriş sonrası kurulum sırasında hata:', error);
+                            setErrors({ general: 'Giriş sırasında bir hata oluştu. Lütfen tekrar deneyin.' });
+                            // Clear any partial auth state
+                            localStorage.removeItem('token');
+                            localStorage.removeItem('user');
+                            setIsAuthenticated(false);
+                        }
+                    } else {
+                        // response.ok değilse, zaten aldığımız data'yı kullanıyoruz
+                        let errorMessage = 'Bir hata oluştu';
+                        
+                        if (data && data.message) {
+                            errorMessage = data.message;
+                        } else if (response.status === 401) {
+                            errorMessage = 'Kullanıcı adı veya şifre hatalı';
+                        } else if (response.status === 500) {
+                            errorMessage = 'Sunucu hatası, lütfen daha sonra tekrar deneyin';
+                        }
+                        
+                        setErrors({ general: errorMessage });
+                        showError(`Giriş başarısız: ${errorMessage}`);
+                    }
+                } catch (fetchError) {
+                    console.error('Giriş isteği sırasında hata:', fetchError);
+                    setErrors({ general: 'Sunucuya bağlanırken bir hata oluştu. Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.' });
+                    showError('Sunucuya bağlanılamadı');
                 }
             }
         } catch (error) {
@@ -446,7 +468,7 @@ const Auth: React.FC = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleGoogleSuccess = async (tokenResponse: any) => {
+    const handleGoogleSuccess = async (tokenResponse: { access_token: string }) => {
         try {
             const response = await axios.post('http://localhost:5193/api/auth/google', {
                 token: tokenResponse.access_token
@@ -458,10 +480,10 @@ const Auth: React.FC = () => {
                 setIsAuthenticated(true);
                 navigate('/');
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             setErrors(prev => ({
                 ...prev,
-                general: error.response?.data?.message || 'Google ile giriş yapılırken bir hata oluştu'
+                general: axios.isAxiosError(error) && error.response?.data?.message || 'Google ile giriş yapılırken bir hata oluştu'
 
             }));
         }

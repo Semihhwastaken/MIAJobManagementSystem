@@ -10,6 +10,10 @@ using JobTrackingAPI.Settings;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
+<<<<<<< HEAD
+=======
+using Microsoft.Extensions.Logging;
+>>>>>>> newdb1
 
 namespace JobTrackingAPI.Services
 {
@@ -18,21 +22,43 @@ namespace JobTrackingAPI.Services
         private readonly IMongoCollection<User> _users;
         private readonly IMongoCollection<VerificationCode> _verificationCodes;
         private readonly EmailService _emailService;
+<<<<<<< HEAD
         private readonly Random _random;
         private readonly string _jwtSecret;
+=======
+        private readonly CacheService _cacheService;
+        private readonly Random _random;
+        private readonly string _jwtSecret;
+        private readonly ILogger<AuthService> _logger;
+        private readonly IOptions<MongoDbSettings> _settings;
+>>>>>>> newdb1
 
         public AuthService(
             IOptions<MongoDbSettings> settings,
             IOptions<JwtSettings> jwtSettings,
+<<<<<<< HEAD
             EmailService emailService)
+=======
+            EmailService emailService,
+            CacheService cacheService,
+            ILogger<AuthService> logger)
+>>>>>>> newdb1
         {
             var client = new MongoClient(settings.Value.ConnectionString);
             var database = client.GetDatabase(settings.Value.DatabaseName);
             _users = database.GetCollection<User>(settings.Value.UsersCollectionName);
             _verificationCodes = database.GetCollection<VerificationCode>(settings.Value.VerificationCodesCollectionName);
             _emailService = emailService;
+<<<<<<< HEAD
             _random = new Random();
             _jwtSecret = jwtSettings.Value.Secret;
+=======
+            _cacheService = cacheService;
+            _random = new Random();
+            _jwtSecret = jwtSettings.Value.Secret;
+            _logger = logger;
+            _settings = settings;
+>>>>>>> newdb1
         }
 
         private string GenerateVerificationCode()
@@ -114,8 +140,13 @@ namespace JobTrackingAPI.Services
                 return (false, "Geçersiz veya süresi dolmuş doğrulama kodu.", null);
             }
 
+<<<<<<< HEAD
             // Hash password
             var hashedPassword = HashPassword(password);
+=======
+            // Create password hash and salt
+            var (passwordHash, passwordSalt) = CreatePasswordHash(password);
+>>>>>>> newdb1
 
             var now = DateTime.UtcNow;
 
@@ -124,7 +155,12 @@ namespace JobTrackingAPI.Services
             {
                 Username = username,
                 Email = email,
+<<<<<<< HEAD
                 Password = hashedPassword,
+=======
+                PasswordHash = passwordHash,
+                PasswordSalt = passwordSalt,
+>>>>>>> newdb1
                 FullName = fullName,
                 Department = department,
                 Title = title,
@@ -156,15 +192,56 @@ namespace JobTrackingAPI.Services
             if (user == null)
                 return null;
 
+<<<<<<< HEAD
             var hashedPassword = HashPassword(password);
             if (user.Password != hashedPassword)
                 return null;
 
+=======
+            // Password hash ve salt kullanarak doğrulama yapma
+            if (user.PasswordHash != null && user.PasswordHash.Length > 0 && 
+                user.PasswordSalt != null && user.PasswordSalt.Length > 0)
+            {
+                // Hash ve salt ile güvenli doğrulama
+                bool validPassword = VerifyPassword(password, user.PasswordHash, user.PasswordSalt);
+                if (!validPassword)
+                    return null;
+            }
+            else
+            {
+                return null; // Geçerli hash ve salt bilgisi olmadığı için kimlik doğrulama başarısız
+            }
+
+            return user;
+        }
+
+        public async Task<User?> ValidateUser(string email, string password)
+        {
+            var user = await _users.Find(x => x.Email == email).FirstOrDefaultAsync();
+            if (user == null)
+                return null;
+
+            // Password hash ve salt kullanarak doğrulama yapma
+            if (user.PasswordHash != null && user.PasswordHash.Length > 0 && 
+                user.PasswordSalt != null && user.PasswordSalt.Length > 0)
+            {
+                // Hash ve salt ile güvenli doğrulama
+                bool validPassword = VerifyPassword(password, user.PasswordHash, user.PasswordSalt);
+                if (!validPassword)
+                    return null;
+            }
+            else
+            {
+                return null; // Geçerli hash ve salt bilgisi olmadığı için kimlik doğrulama başarısız
+            }
+
+>>>>>>> newdb1
             return user;
         }
 
         public async Task<(bool success, string message, string? token, User? user)> LoginAsync(string username, string password)
         {
+<<<<<<< HEAD
             var user = await AuthenticateAsync(username, password);
             if (user == null)
             {
@@ -173,6 +250,153 @@ namespace JobTrackingAPI.Services
 
             var token = GenerateJwtToken(user);
             return (true, "Giriş başarılı.", token, user);
+=======
+            try
+            {
+                // Check if username exists
+                var user = await _users.Find(u => u.Username == username).FirstOrDefaultAsync();
+                if (user == null)
+                {
+                    _logger.LogWarning("Login attempt failed: Username {Username} not found", username);
+                    return (false, "Kullanıcı adı veya şifre hatalı", null, null);
+                }
+
+                // Handle users with password hash/salt
+                bool validPassword = false;
+                
+                // Check if user has password hash and salt
+                if (user.PasswordHash != null && user.PasswordHash.Length > 0 && 
+                    user.PasswordSalt != null && user.PasswordSalt.Length > 0)
+                {
+                    // Use secure password verification with hash and salt
+                    validPassword = VerifyPassword(password, user.PasswordHash, user.PasswordSalt);
+                    _logger.LogDebug("Verifying password with hash/salt for user {Username}", username);
+                }
+                else
+                {
+                    _logger.LogError("User {Username} has no password information stored", username);
+                    return (false, "Kullanıcı adı veya şifre hatalı", null, null);
+                }
+
+                if (!validPassword)
+                {
+                    _logger.LogWarning("Login attempt failed: Invalid password for user {Username}", username);
+                    return (false, "Kullanıcı adı veya şifre hatalı", null, null);
+                }
+
+                // Password is correct, generate token
+                var token = GenerateJwtToken(user);
+
+                // Update last login date
+                var update = Builders<User>.Update
+                    .Set(u => u.LastLoginDate, DateTime.UtcNow)
+                    .Set(u => u.IsOnline, true);
+                await _users.UpdateOneAsync(u => u.Id == user.Id, update);
+
+                // Cache user data in separate try-catch to prevent login failure due to caching
+                try
+                {
+                    _cacheService.CacheCurrentUserData(user);
+                    
+                    var userTasks = await GetUserTasksAsync(user.Id);
+                    _cacheService.CacheUserTasks(user.Id, userTasks);
+                    
+                    var userTeams = await GetUserTeamsAsync(user.Id);
+                    _cacheService.CacheUserTeams(user.Id, userTeams);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error caching user data during login for {Username}", username);
+                    // Continue with login despite caching error
+                }
+
+                _logger.LogInformation("User {Username} logged in successfully", username);
+                return (true, "Giriş başarılı", token, user);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Login failed for user {Username}", username);
+                return (false, "Giriş sırasında bir hata oluştu", null, null);
+            }
+        }
+
+        private async Task<List<TaskItem>> GetUserTasksAsync(string userId)
+        {
+            try
+            {
+                var database = new MongoClient(_settings.Value.ConnectionString).GetDatabase(_settings.Value.DatabaseName);
+                var tasks = database.GetCollection<TaskItem>("Tasks");
+                
+                // Kullanıcının atanmış görevlerini AssignedJobs alanından alıyoruz
+                var user = await _users.Find(u => u.Id == userId).FirstOrDefaultAsync();
+                if (user == null || user.AssignedJobs == null || !user.AssignedJobs.Any())
+                {
+                    return new List<TaskItem>();
+                }
+                
+                // AssignedJobs içindeki task ID'lerini kullanarak görevleri çekiyoruz
+                var filter = Builders<TaskItem>.Filter.In(t => t.Id, user.AssignedJobs);
+                var userTasks = await tasks.Find(filter).ToListAsync();
+                
+                _logger.LogInformation($"Loaded {userTasks.Count} tasks for user {userId}");
+                return userTasks;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error loading tasks for user {userId}");
+                return new List<TaskItem>();
+            }
+        }
+
+        private async Task<List<Team>> GetUserTeamsAsync(string userId)
+        {
+            try
+            {
+                var database = new MongoClient(_settings.Value.ConnectionString).GetDatabase(_settings.Value.DatabaseName);
+                var teams = database.GetCollection<Team>("Teams");
+                
+                // Kullanıcının üye olduğu ve sahibi olduğu takımları alıyoruz
+                var user = await _users.Find(u => u.Id == userId).FirstOrDefaultAsync();
+                if (user == null)
+                {
+                    return new List<Team>();
+                }
+                
+                var userTeams = new List<Team>();
+                
+                // Kullanıcının üye olduğu takımları çekiyoruz
+                if (user.MemberTeams != null && user.MemberTeams.Any())
+                {
+                    var memberFilter = Builders<Team>.Filter.In(t => t.Id, user.MemberTeams);
+                    var memberTeams = await teams.Find(memberFilter).ToListAsync();
+                    userTeams.AddRange(memberTeams);
+                }
+                
+                // Kullanıcının sahibi olduğu takımları çekiyoruz
+                if (user.OwnerTeams != null && user.OwnerTeams.Any())
+                {
+                    var ownerFilter = Builders<Team>.Filter.In(t => t.Id, user.OwnerTeams);
+                    var ownerTeams = await teams.Find(ownerFilter).ToListAsync();
+                    
+                    // Zaten üye olarak eklenmiş takımları tekrar eklemeyelim
+                    foreach (var team in ownerTeams)
+                    {
+                        if (!userTeams.Any(t => t.Id == team.Id))
+                        {
+                            userTeams.Add(team);
+                        }
+                    }
+                }
+                
+                _logger.LogInformation($"Loaded {userTeams.Count} teams for user {userId}");
+                return userTeams;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error loading teams for user {userId}");
+                return new List<Team>();
+            }
+>>>>>>> newdb1
         }
 
         public async Task<User?> GetUserByIdAsync(string userId)
@@ -187,6 +411,17 @@ namespace JobTrackingAPI.Services
             return Convert.ToBase64String(hashedBytes);
         }
 
+<<<<<<< HEAD
+=======
+        private (byte[] hash, byte[] salt) CreatePasswordHash(string password)
+        {
+            using var hmac = new HMACSHA512();
+            var salt = hmac.Key;
+            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+            return (hash, salt);
+        }
+
+>>>>>>> newdb1
         public string GenerateJwtToken(User user)
         {
             if (user == null)
@@ -201,8 +436,13 @@ namespace JobTrackingAPI.Services
                     new Claim(ClaimTypes.NameIdentifier, user.Id),
                     new Claim(ClaimTypes.Name, user.Username),
                     new Claim(ClaimTypes.Email, user.Email),
+<<<<<<< HEAD
                     new Claim("FullName", user.FullName),
                     new Claim("Department", user.Department)
+=======
+                    new Claim("FullName", user.FullName ?? string.Empty),
+                    new Claim("Department", user.Department ?? string.Empty)
+>>>>>>> newdb1
                 }),
                 Expires = DateTime.UtcNow.AddDays(7),
                 SigningCredentials = new SigningCredentials(
@@ -213,5 +453,37 @@ namespace JobTrackingAPI.Services
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
         }
+<<<<<<< HEAD
+=======
+
+        private bool VerifyPassword(string password, byte[] storedHash, byte[] storedSalt)
+        {
+            if (storedHash == null || storedHash.Length == 0 || storedSalt == null || storedSalt.Length == 0)
+            {
+                _logger.LogError("Password hash or salt is empty");
+                return false;
+            }
+
+            using (var hmac = new HMACSHA512(storedSalt))
+            {
+                var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+                
+                if (computedHash.Length != storedHash.Length)
+                {
+                    _logger.LogError($"Hash length mismatch. Computed: {computedHash.Length}, Stored: {storedHash.Length}");
+                    return false;
+                }
+
+                for (int i = 0; i < computedHash.Length; i++)
+                {
+                    if (computedHash[i] != storedHash[i])
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        }
+>>>>>>> newdb1
     }
 }
