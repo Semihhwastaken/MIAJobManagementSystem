@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
+import { RESET_STATE } from './actionTypes';
 
 interface AuthState {
     token: string | null;
@@ -84,6 +85,11 @@ const authSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            .addCase(RESET_STATE, () => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                return initialState;
+            })
             .addCase(login.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -94,7 +100,6 @@ const authSlice = createSlice({
                 state.user = action.payload.user;
                 state.isAuthenticated = true;
                 state.error = null;
-                // Login başarılı olduğunda preload başlatılacak
                 state.dataPreloaded = false;
             })
             .addCase(login.rejected, (state, action) => {

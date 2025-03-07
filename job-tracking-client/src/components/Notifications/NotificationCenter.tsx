@@ -47,9 +47,18 @@ export const NotificationCenter: React.FC = () => {
     }
     
     return () => {
-      // Clean up toast container on unmount
+      // Clean up toast container on unmount - güvenli silme
       if (toastContainerRef.current) {
-        document.body.removeChild(toastContainerRef.current);
+        try {
+          // Eğer container hala DOM'un bir parçasıysa ve body'nin child'ı ise sil
+          if (document.body.contains(toastContainerRef.current)) {
+            document.body.removeChild(toastContainerRef.current);
+          }
+        } catch (error) {
+          console.error('Toast container temizlenirken hata:', error);
+        }
+        // Referansı da temizle
+        toastContainerRef.current = null;
       }
     };
   }, []);

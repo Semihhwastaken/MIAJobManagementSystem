@@ -5,6 +5,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { NotificationCenter } from '../Notifications/NotificationCenter';
 import { invalidateCache } from '../../redux/features/teamSlice';
 import { logout as logoutAction } from '../../redux/features/authSlice';
+import { resetState } from '../../redux/features/actions';
 import { useDispatch } from 'react-redux';
 
 interface LayoutProps {
@@ -26,9 +27,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         throw new Error('Oturum bilgisi bulunamadı');
       }
 
-      // Redux store'daki tüm cache ve verileri temizle
-      dispatch(invalidateCache('all')); // Tüm takım verilerini temizle
-      dispatch(logoutAction());         // Auth state'i temizle
+      // Tüm Redux state'i sıfırla
+      dispatch(resetState());
 
       // Önce storage'ı temizle
       localStorage.clear();
@@ -72,6 +72,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       console.error('Logout error:', error);
       
       // Hata durumunda da temizlik yap
+      dispatch(resetState());
       localStorage.clear();
       sessionStorage.clear();
       setIsAuthenticated(false);

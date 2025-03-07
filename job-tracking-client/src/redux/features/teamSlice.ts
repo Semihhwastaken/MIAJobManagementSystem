@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createSlice, createAsyncThunk, createAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, createAction, isPending, isRejected } from '@reduxjs/toolkit';
 import { TeamState, TeamMember, Team } from '../../types/team';
 import axiosInstance from '../../services/axiosInstance';
+import { RESET_STATE } from './actionTypes';
 
 interface MemberMetricsUpdateDto {
     teamId: string;
@@ -612,6 +613,10 @@ const teamSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            // Global reset state action
+            .addCase(RESET_STATE, () => {
+                return initialState;
+            })
             // Handle cache invalidation
             .addCase(invalidateCache, (state, action) => {
                 const cacheType = action.payload;
