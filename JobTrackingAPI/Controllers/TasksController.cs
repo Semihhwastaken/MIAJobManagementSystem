@@ -325,29 +325,94 @@ namespace JobTrackingAPI.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<TaskItem>>> GetTasks()
         {
-            _logger.LogInformation("Getting all tasks for current user");
-            
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
+            try
             {
-                return BadRequest(new { message = "User not authenticated" });
-            }
-            
-            try 
-            {
+                _logger.LogInformation("Getting all tasks");
+                
+                // Kullanıcı kimliğini al
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized();
+                }
+                
+                // Kullanıcı bilgilerini al - yetkilendirme için
+                var user = await _usersCollection.Find(u => u.Id == userId).FirstOrDefaultAsync();
+                if (user == null)
+                {
+                    return NotFound(new { message = "Kullanıcı bulunamadı" });
+                }
+                
+                // Cache anahtarını kullanıcıya özel oluştur
+                string cacheKey = $"all_tasks_{userId}";
                 var tasks = await _cacheService.GetOrUpdateAsync(
-                    $"user_tasks_{userId}",
-                    async () => await _tasksService.GetTasksByUserId(userId),
-                    TimeSpan.FromMinutes(15)
+                    cacheKey,
+                    async () => {
+                        _logger.LogInformation("Cache missed, loading tasks from database");
+                        var allTasks = await _tasksService.GetTasks();
+                        
+                        // Her görev için sahiplik ve yetki bilgilerini işaretle
+                        foreach (var task in allTasks)
+                        {
+                            if (task.AssignedUserIds != null && task.AssignedUserIds.Contains(userId))
+                            {
+                                task.IsAssignedToCurrentUser = true;
+                            }
+                            
+                            // Admin veya görevin ekibinin sahibi ise izinleri ekle
+                            if (user.OwnerTeams.Count > 0 || 
+                                (task.TeamId != null && await IsTeamOwner(userId, task.TeamId)))
+                            {
+                                task.HasManagePermission = true;
+                            }
+                        }
+                        
+                        return allTasks;
+                    },
+                    TimeSpan.FromMinutes(5) // Önbellek süresini kısalttık
                 );
                 
-                var activeTasks = tasks.Where(t => t.Status != "completed").ToList();
-                return Ok(activeTasks);
+                // Her istek için önbellekten gelse bile izinleri doğrula
+                bool isAdmin = user.OwnerTeams.Count > 0;
+                foreach (var task in tasks)
+                {
+                    if (task.AssignedUserIds != null && task.AssignedUserIds.Contains(userId))
+                    {
+                        task.IsAssignedToCurrentUser = true;
+                    }
+                    
+                    // Admin veya görevin ekibinin sahibi ise izinleri ekle
+                    if (isAdmin || (task.TeamId != null && await IsTeamOwner(userId, task.TeamId)))
+                    {
+                        task.HasManagePermission = true;
+                    }
+                }
+                
+                return Ok(tasks);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving tasks for user {UserId}", userId);
-                return StatusCode(500, new { message = "Internal server error" });
+                _logger.LogError(ex, "Error retrieving tasks");
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
+            }
+        }
+        
+        // Kullanıcının belirtilen ekibin sahibi olup olmadığını kontrol eden yardımcı metod
+        private async Task<bool> IsTeamOwner(string userId, string teamId)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(teamId) || !ObjectId.TryParse(teamId, out _))
+                {
+                    return false;
+                }
+                
+                var team = await _teamsCollection.Find(t => t.Id == teamId).FirstOrDefaultAsync();
+                return team != null && team.CreatedById == userId;
+            }
+            catch (Exception)
+            {
+                return false;
             }
         }
         
@@ -632,7 +697,7 @@ namespace JobTrackingAPI.Controllers
                 await _tasksService.FileUpload(id, fileUrl);
                 
                 // Invalidate task cache
-                _cacheService.InvalidateTaskRelatedCaches(task);
+                InvalidateTaskRelatedCaches(task);
                 
                 var updatedTask = await _tasksService.GetTask(id);
                 var attachment = updatedTask?.Attachments?.LastOrDefault();
@@ -728,53 +793,84 @@ namespace JobTrackingAPI.Controllers
         // Helper method to invalidate all related caches when a task is modified
         private void InvalidateTaskRelatedCaches(TaskItem task)
         {
-            if (task == null)
-            {
-                _logger.LogWarning("Attempted to invalidate caches for a null task");
-                return;
-            }
-
-            _logger.LogInformation("Invalidating caches for task: {TaskId}", task.Id ?? "unknown");
-            
             try
             {
-                // Invalidate the task's own cache if ID exists
-                if (!string.IsNullOrEmpty(task.Id))
+                _logger.LogInformation("Task-related caches are being invalidated for TaskId={TaskId}", task?.Id ?? "unknown");
+                
+                // Tüm görevler önbelleğini sil
+                _cacheService.Remove("all_tasks");
+                
+                // Görevler sorguları için tüm önbellekleri temizle
+                var userIds = new List<string>();
+                
+                // Atanmış kullanıcılar için önbellekleri temizle
+                if (task?.AssignedUserIds != null)
                 {
-                    _cacheService.GetOrCreate($"task_{task.Id}", () => (TaskItem?)null);
+                    foreach (var userId in task.AssignedUserIds)
+                    {
+                        userIds.Add(userId);
+                    }
                 }
                 
-                // Invalidate task history cache
-                _cacheService.GetOrCreate("task_history", () => (List<TaskItem>?)null);
-                
-                // Invalidate caches for all assigned users
-                if (task.AssignedUsers != null)
+                // Görevi oluşturan kullanıcının önbelleğini de temizle
+                if (task?.CreatedBy != null && !string.IsNullOrEmpty(task.CreatedBy.Id))
                 {
-                    foreach (var user in task.AssignedUsers)
+                    userIds.Add(task.CreatedBy.Id);
+                }
+                
+                // Tüm etkilenen kullanıcıların önbelleklerini temizle
+                foreach (var userId in userIds.Distinct())
+                {
+                    // Kullanıcının göreve özgü önbellekleri
+                    string userTasksCacheKey = $"user_tasks_{userId}";
+                    string allTasksUserCacheKey = $"all_tasks_{userId}";
+                    string activeTasksCacheKey = $"active_tasks_{userId}";
+                    string completedTasksCacheKey = $"completed_tasks_{userId}";
+                    
+                    _cacheService.Remove(userTasksCacheKey);
+                    _cacheService.Remove(allTasksUserCacheKey);
+                    _cacheService.Remove(activeTasksCacheKey);
+                    _cacheService.Remove(completedTasksCacheKey);
+                    
+                    _logger.LogInformation("Invalidated task caches for user {UserId}", userId);
+                }
+                
+                // Ekibe özel önbellekleri temizle
+                if (!string.IsNullOrEmpty(task?.TeamId))
+                {
+                    string teamTasksCacheKey = $"team_tasks_{task.TeamId}";
+                    _cacheService.Remove(teamTasksCacheKey);
+                    _logger.LogInformation("Invalidated task caches for team {TeamId}", task.TeamId);
+                }
+                
+                // Görev geçmişi ve pano önbelleklerini temizle
+                _cacheService.Remove("task_history");
+                _cacheService.Remove("dashboard_stats");
+                
+                // Görev durumu tamamlandı veya süresi geçmiş ise özel önbellekleri temizle
+                if (task?.Status == "completed" || task?.Status == "overdue")
+                {
+                    // Kullanıcıya özel görev geçmişi önbelleklerini temizle
+                    if (task.AssignedUserIds != null)
                     {
-                        if (user != null && !string.IsNullOrEmpty(user.Id))
+                        foreach (var userId in task.AssignedUserIds)
                         {
-                            _cacheService.InvalidateUserCaches(user.Id);
-                            _cacheService.GetOrCreate($"active_tasks_{user.Id}", () => (List<TaskItem>?)null);
-                            _logger.LogInformation("Invalidated cache for user: {UserId}", user.Id);
+                            string taskHistoryCacheKey = $"task_history_{userId}";
+                            string dashboardStatsCacheKey = $"dashboard_stats_{userId}";
+                            _cacheService.Remove(taskHistoryCacheKey);
+                            _cacheService.Remove(dashboardStatsCacheKey);
                         }
                     }
                 }
                 
-                // If the task belongs to a team, invalidate team-related caches
-                if (!string.IsNullOrEmpty(task.TeamId))
-                {
-                    _cacheService.InvalidateTeamCaches(task.TeamId);
-                    _logger.LogInformation("Invalidated cache for team: {TeamId}", task.TeamId);
-                }
-                
-                _logger.LogInformation("Cache invalidation complete for task: {TaskId}", task.Id ?? "unknown");
+                _logger.LogInformation("Task-related caches invalidation completed for TaskId={TaskId}", task?.Id ?? "unknown");
             }
             catch (Exception ex)
             {
                 // Don't let cache issues block the main operation
-                _logger.LogError(ex, "Error during cache invalidation for task {TaskId}, continuing operation", task.Id ?? "unknown");
+                _logger.LogError(ex, "Error during cache invalidation for task {TaskId}, continuing operation", task?.Id ?? "unknown");
             }
         }
     }
 }
+

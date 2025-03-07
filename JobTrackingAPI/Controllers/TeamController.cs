@@ -254,36 +254,59 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
+                // Kullanıcı kimliğini doğrula
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                 {
-                    return Unauthorized();
+                    _logger.LogWarning("Yetkisiz takım üyeleri erişim denemesi: Kimlik doğrulanamadı");
+                    return Unauthorized(new { message = "Kullanıcı kimliği doğrulanamadı" });
                 }
 
-                // Kullanıcının bu takıma erişim yetkisi var mı kontrol et
+                _logger.LogInformation("Takım üyeleri alınıyor: TeamId={TeamId}, UserId={UserId}", teamId, userId);
+
+                // Takımı kontrol et
                 var team = await _teamService.GetTeamById(teamId);
-                if (team == null || (team.CreatedById != userId && !team.Members.Any(m => m.Id == userId)))
+                if (team == null)
                 {
-                    return Forbid();
+                    _logger.LogWarning("Takım bulunamadı: {TeamId}", teamId);
+                    return NotFound(new { message = $"ID'si {teamId} olan takım bulunamadı" });
                 }
 
-                var cacheKey = $"team_members_{teamId}";
+                // Kullanıcının yetkisini kontrol et (takım kurucusu veya üyesi olmalı)
+                bool isCreator = team.CreatedById == userId;
+                bool isMember = team.Members != null && team.Members.Any(m => m.Id == userId);
                 
-                // Try to get from cache first
+                _logger.LogInformation("Yetki kontrolü: UserId={UserId}, TeamId={TeamId}, IsCreator={IsCreator}, IsMember={IsMember}", 
+                    userId, teamId, isCreator, isMember);
+                
+                if (!isCreator && !isMember)
+                {
+                    _logger.LogWarning("Takım üyelerine erişim reddedildi: UserId={UserId}, TeamId={TeamId}", userId, teamId);
+                    return StatusCode(403, new { message = "Bu takımın üyelerini görüntüleme yetkiniz yok" });
+                }
+
+                // Önbellekte var mı kontrol et
+                var cacheKey = $"team_members_{teamId}";
                 if (_cache.TryGetValue(cacheKey, out List<TeamMember> cachedMembers))
                 {
+                    _logger.LogInformation("Takım üyeleri önbellekten alındı: {TeamId}", teamId);
                     return Ok(cachedMembers);
                 }
                 
+                // Takım üyelerini getir
                 var members = await _teamService.GetTeamMembers(teamId);
                 
-                // Cache for 2 minutes
+                // Önbelleğe al
                 _cache.Set(cacheKey, members, TimeSpan.FromMinutes(2));
                 
+                _logger.LogInformation("Takım üyeleri başarıyla alındı: {TeamId}, {MemberCount} üye", teamId, members.Count);
                 return Ok(members);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Takım üyeleri alınırken hata: {TeamId}", teamId);
+                return StatusCode(500, new { message = $"Takım üyeleri alınırken bir hata oluştu: {ex.Message}" });
+                _logger.LogError(ex, "Takım üyeleri alınırken hata oluştu: {TeamId}", teamId);
                 return StatusCode(500, new { message = ex.Message });
             }
         }

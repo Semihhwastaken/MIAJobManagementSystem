@@ -62,6 +62,17 @@ const Tasks: React.FC = () => {
 
       // Her takım için bir kez sorgu yap
       const teamIds = Object.keys(teamGroups);
+      
+      // Önce tüm görevleri kontrol et - eğer kullanıcıya atanmışsa ve tamamlanmamışsa izin ver
+      tasks.forEach(task => {
+        // Completed durumundaki görevler için action butonları gösterilmeyecek
+        if (task.id && task.status !== "completed" && task.assignedUsers && Array.isArray(task.assignedUsers) && 
+            task.assignedUsers.some(user => user.id === currentUser?.id)) {
+          ownerStatusMap[task.id] = true;
+        }
+      });
+      
+      // Şimdi takım sahipliğini kontrol et
       for (const teamId of teamIds) {
         if (!processedTeams.has(teamId)) {
           processedTeams.add(teamId);
@@ -69,19 +80,24 @@ const Tasks: React.FC = () => {
             console.log(`Checking ownership for team ${teamId}`);
             const teamMembersResult = await dispatch(getTeamMembersByTeamId(teamId));
             
-            if (teamMembersResult.payload) {
+            if (teamMembersResult.payload && Array.isArray(teamMembersResult.payload)) {
               const isOwner = teamMembersResult.payload.some(
                 (teamMember: any) => teamMember.id === currentUser?.id && teamMember.role === "Owner"
               );
               
               console.log(`User is owner of team ${teamId}: ${isOwner}`);
               
-              // Takımın sahibiyse, bu takıma ait tüm görevlere izin ver
+              // Takımın sahibiyse, bu takıma ait tamamlanmamış görevlere izin ver
               if (isOwner && teamGroups[teamId]) {
                 teamGroups[teamId].forEach(task => {
-                  if (task.id) ownerStatusMap[task.id] = true;
+                  // Completed durumundaki görevler için action butonları gösterilmeyecek
+                  if (task.id && task.status !== "completed") {
+                    ownerStatusMap[task.id] = true;
+                  }
                 });
               }
+            } else {
+              console.log(`No team members returned or invalid payload for team ${teamId}`);
             }
           } catch (error) {
             console.error(`Error checking team ownership for team ${teamId}:`, error);
@@ -150,6 +166,15 @@ const Tasks: React.FC = () => {
           return false;
         }
 
+        // Sadece kullanıcıya atanmış veya kullanıcının takım sahibi olduğu görevleri göster
+        const isAssignedToUser = currentUser && task.assignedUsers?.some(user => user.id === currentUser.id);
+        const isTeamOwner = currentUser && task.id && taskOwnerStatus[task.id] === true;
+        
+        // Eğer kullanıcıya atanmamış ve kullanıcı takım sahibi değilse görevi filtreliyoruz
+        if (!isAssignedToUser && !isTeamOwner) {
+          return false;
+        }
+
         const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
           task.description.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategory = selectedCategory === 'All Cases' || task.category === selectedCategory;
@@ -165,7 +190,7 @@ const Tasks: React.FC = () => {
         }
         return 0;
       });
-  }, [processedTasks, searchTerm, selectedCategory, isFilterActive, dateFilter, sortByPriority, isHistoryModalOpen]);
+  }, [processedTasks, searchTerm, selectedCategory, isFilterActive, dateFilter, sortByPriority, isHistoryModalOpen, currentUser, taskOwnerStatus]);
 
   // Memoize action handlers
   const handleTaskClick = useCallback((task: Task, e?: React.MouseEvent) => {

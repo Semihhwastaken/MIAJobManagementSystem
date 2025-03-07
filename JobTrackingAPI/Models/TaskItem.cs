@@ -169,6 +169,15 @@ namespace JobTrackingAPI.Models
 
         [BsonElement("history")]
         public List<TaskHistory> History { get; set; } = new List<TaskHistory>();
+        
+        // Bu alanlar veritabanında saklanmaz, API yanıtları için kullanılır
+        [BsonIgnore]
+        [JsonPropertyName("isAssignedToCurrentUser")]
+        public bool IsAssignedToCurrentUser { get; set; }
+        
+        [BsonIgnore]
+        [JsonPropertyName("hasManagePermission")]
+        public bool HasManagePermission { get; set; }
     }
     
     public class CreatedByUser

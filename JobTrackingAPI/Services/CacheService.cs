@@ -541,6 +541,19 @@ namespace JobTrackingAPI.Services
                 _logger.LogError(ex, $"Cache set error for key: {key}");
             }
         }
+
+        // Doğrudan önbelleği temizleyen metod
+        public void Remove(string key)
+        {
+            if (string.IsNullOrEmpty(key))
+            {
+                _logger.LogWarning("Attempted to remove cache with null or empty key");
+                return;
+            }
+
+            _cache.Remove(key);
+            _logger.LogInformation($"Removed cache for key {key}");
+        }
     }
 
     public class CacheMetrics
