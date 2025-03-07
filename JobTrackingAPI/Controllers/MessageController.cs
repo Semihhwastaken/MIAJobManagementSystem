@@ -12,10 +12,12 @@ namespace JobTrackingAPI.Controllers
     public class MessageController : ControllerBase
     {
         private readonly IMessageService _messageService;
+        private readonly IWebHostEnvironment _env;
 
-        public MessageController(IMessageService messageService)
+        public MessageController(IMessageService messageService, IWebHostEnvironment env)
         {
             _messageService = messageService;
+            _env = env;
         }
 
         /// <summary>
@@ -27,6 +29,44 @@ namespace JobTrackingAPI.Controllers
             try
             {
                 var result = await _messageService.SendMessageAsync(senderId, messageDto);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Send a new message with a file attachment
+        /// </summary>
+        [HttpPost("send-with-file")]
+        public async Task<IActionResult> SendMessageWithFile([FromForm] string senderId, [FromForm] string receiverId, [FromForm] string content, IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                    return BadRequest("No file uploaded");
+
+                if (file.Length > 1024 * 1024 * 10) // 10MB limit
+                    return BadRequest("File size exceeds the limit (10MB).");
+
+                var allowedExtensions = new[] { ".jpg", ".png", ".jpeg", ".pdf", ".zip", ".docx", ".doc", ".rar", ".txt", ".xlsx", ".xls" };
+                var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+
+                if (!allowedExtensions.Contains(fileExtension))
+                    return BadRequest("Invalid file format.");
+
+                var message = new Message
+                {
+                    SenderId = senderId,
+                    ReceiverId = receiverId,
+                    Content = content,
+                    SentAt = DateTime.UtcNow,
+                    IsRead = false
+                };
+
+                var result = await _messageService.CreateMessageWithFileAsync(message, file);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -210,6 +250,53 @@ namespace JobTrackingAPI.Controllers
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Download a file attachment for a message
+        /// </summary>
+        [HttpGet("file/{messageId}")]
+        public async Task<IActionResult> DownloadFile(string messageId)
+        {
+            try
+            {
+                var message = await _messageService.GetMessageByIdAsync(messageId);
+                if (message?.FileAttachment == null)
+                    return NotFound("File not found");
+
+                var filePath = Path.Combine(_env.WebRootPath, message.FileAttachment.FilePath);
+                if (!System.IO.File.Exists(filePath))
+                    return NotFound("File not found");
+
+                var contentType = GetMimeType(message.FileAttachment.FileName);
+                var originalFileName = message.FileAttachment.FileName;
+
+                return PhysicalFile(filePath, contentType, originalFileName);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        private string GetMimeType(string fileName)
+        {
+            var extension = Path.GetExtension(fileName).ToLowerInvariant();
+            return extension switch
+            {
+                ".txt" => "text/plain",
+                ".pdf" => "application/pdf",
+                ".doc" => "application/msword",
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".xls" => "application/vnd.ms-excel",
+                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ".png" => "image/png",
+                ".jpg" => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                ".gif" => "image/gif",
+                // Add more MIME types as needed
+                _ => "application/octet-stream", // Default binary file type
+            };
         }
     }
 }

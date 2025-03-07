@@ -246,6 +246,9 @@ namespace JobTrackingAPI
             app.UseAuthentication();
             app.UseAuthorization();
 
+            // Add static files middleware
+            app.UseStaticFiles();
+
             app.MapControllers();
             app.MapHub<ChatHub>("/chatHub");
 

@@ -114,6 +114,39 @@ namespace JobTrackingAPI.Hubs
             }
         }
 
+        public async Task SendDirectMessageWithFile(string senderId, string receiverId, string content, IFormFile file)
+        {
+            try
+            {
+                var currentUserId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (currentUserId != senderId)
+                {
+                    throw new HubException("Unauthorized sender");
+                }
+
+                // Create and save the message with file
+                var message = await _messageService.CreateMessageWithFileAsync(new Message
+                {
+                    SenderId = senderId,
+                    ReceiverId = receiverId,
+                    Content = content,
+                    SentAt = DateTime.UtcNow,
+                    IsRead = false
+                }, file);
+
+                // Send to receiver
+                await Clients.Group(receiverId).SendAsync("ReceiveMessage", message);
+
+                // Send to sender's other connections
+                await Clients.Group(senderId).SendAsync("ReceiveMessage", message);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error in SendDirectMessageWithFile: {ex}");
+                throw new HubException($"Failed to send message with file: {ex.Message}");
+            }
+        }
+
         public async Task MarkMessageAsRead(string messageId)
         {
             try
@@ -193,6 +226,26 @@ namespace JobTrackingAPI.Hubs
             {
                 Console.Error.WriteLine($"Error in RegisterUser: {ex}");
                 throw;
+            }
+        }
+
+        public async Task NotifyNewMessage(string messageId)
+        {
+            try
+            {
+                var message = await _messageService.GetMessageByIdAsync(messageId);
+                if (message != null)
+                {
+                    // Send to receiver
+                    await Clients.Group(message.ReceiverId).SendAsync("ReceiveMessage", message);
+                    // Send to sender's other connections
+                    await Clients.Group(message.SenderId).SendAsync("ReceiveMessage", message);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error in NotifyNewMessage: {ex}");
+                throw new HubException($"Failed to notify about new message: {ex.Message}");
             }
         }
     }

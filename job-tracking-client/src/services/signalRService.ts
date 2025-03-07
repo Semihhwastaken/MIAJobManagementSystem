@@ -196,6 +196,45 @@ class SignalRService {
         }
     }
 
+    async sendMessageWithFile(receiverId: string, content: string, file: File): Promise<void> {
+        if (!this.userId) throw new Error("User not authenticated");
+        
+        if (this.lastMessageSentTime && Date.now() - this.lastMessageSentTime < 500) {
+            throw new Error("Please wait before sending another message");
+        }
+        
+        this.lastMessageSentTime = Date.now();
+
+        try {
+            // Instead of sending directly through SignalR, use axios to upload the file
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('content', content);
+            formData.append('receiverId', receiverId);
+            formData.append('senderId', this.userId);
+
+            // Send through regular HTTP endpoint
+            const response = await fetch('http://localhost:5173/api/Messages/send-with-file', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to send message with file');
+            }
+
+            const message = await response.json();
+            // Notify through SignalR about the new message
+            await this.hubConnection.invoke("NotifyNewMessage", message.id);
+        } catch (error) {
+            console.error("Error sending message with file:", error);
+            throw error;
+        }
+    }
+
     async markMessageAsRead(messageId: string): Promise<void> {
         await this.hubConnection.invoke("MarkMessageAsRead", messageId);
     }
