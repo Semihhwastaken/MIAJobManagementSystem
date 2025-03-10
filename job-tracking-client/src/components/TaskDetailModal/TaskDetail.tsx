@@ -179,8 +179,15 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
         
         try {
             setIsDownloading(prev => ({ ...prev, [attachmentId]: true }));
+            
+            // Fix for the download URL issue by using either attachmentId or fileUrl correctly
+            // Check if the attachmentId is already a URL or a path
+            const downloadParam = attachmentId.includes('/') 
+                ? attachmentId   // It's likely a path already
+                : attachmentId;  // It's an ID
+                
             await dispatch(downloadFile({
-                attachmentId,
+                attachmentId: downloadParam,
                 fileName,
                 taskId: localTask.id!
             })).unwrap();
@@ -304,37 +311,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                                     </div>
                                 ))}
                             </div>
-                        </div>
-
-                        <div>
-                            <h4 className={`text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>Dosyalar</h4>
-                            <div className="mt-2 space-y-2">
-                                {!localTask.attachments || localTask.attachments.length === 0 ? (
-                                    <p className={`text-sm italic ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>Bu göreve eklenmiş dosya bulunmamaktadır.</p>
-                                ) : (
-                                    localTask.attachments.map((attachment, index) => (
-                                        <div key={index} className={`flex items-center justify-between ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'} p-2 rounded-lg`}>
-                                            <div className="flex items-center text-sm">
-                                                <svg className={`h-4 w-4 mr-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                                </svg>
-                                                <button
-                                                    onClick={() => handleDownloadFile(attachment.id!, attachment.fileName)}
-                                                    disabled={isDownloading[attachment.id!]}
-                                                    className={`cursor-pointer ${isDarkMode ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-800'} disabled:text-gray-400 disabled:cursor-not-allowed`}
-                                                >
-                                                    {isDownloading[attachment.id!] ? 'İndiriliyor...' : attachment.fileName}
-                                                </button>
-                                            </div>
-                                            <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                {new Date(attachment.uploadDate).toLocaleDateString()}
-                                            </span>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
+                        </div>                  
                         <div>
                             <h4 className={`text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>Atanan Kişiler</h4>
                             <div className="mt-2 flex flex-wrap gap-2">
@@ -418,14 +395,14 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                                             <svg className={`h-5 w-5 ${isDarkMode ? 'text-gray-300' : 'text-gray-400'} mr-2`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                 <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
                                             </svg>
-                                            <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{attachment.fileName}</span>
+                                            <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{attachment.fileName.split(".enc")[0]}</span>
                                         </div>
                                         <button
-                                            onClick={() => handleDownloadFile(attachment.fileUrl, attachment.fileName)}
+                                            onClick={() => handleDownloadFile(attachment.id || attachment.fileUrl!, attachment.fileName)}
                                             className={`text-sm font-medium flex items-center ${isDarkMode ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-900'}`}
-                                            disabled={isDownloading[attachment.fileUrl]}
+                                            disabled={isDownloading[attachment.id || attachment.fileUrl!]}
                                         >
-                                            {isDownloading[attachment.fileUrl] ? (
+                                            {isDownloading[attachment.id || attachment.fileUrl!] ? (
                                                 <>
                                                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

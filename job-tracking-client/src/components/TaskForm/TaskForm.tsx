@@ -59,7 +59,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     dueDate: task?.dueDate || new Date().toISOString().split('T')[0],
     priority: (task?.priority || 'medium') as TaskPriority,
     status: (task?.status || 'todo') as TaskStatus,
-    category: task?.category || 'Task',
+    category: task?.category || 'Bug',
     dependencies: task?.dependencies || [],
     attachments: task?.attachments || [],
     subTasks: task?.subTasks || [],
@@ -190,7 +190,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         createdAt: task ? task.createdAt : now,
         updatedAt: now,
         dueDate: dueDateUTC.toISOString(),
-        status: formData.status === 'in-progress' ? 'in-progress' : formData.status,
+        status: formData.status === 'in-progress' ? 'in-progress' : 'todo', // Default to todo for new tasks
         dependencies: formData.dependencies, // Bağımlılıkları ekle
         attachments: task?.attachments || [] // Mevcut ekleri koru
       };
@@ -461,51 +461,27 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={`block text-sm font-medium mb-1 ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-700'
-              }`}>
-                Durum
-              </label>
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as TaskStatus })}
-                className={`w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                  isDarkMode 
-                    ? 'bg-gray-700 border-gray-600 text-white' 
-                    : 'bg-white border-gray-300 text-gray-900'
-                }`}
-              >
-                <option value="todo">Yapılacak</option>
-                <option value="in_progress">Devam Ediyor</option>
-                <option value="review">İncelemede</option>
-                <option value="completed">Tamamlandı</option>
-              </select>
-            </div>
-
-            <div>
-              <label className={`block text-sm font-medium mb-1 ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-700'
-              }`}>
-                Kategori
-              </label>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className={`w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                  isDarkMode 
-                    ? 'bg-gray-700 border-gray-600 text-white' 
-                    : 'bg-white border-gray-300 text-gray-900'
-                }`}
-              >
-                <option value="Bug">Hata</option>
-                <option value="Feature">Özellik</option>
-                <option value="Improvement">İyileştirme</option>
-                <option value="Task">Görev</option>
-                <option value="Other">Diğer</option>
-              </select>
-            </div>
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>
+              Kategori
+            </label>
+            <select
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              className={`w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-300 text-gray-900'
+              }`}
+            >
+              <option value="Bug">Bug</option>
+              <option value="Development">Development</option>
+              <option value="Documentation">Documentation</option>
+              <option value="Testing">Testing</option>
+              <option value="Maintenance">Maintenance</option>
+            </select>
           </div>
 
           <div className="mb-4">
@@ -594,19 +570,19 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
                         className="w-6 h-6 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="w-6 h-6 rounded-full bg-indigo-200 flex items-center justify-center">
-                        <span className="text-xs text-indigo-600">
-                          {(user.fullName || user.username).charAt(0).toUpperCase()}
-                        </span>
+                      <div className="w-6 h-6 rounded-full bg-indigo-200 flex items-center justify-center text-indigo-600 font-medium">
+                        {(user.fullName || user.username).charAt(0).toUpperCase()}
                       </div>
                     )}
                     <span>{user.fullName || user.username}</span>
                     <button
                       type="button"
-                      onClick={() => handleRemoveUser(user.id || '')}
-                      className="text-gray-400 hover:text-gray-600"
+                      onClick={() => handleRemoveUser(user.id!)}
+                      className="text-gray-500 hover:text-gray-700"
                     >
-                      <XCircleIcon className="w-4 h-4" />
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
                     </button>
                   </div>
                 ))}
@@ -626,9 +602,11 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
               >
                 <div className="relative">
                   <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-white py-2 pl-3 pr-10 text-left border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm">
-                    <span className="block truncate text-gray-500">Kullanıcı seç...</span>
+                    <span className="block truncate text-gray-500">Kişi seçin...</span>
                     <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                      <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                      <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                      </svg>
                     </span>
                   </Listbox.Button>
                   <Transition
@@ -638,51 +616,46 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
                     leaveTo="opacity-0"
                   >
                     <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                      {users
-                        .filter(user => !formData.assignedUsers.some(u => u.id === user.id))
-                        .map((user) => (
-                          <Listbox.Option
-                            key={user.id}
-                            className={({ active }) =>
-                              `relative cursor-pointer select-none py-2 pl-10 pr-4 ${active ? 'bg-indigo-100 text-indigo-900' : 'text-gray-900'
-                              }`
-                            }
-                            value={user}
-                          >
-                            {({ selected }) => (
-                              <>
-                                <div className="flex items-center">
-                                  {user.profileImage ? (
-                                    <img
-                                      src={user.profileImage}
-                                      alt={user.fullName || user.username}
-                                      className="w-6 h-6 rounded-full object-cover mr-3"
-                                    />
-                                  ) : (
-                                    <div className="w-6 h-6 rounded-full bg-indigo-200 flex items-center justify-center mr-3">
-                                      <span className="text-xs text-indigo-600">
-                                        {(user.fullName || user.username).charAt(0).toUpperCase()}
-                                      </span>
-                                    </div>
-                                  )}
-                                  <span className="block truncate">
-                                    {user.fullName || user.username}
-                                    {user.department && (
-                                      <span className="text-gray-500 text-sm ml-2">
-                                        ({user.department})
-                                      </span>
+                      {users.length === 0 ? (
+                        <div className="py-2 px-4 text-gray-500 italic">
+                          Ekip üyeleri bulunamadı
+                        </div>
+                      ) : (
+                        users
+                          .filter(user => !formData.assignedUsers.some(u => u.id === user.id))
+                          .map(user => (
+                            <Listbox.Option
+                              key={user.id}
+                              className={({ active }) =>
+                                `relative cursor-default select-none py-2 pl-3 pr-9 ${
+                                  active ? 'bg-indigo-50 text-indigo-900' : 'text-gray-900'
+                                }`
+                              }
+                              value={user}
+                            >
+                              {({ active }) => (
+                                <>
+                                  <div className="flex items-center">
+                                    {user.profileImage ? (
+                                      <img
+                                        src={user.profileImage}
+                                        alt={user.fullName || user.username}
+                                        className="h-6 w-6 flex-shrink-0 rounded-full"
+                                      />
+                                    ) : (
+                                      <div className="h-6 w-6 rounded-full bg-indigo-200 flex items-center justify-center">
+                                        <span className="text-xs font-medium text-indigo-600">
+                                          {(user.fullName || user.username).charAt(0).toUpperCase()}
+                                        </span>
+                                      </div>
                                     )}
-                                  </span>
-                                </div>
-                                {selected ? (
-                                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-indigo-600">
-                                    <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                                  </span>
-                                ) : null}
-                              </>
-                            )}
-                          </Listbox.Option>
-                        ))}
+                                    <span className="ml-3 block truncate">{user.fullName || user.username}</span>
+                                  </div>
+                                </>
+                              )}
+                            </Listbox.Option>
+                          ))
+                      )}
                     </Listbox.Options>
                   </Transition>
                 </div>
@@ -747,7 +720,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
                   <div className="flex items-center">
                     <DocumentIcon className="h-8 w-8 text-indigo-500 mr-2" />
                     <div>
-                      <p className="text-sm font-medium text-indigo-700">{selectedFile.name}</p>
+                      <p className="font-medium">{selectedFile.name}</p>
                       <p className="text-xs text-gray-500">{(selectedFile.size / 1024).toFixed(1)} KB</p>
                     </div>
                   </div>
@@ -765,7 +738,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
                   <div className="mt-2">
                     <label htmlFor="file-upload" className="cursor-pointer">
                       <span className="mt-2 block text-sm font-medium text-indigo-600 hover:text-indigo-500">
-                        Dosya seçin veya buraya sürükleyin
+                        Dosya seçmek için tıklayın
                       </span>
                       <input
                         id="file-upload"
@@ -776,8 +749,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
                       />
                     </label>
                     <p className="mt-1 text-xs text-gray-500">
-                      JPG, PNG, PDF, DOC, DOCX, XLS, XLSX, ZIP, RAR, TXT - max 10MB
+                      JPEG, PNG, PDF, ZIP, DOCX, XLS (maks. 10MB)
                     </p>
+                    <p className="text-xs text-gray-500 mt-2">veya dosyayı buraya sürükleyin</p>
                   </div>
                 </div>
               )}
@@ -794,12 +768,12 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
                   <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg">
                     <div className="flex items-center">
                       <DocumentIcon className="h-5 w-5 text-gray-400 mr-2" />
-                      <span className="text-gray-900">{attachment.fileName}</span>
+                      <span className="text-sm text-gray-700">{attachment.fileName}</span>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleRemoveAttachment(index)}
-                      className="text-red-600 hover:text-red-800"
+                      className="text-gray-400 hover:text-gray-600"
                     >
                       <XMarkIcon className="h-5 w-5" />
                     </button>

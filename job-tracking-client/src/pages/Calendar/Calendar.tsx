@@ -236,9 +236,11 @@ const Calendar: React.FC = () => {
     }
   };
 
-  const isOverdue = (eventDate: Date) => {
-    const today = new Date();
-    return eventDate < today && eventDate.toDateString() !== today.toDateString();
+  // Etkinliğin süresi dolmuş mu kontrolü - şimdi kullanılıyor
+  const isOverdue = (event: CalendarEvent): boolean => {
+    const now = new Date();
+    const endDate = new Date(`${event.endDate}T${event.endTime}`);
+    return endDate < now;
   };
 
   if (loading || loadingTeams) {
@@ -401,15 +403,23 @@ const Calendar: React.FC = () => {
                             return dayDate >= startDay && dayDate <= endDay;
                           })
                           .slice(0, 3)
-                          .map(event => (
+                          .map(event => {
+                            const eventIsOverdue = isOverdue(event);
+                            return (
                             <div
                               key={event.id}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedEvent(event);
-                                setIsEditModalOpen(true);
+                                if (!eventIsOverdue) {
+                                  setSelectedEvent(event);
+                                  setIsEditModalOpen(true);
+                                } else {
+                                  enqueueSnackbar('Süresi geçmiş etkinlikler düzenlenemez', { variant: 'warning' });
+                                }
                               }}
-                              className={`p-1 px-2 rounded text-xs ${getEventColor(event.priority as 'High' | 'Medium' | 'Low')} text-white truncate flex items-center`}
+                              className={`p-1 px-2 rounded text-xs ${getEventColor(event.priority as 'High' | 'Medium' | 'Low')} text-white truncate flex items-center ${
+                                eventIsOverdue ? 'line-through opacity-70' : '' 
+                              }`}
                             >
                               {new Date(event.startDate).getDate() !== day && (
                                 <span className="mr-1">◀</span>
@@ -419,7 +429,7 @@ const Calendar: React.FC = () => {
                                 <span className="ml-1">▶</span>
                               )}
                             </div>
-                          ))}
+                          )})}
                       </div>
                     </>
                   )}
@@ -475,26 +485,39 @@ const Calendar: React.FC = () => {
                     // Eğer selectedDate, startDate ve endDate arasındaysa göster
                     return dayDate >= startDay && dayDate <= endDay;
                   })
-                  .map(event => (
+                  .map(event => {
+                    const eventIsOverdue = isOverdue(event);
+                    return (
                     <div
                       key={event.id}
                       className={`p-4 rounded-lg ${
                         isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-                      } relative`}
+                      } relative ${eventIsOverdue ? 'opacity-70' : ''}`}
                     >
                       <div className="flex items-center justify-between">
                         <h4 className={`font-semibold ${
                           isDarkMode ? 'text-white' : 'text-gray-900'
-                        }`}>
+                        } ${eventIsOverdue ? 'line-through' : ''}`}>
                           {event.title}
+                          {eventIsOverdue && (
+                            <span className="ml-2 text-xs px-2 py-1 bg-red-500 text-white rounded-full">
+                              Süresi Geçti
+                            </span>
+                          )}
                         </h4>
                         <div className="flex space-x-2">
                           <button 
                             onClick={() => {
-                              setSelectedEvent(event);
-                              setIsEditModalOpen(true);
+                              if (!eventIsOverdue) {
+                                setSelectedEvent(event);
+                                setIsEditModalOpen(true);
+                              } else {
+                                enqueueSnackbar('Süresi geçmiş etkinlikler düzenlenemez', { variant: 'warning' });
+                              }
                             }}
-                            className="text-blue-500 hover:text-blue-700"
+                            className={`${eventIsOverdue ? 'text-gray-500 cursor-not-allowed' : 'text-blue-500 hover:text-blue-700'}`}
+                            disabled={eventIsOverdue}
+                            title={eventIsOverdue ? 'Süresi geçmiş etkinlikler düzenlenemez' : 'Düzenle'}
                           >
                             <i className="fas fa-edit"></i>
                           </button>
@@ -512,7 +535,7 @@ const Calendar: React.FC = () => {
                       </div>
                       <div className={`mt-2 ${
                         isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
+                      } ${eventIsOverdue ? 'line-through' : ''}`}>
                         <p className="flex items-center">
                           <i className="far fa-clock mr-2"></i>
                           {event.startTime} - {event.endTime}
@@ -535,7 +558,7 @@ const Calendar: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                  ))
+                  )})
               )}
             </div>
           </div>
