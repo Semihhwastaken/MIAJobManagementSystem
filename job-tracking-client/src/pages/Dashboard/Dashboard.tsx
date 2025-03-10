@@ -1,11 +1,22 @@
 import { motion } from 'framer-motion';
 import { Line, Doughnut } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, ChartOptions, Filler } from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, ChartOptions, Filler, Chart } from 'chart.js';
 import { useTheme } from '../../context/ThemeContext';
 import Footer from "../../components/Footer/Footer";
 import { useState, useEffect, useCallback } from 'react';
 import axiosInstance from '../../services/axiosInstance';
 import React from 'react';
+import { chartToImageURL, generatePdfReport } from '../../services/reportGenerator';
+import { saveAs } from 'file-saver';
+import { toast } from 'react-toastify';
+import { 
+  generateTeamAnalysis, 
+  validateApiKey, 
+  saveApiKey, 
+  getStoredApiKey, 
+  clearApiKey,
+  isAiAnalysisEnabled
+} from '../../services/aiAnalysisService';
 
 // Register ChartJS components
 ChartJS.register(
@@ -115,11 +126,19 @@ const Dashboard = () => {
   const [dataFetchError, setDataFetchError] = useState<string | null>(null);
 
   const calculateGrowth = (current: number, previous: number): string => {
-    if (previous === 0) return '+0%';
+    if (previous === 0) {
+      if (current === 0) return '0%'; // Both zero - no change
+      return `+${current}00%`; // New items added - show absolute number
+    }
+    
+    if (current === previous) return '0%'; // No change
+    
     const growth = ((current - previous) / previous) * 100;
-    return `${growth > 0 ? '+' : ''}${growth.toFixed(2)}%`;
+    const formattedGrowth = growth.toFixed(1); // Reduced to 1 decimal for cleaner display
+    
+    // Add plus sign for positive values, negative values already have their sign
+    return `${growth > 0 ? '+' : ''}${formattedGrowth}%`;
   };
-
   // Helper function to format dates according to time period
   const formatDateByTimePeriod = (date: Date | string, timePeriod: string): string => {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -755,6 +774,104 @@ const Dashboard = () => {
     }
   };
 
+  // Add state for report generation
+  const [isGeneratingReport, setIsGeneratingReport] = useState<boolean>(false);
+  
+  const [isGeneratingAIAnalysis, setIsGeneratingAIAnalysis] = useState<boolean>(false);
+  // Update this to use environment variable directly
+  const [includeAIAnalysis, setIncludeAIAnalysis] = useState<boolean>(isAiAnalysisEnabled());
+  
+  // Reference to the charts
+  const lineChartRef = React.useRef<Chart | null>(null);
+  const doughnutChartRef = React.useRef<Chart | null>(null);
+
+  // Update the handleDownloadReport function
+  const handleDownloadReport = async () => {
+    try {
+      setIsGeneratingReport(true);
+      toast.info("Rapor hazırlanıyor, lütfen bekleyin...");
+      
+      // Get the current team name
+      let teamName = selectedTeamId;
+      if (selectedTeamId !== "all" && selectedTeamId !== "me") {
+        const selectedTeam = teams.find(team => team.id === selectedTeamId);
+        if (selectedTeam) {
+          teamName = selectedTeam.name;
+        }
+      }
+      
+      // Generate high-quality image data URLs from the charts with higher resolution
+      let lineChartUrl = '';
+      let doughnutChartUrl = '';
+      
+      if (lineChartRef.current) {
+        // Set higher quality for PDF image rendering
+        lineChartUrl = await chartToImageURL(lineChartRef.current);
+      }
+      
+      if (doughnutChartRef.current) {
+        // Set higher quality for PDF image rendering
+        doughnutChartUrl = await chartToImageURL(doughnutChartRef.current);
+      }
+      
+      // Prepare report data
+      const reportData = {
+        teamName: teamName,
+        timePeriod: selectedTimePeriod,
+        taskStats: taskStats,
+        teamActivity: selectedTeamId !== "all" && selectedTeamId !== "me" ? teamActivity : undefined,
+        topContributors: selectedTeamId !== "all" && selectedTeamId !== "me" ? topContributors : [],
+        lineChartUrl,
+        doughnutChartUrl,
+        generatedDate: new Date()
+      };
+      
+      // Check if we should include AI analysis - now using environment config
+      if (includeAIAnalysis && isAiAnalysisEnabled()) {
+        try {
+          setIsGeneratingAIAnalysis(true);
+          toast.info("DeepSeek R1 ile AI analizi oluşturuluyor...");
+          
+          // The AI analysis will be handled internally by the report generator
+          toast.success("AI analizi başarıyla oluşturuldu!");
+        } catch (error) {
+          console.error("AI analizi oluşturulurken hata:", error);
+          toast.error("AI analizi oluşturulamadı. Rapor AI analizi olmadan hazırlanacak.");
+        } finally {
+          setIsGeneratingAIAnalysis(false);
+        }
+      }
+      
+      // Generate the PDF report
+      const pdfBlob = await generatePdfReport(reportData);
+      
+      // Format the filename
+      const timePeriodText = selectedTimePeriod === 'week' ? 'Haftalik' : 
+                            selectedTimePeriod === 'month' ? 'Aylik' : 'Yillik';
+                            
+      const teamText = selectedTeamId === "all" ? "TumEkipler" : 
+                      selectedTeamId === "me" ? "Kisisel" : 
+                      teamName.replace(/\s+/g, '_').replace(/[ğüşıöçĞÜŞİÖÇ]/g, c => 
+                        ({ 'ğ':'g', 'ü':'u', 'ş':'s', 'ı':'i', 'ö':'o', 'ç':'c',
+                           'Ğ':'G', 'Ü':'U', 'Ş':'S', 'İ':'I', 'Ö':'O', 'Ç':'C' }[c] || c));
+                      
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+      
+      const filename = `MIA_${timePeriodText}_Rapor_${teamText}_${dateStr}.pdf`;
+      
+      // Save the file
+      saveAs(pdfBlob, filename);
+      
+      toast.success("Rapor başarıyla oluşturuldu!");
+    } catch (error) {
+      console.error("Rapor oluşturulurken hata oluştu:", error);
+      toast.error("Rapor oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.");
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -783,7 +900,7 @@ const Dashboard = () => {
             ))}
           </select>
           
-          {/* Update the time period dropdown with value and onChange */}
+          {/* Time period dropdown */}
           <select 
             value={selectedTimePeriod} 
             onChange={handleTimePeriodChange}
@@ -793,8 +910,50 @@ const Dashboard = () => {
             <option value="month">Bu Ay</option>
             <option value="year">Bu Yıl</option>
           </select>
-          <button className={`bg-blue-500 text-white px-6 py-2 rounded-xl text-sm font-medium hover:bg-blue-600 transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-lg`}>
-            Rapor İndir
+          
+          {/* Replace API key configuration button with AI analysis toggle */}
+          <div className="flex items-center">
+            <label className="inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeAIAnalysis}
+                onChange={() => setIncludeAIAnalysis(!includeAIAnalysis)}
+                className="sr-only peer"
+                disabled={!isAiAnalysisEnabled()}
+              />
+              <div className={`relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 ${!isAiAnalysisEnabled() ? 'opacity-50' : ''}`}></div>
+              <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
+                AI Analizi
+                {!isAiAnalysisEnabled() && (
+                  <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">(API anahtarı yok)</span>
+                )}
+              </span>
+            </label>
+          </div>
+          
+          {/* Report download button */}
+          <button 
+            onClick={handleDownloadReport}
+            disabled={isGeneratingReport || isLoading || !!dataFetchError}
+            className={`bg-blue-500 text-white px-6 py-2 rounded-xl text-sm font-medium transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-lg flex items-center ${
+              (isGeneratingReport || isLoading || !!dataFetchError) ? 
+              'opacity-50 cursor-not-allowed hover:bg-blue-500 hover:scale-100' : 
+              'hover:bg-blue-600'
+            }`}
+          >
+            {isGeneratingReport ? (
+              <>
+                <span className="inline-block animate-spin mr-2">⟳</span>
+                {isGeneratingAIAnalysis ? 'AI Analizi...' : 'Hazırlanıyor...'}
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+                Rapor İndir
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -907,7 +1066,18 @@ const Dashboard = () => {
                 Görev İlerlemesi
               </h2>
               <div className="h-[250px]">
-                <Line data={lineChartData} options={chartOptions} />
+                <Line 
+                  data={lineChartData} 
+                  options={{
+                    ...chartOptions,
+                    devicePixelRatio: 3 // Higher quality for export
+                  }} 
+                  ref={(reference) => {
+                    if (reference !== null) {
+                      lineChartRef.current = reference;
+                    }
+                  }}
+                />
               </div>
             </motion.div>
 
@@ -921,7 +1091,18 @@ const Dashboard = () => {
                 Görev Dağılımı
               </h2>
               <div className="h-[250px]">
-                <Doughnut data={doughnutData} options={doughnutOptions} />
+                <Doughnut 
+                  data={doughnutData} 
+                  options={{
+                    ...doughnutOptions,
+                    devicePixelRatio: 3 // Higher quality for export
+                  }}
+                  ref={(reference) => {
+                    if (reference !== null) {
+                      doughnutChartRef.current = reference;
+                    }
+                  }} 
+                />
               </div>
             </motion.div>
           </div>
