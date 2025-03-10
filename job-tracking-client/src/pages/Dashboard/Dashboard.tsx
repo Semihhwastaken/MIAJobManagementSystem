@@ -148,6 +148,35 @@ const Dashboard = () => {
     }
   };
 
+  // Add this new utility function to help with date processing
+  const getDateIdentifier = (date: Date, timePeriod: string): string => {
+    switch (timePeriod) {
+      case 'week':
+        // For weekly grouping, use day of week (0-6)
+        return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      case 'month':
+        // For monthly grouping, use day of month (1-31)
+        return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      case 'year':
+        // For yearly grouping, use month (0-11)
+        return `${date.getFullYear()}-${date.getMonth()}`;
+      default:
+        return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    }
+  };
+
+  // Add this function to normalize dates based on time period
+  const normalizeDate = (date: Date, timePeriod: string): Date => {
+    const normalized = new Date(date);
+    
+    if (timePeriod === 'year') {
+      // For yearly view, normalize to first day of month
+      normalized.setDate(1);
+    }
+    
+    return normalized;
+  };
+
   // Fetch available teams
   useEffect(() => {
     const fetchTeams = async () => {
@@ -215,18 +244,42 @@ const Dashboard = () => {
         overdueGrowth: calculateGrowth(overdueTasks, previousOverdue),
       });
 
-      // Update line chart data
+      // Process line chart data with time period normalization
       if (Array.isArray(data.lineChartData)) {
+        // Create a map to store normalized data points
+        const dateMap = new Map<string, {date: Date, completed: number, newTasks: number}>();
+        
+        // Process and normalize each data point
+        data.lineChartData.forEach((item: any) => {
+          const dateObj = new Date(item.date || item.Date || item.dateString || item.DateString);
+          const normalizedDate = normalizeDate(dateObj, selectedTimePeriod);
+          const dateKey = getDateIdentifier(normalizedDate, selectedTimePeriod);
+          
+          if (!dateMap.has(dateKey)) {
+            dateMap.set(dateKey, {
+              date: normalizedDate,
+              completed: 0,
+              newTasks: 0
+            });
+          }
+          
+          const entry = dateMap.get(dateKey)!;
+          entry.completed += item.completed || item.Completed || 0;
+          entry.newTasks += item.newTasks || item.NewTasks || 0;
+          dateMap.set(dateKey, entry);
+        });
+        
+        // Convert map back to array and sort by date
+        const sortedData = Array.from(dateMap.values())
+          .sort((a, b) => a.date.getTime() - b.date.getTime());
+        
+        // Update line chart with normalized data
         setLineChartData({
-          labels: data.lineChartData.map((item: any) => {
-            // Use date formatting helper based on selected time period
-            const dateObj = new Date(item.date || item.Date || item.dateString || item.DateString);
-            return formatDateByTimePeriod(dateObj, selectedTimePeriod);
-          }),
+          labels: sortedData.map(item => formatDateByTimePeriod(item.date, selectedTimePeriod)),
           datasets: [
             {
               label: 'Tamamlanan',
-              data: data.lineChartData.map((item: any) => item.completed || item.Completed || 0),
+              data: sortedData.map(item => item.completed),
               borderColor: 'rgb(99, 102, 241)',
               backgroundColor: 'rgba(99, 102, 241, 0.1)',
               fill: true,
@@ -234,7 +287,7 @@ const Dashboard = () => {
             },
             {
               label: 'Yeni Görevler',
-              data: data.lineChartData.map((item: any) => item.newTasks || item.NewTasks || 0),
+              data: sortedData.map(item => item.newTasks),
               borderColor: 'rgb(74, 222, 128)',
               backgroundColor: 'rgba(74, 222, 128, 0.1)',
               fill: true,
@@ -358,8 +411,8 @@ const Dashboard = () => {
       // Collect all contributors across teams
       let allContributors: TopContributor[] = [];
       
-      // Create a combined chart data structure
-      const combinedChartData: {[date: string]: {completed: number, newTasks: number}} = {};
+      // Create a combined chart data structure with proper time period normalization
+      const dateMap = new Map<string, {date: Date, completed: number, newTasks: number}>();
       
       // Process each team
       for (const team of teams) {
@@ -382,18 +435,25 @@ const Dashboard = () => {
           previousCompletedTasks += data.previousCompletedTasks || 0;
           previousOverdueTasks += data.previousOverdueTasks || 0;
           
-          // Aggregate chart data
+          // Process and normalize chart data by time period
           if (Array.isArray(data.lineChartData)) {
             data.lineChartData.forEach((item: any) => {
-              const dateKey = item.dateString || item.DateString || 
-                new Date(item.date || item.Date).toLocaleDateString('tr-TR');
+              const dateObj = new Date(item.date || item.Date || item.dateString || item.DateString);
+              const normalizedDate = normalizeDate(dateObj, selectedTimePeriod);
+              const dateKey = getDateIdentifier(normalizedDate, selectedTimePeriod);
               
-              if (!combinedChartData[dateKey]) {
-                combinedChartData[dateKey] = { completed: 0, newTasks: 0 };
+              if (!dateMap.has(dateKey)) {
+                dateMap.set(dateKey, {
+                  date: normalizedDate,
+                  completed: 0,
+                  newTasks: 0
+                });
               }
               
-              combinedChartData[dateKey].completed += item.completed || item.Completed || 0;
-              combinedChartData[dateKey].newTasks += item.newTasks || item.NewTasks || 0;
+              const entry = dateMap.get(dateKey)!;
+              entry.completed += item.completed || item.Completed || 0;
+              entry.newTasks += item.newTasks || item.NewTasks || 0;
+              dateMap.set(dateKey, entry);
             });
           }
         }
@@ -477,17 +537,13 @@ const Dashboard = () => {
         setTopContributors(sortedContributors);
       }
       
-      // Convert combined chart data to array format for charts
-      const chartDataArray = Object.entries(combinedChartData).map(([date, data]) => ({
-        dateString: date,
-        dateObject: new Date(date.split('/').reverse().join('-')),
-        completed: data.completed,
-        newTasks: data.newTasks
-      })).sort((a, b) => a.dateObject.getTime() - b.dateObject.getTime());
+      // Convert map back to array and sort by date
+      const chartDataArray = Array.from(dateMap.values())
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
       
-      // Update line chart data with formatted labels
+      // Update line chart data with time-normalized values
       setLineChartData({
-        labels: chartDataArray.map(item => formatDateByTimePeriod(item.dateObject, selectedTimePeriod)),
+        labels: chartDataArray.map(item => formatDateByTimePeriod(item.date, selectedTimePeriod)),
         datasets: [
           {
             label: 'Tamamlanan',
@@ -568,7 +624,7 @@ const Dashboard = () => {
       setDashboardLoading(false);
       setActivityLoading(false);
     }
-  }, [teams, selectedTimePeriod, formatDateByTimePeriod]);
+  }, [teams, selectedTimePeriod, calculateGrowth, formatDateByTimePeriod]);
 
   // Use a ref to track initial render
   const initialRender = React.useRef(true);
@@ -607,12 +663,18 @@ const Dashboard = () => {
     setSelectedTeamId(newTeamId);
   }, []);
 
-  // Add a new handler for time period changes
+  // Update the handleTimePeriodChange function for better transitions
   const handleTimePeriodChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const newPeriod = e.target.value;
+    
+    // First set loading state
+    setDashboardLoading(true);
+    
+    // Then update the time period which will trigger data refresh
     setSelectedTimePeriod(newPeriod);
   }, []);
 
+  // Update the chart options for better time period adaptation
   const chartOptions: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
@@ -624,6 +686,22 @@ const Dashboard = () => {
           color: isDarkMode ? '#fff' : '#000',
           font: {
             size: 11
+          }
+        }
+      },
+      tooltip: {
+        mode: 'index',
+        intersect: false,
+        callbacks: {
+          title: function(tooltipItems) {
+            // Show more detailed date in tooltip based on time period
+            if (tooltipItems.length > 0) {
+              const index = tooltipItems[0].dataIndex;
+              if (index !== undefined && lineChartData.labels && lineChartData.labels[index]) {
+                return lineChartData.labels[index].toString();
+              }
+            }
+            return '';
           }
         }
       }
@@ -649,9 +727,15 @@ const Dashboard = () => {
           color: isDarkMode ? '#fff' : '#000',
           font: {
             size: 11
-          }
+          },
+          maxRotation: 45,
+          minRotation: 0
         }
       }
+    },
+    // Update animation options to make transitions smoother when changing time periods
+    animation: {
+      duration: 500
     }
   };
 
