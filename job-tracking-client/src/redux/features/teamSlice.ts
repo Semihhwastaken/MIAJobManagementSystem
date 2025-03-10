@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createSlice, createAsyncThunk, createAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, createAction, isPending, isRejected } from '@reduxjs/toolkit';
 import { TeamState, TeamMember, Team } from '../../types/team';
 import axiosInstance from '../../services/axiosInstance';
+import { RESET_STATE } from './actionTypes';
 
 interface MemberMetricsUpdateDto {
     teamId: string;
@@ -197,8 +198,7 @@ export const generateTeamInviteLink = createAsyncThunk(
     'Team/generateInviteLink',
     async (teamId: string, { rejectWithValue }) => {
         try {
-            // Yeni API endpoint'ini kullan
-            const response = await axiosInstance.post(`/Team/${teamId}/generate-invite-link`);
+            const response = await axiosInstance.post(`/Team/invite-link/${teamId}`);
             return response.data;
         } catch (error: any) {
             console.error('Davet linki oluşturma hatası:', error.response?.data);
@@ -212,7 +212,7 @@ export const getTeamInviteLink = createAsyncThunk(
     async (teamId: string, { rejectWithValue }) => {
         try {
             // Yeni API endpoint'ini kullan
-            const response = await axiosInstance.get(`/Team/${teamId}/invite-link`);
+            const response = await axiosInstance.get(`/Team/invite-link/${teamId}/get`);
             return response.data.inviteLink;
         } catch (error: any) {
             console.error('Davet linki alma hatası:', error.response?.data);
@@ -256,10 +256,20 @@ export const joinTeamWithInviteCode = createAsyncThunk(
     'Team/joinTeamWithInviteCode',
     async (inviteCode: string, { rejectWithValue, dispatch }) => {
         try {
-            const response = await axiosInstance.post('/Team/join-with-invite-code', { inviteCode });
+            // Backend API formatı: [HttpPost("join-with-code/{inviteCode}")]
+            const response = await axiosInstance.post(`/Team/join-with-code/${inviteCode}`);
             
-            // Ekipleri yeniden yükle
-            dispatch(invalidateCache('teams'));
+            // Tüm ilgili cacheleri güncelle
+            dispatch(invalidateCache('all')); // 'all' tüm cacheleri temizler: teams, members, departments
+            
+            // Teams sayfasını yeniden yüklemek için gerekli dataları hemen fetch et
+            dispatch(fetchTeams());
+            
+            // Kullanıcı takıma katıldıktan sonra takımla ilgili verileri önbelleğe al
+            const teamId = response.data.teamId;
+            if (teamId) {
+                dispatch(getTeamMembersByTeamId(teamId));
+            }
             
             return response.data;
         } catch (error: any) {
@@ -603,6 +613,10 @@ const teamSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            // Global reset state action
+            .addCase(RESET_STATE, () => {
+                return initialState;
+            })
             // Handle cache invalidation
             .addCase(invalidateCache, (state, action) => {
                 const cacheType = action.payload;

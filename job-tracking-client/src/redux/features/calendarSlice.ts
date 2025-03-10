@@ -1,4 +1,5 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction, createReducer } from '@reduxjs/toolkit';
+import { RESET_STATE } from './actionTypes';
 
 export interface CalendarEvent {
   id: string;
@@ -105,6 +106,13 @@ const calendarSlice = createSlice({
       state.error = null;
     },
   },
+  extraReducers: (builder) => {
+    builder
+      // Global reset state action
+      .addCase(RESET_STATE, () => {
+        return initialState;
+      });
+  }
 });
 
 export const {

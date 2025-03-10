@@ -26,6 +26,15 @@ namespace JobTrackingAPI.Models
         [BsonElement("createdDate")]
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
+        [BsonElement("priority")]
+        public string Priority { get; set; } = "medium";
+
+        [BsonElement("tags")]
+        public List<string> Tags { get; set; } = new List<string>();
+
+        [BsonElement("dueDate")]
+        public DateTime? DueDate { get; set; }
+
         [BsonElement("mentions")]
         public List<string> Mentions { get; set; } = new List<string>();
 

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
+import { RESET_STATE } from './actionTypes';
 
 interface AuthState {
     token: string | null;
@@ -19,7 +20,16 @@ interface AuthState {
 
 const initialState: AuthState = {
     token: localStorage.getItem('token'),
-    user: JSON.parse(localStorage.getItem('user') || 'null'),
+    user: (() => {
+        try {
+            const userData = localStorage.getItem('user');
+            return userData ? JSON.parse(userData) : null;
+        } catch (error) {
+            console.error('Kullanıcı verisi ayrıştırılamadı:', error);
+            localStorage.removeItem('user'); // Bozuk verileri temizle
+            return null;
+        }
+    })(),
     isAuthenticated: !!localStorage.getItem('token'),
     loading: false,
     error: null,
@@ -75,6 +85,11 @@ const authSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            .addCase(RESET_STATE, () => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                return initialState;
+            })
             .addCase(login.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -85,7 +100,6 @@ const authSlice = createSlice({
                 state.user = action.payload.user;
                 state.isAuthenticated = true;
                 state.error = null;
-                // Login başarılı olduğunda preload başlatılacak
                 state.dataPreloaded = false;
             })
             .addCase(login.rejected, (state, action) => {

@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { RESET_STATE } from './actionTypes';
 
 interface ThemeState {
     isDarkMode: boolean;
@@ -19,6 +20,13 @@ const themeSlice = createSlice({
             state.isDarkMode = action.payload;
         },
     },
+    extraReducers: (builder) => {
+        builder
+            // Global reset state action
+            .addCase(RESET_STATE, () => {
+                return initialState;
+            });
+    }
 });
 
 export const { toggleTheme, setTheme } = themeSlice.actions;

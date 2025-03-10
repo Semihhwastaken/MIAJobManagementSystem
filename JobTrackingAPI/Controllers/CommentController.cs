@@ -114,6 +114,12 @@ namespace JobTrackingAPI.Controllers
 
             // Yorumu oluştur
             var comment = new Comment(request.TaskId, userId, request.Content);
+            
+            // Yeni alanları ayarla
+            comment.Priority = request.Priority;
+            comment.Tags = request.Tags ?? new List<string>();
+            comment.DueDate = request.DueDate;
+            
             await _comments.InsertOneAsync(comment);
 
             // Kullanıcı için bildirim oluştur
@@ -138,5 +144,8 @@ namespace JobTrackingAPI.Controllers
     {
         public string TaskId { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;
+        public string Priority { get; set; } = "medium";
+        public List<string> Tags { get; set; } = new List<string>();
+        public DateTime? DueDate { get; set; }
     }
 }

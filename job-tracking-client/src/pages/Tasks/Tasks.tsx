@@ -49,30 +49,49 @@ const Tasks: React.FC = () => {
     const processedTeams = new Set<string>();
 
     try {
-      for (const task of tasks) {
+      // Görevleri takımlara göre grupla
+      const teamGroups: {[teamId: string]: Task[]} = {};
+      tasks.forEach(task => {
         if (task.teamId && task.status !== "completed" && task.status !== "overdue") {
-          if (!processedTeams.has(task.teamId)) {
-            processedTeams.add(task.teamId);
-            try {
-              const teamMembersResult = await dispatch(getTeamMembersByTeamId(task.teamId));
+          if (!teamGroups[task.teamId]) {
+            teamGroups[task.teamId] = [];
+          }
+          teamGroups[task.teamId].push(task);
+        }
+      });
+
+      // Her takım için bir kez sorgu yap
+      const teamIds = Object.keys(teamGroups);
+      for (const teamId of teamIds) {
+        if (!processedTeams.has(teamId)) {
+          processedTeams.add(teamId);
+          try {
+            console.log(`Checking ownership for team ${teamId}`);
+            const teamMembersResult = await dispatch(getTeamMembersByTeamId(teamId));
+            
+            if (teamMembersResult.payload) {
               const isOwner = teamMembersResult.payload.some(
-                teamMember => teamMember.id === currentUser?.id && teamMember.role === "Owner"
+                (teamMember: any) => teamMember.id === currentUser?.id && teamMember.role === "Owner"
               );
               
-              if (isOwner) {
-                tasks
-                  .filter(t => t.teamId === task.teamId)
-                  .forEach(t => {
-                    if (t.id) ownerStatusMap[t.id] = true;
-                  });
+              console.log(`User is owner of team ${teamId}: ${isOwner}`);
+              
+              // Takımın sahibiyse, bu takıma ait tüm görevlere izin ver
+              if (isOwner && teamGroups[teamId]) {
+                teamGroups[teamId].forEach(task => {
+                  if (task.id) ownerStatusMap[task.id] = true;
+                });
               }
-            } catch (error) {
-              console.error('Error checking team ownership:', error);
             }
+          } catch (error) {
+            console.error(`Error checking team ownership for team ${teamId}:`, error);
           }
         }
       }
+      
       setTaskOwnerStatus(ownerStatusMap);
+    } catch (error) {
+      console.error('Error in checkOwnerStatus:', error);
     } finally {
       setIsValidationLoading(false);
     }
@@ -472,17 +491,22 @@ const Tasks: React.FC = () => {
                         {new Date(task.dueDate).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {task.teamId && taskOwnerStatus[task.id!] && (
+                        {task.teamId && (
+                          taskOwnerStatus[task.id!] || 
+                          (currentUser?.role === 'admin') // Admin rolündeki kullanıcılara tüm görevler için izin ver
+                        ) && (
                           <>
                             <button
                               onClick={(e) => handleEditClick(task, e)}
                               className="text-indigo-600 hover:text-indigo-900 mr-2"
+                              title="Görevi Düzenle"
                             >
                               <i className="fas fa-edit"></i>
                             </button>
                             <button
                               onClick={(e) => handleDeleteTask(task.id, e)}
                               className="text-red-600 hover:text-red-900"
+                              title="Görevi Sil"
                             >
                               <i className="fas fa-trash"></i>
                             </button>
@@ -550,7 +574,10 @@ const Tasks: React.FC = () => {
                           {new Date(linkedTask.dueDate).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {linkedTask.teamId && taskOwnerStatus[linkedTask.id!] && (
+                          {linkedTask.teamId && (
+                            taskOwnerStatus[linkedTask.id!] || 
+                            (currentUser?.role === 'admin') // Admin rolündeki kullanıcılara tüm görevler için izin ver
+                          ) && (
                             <>
                               <button
                                 onClick={(e) => handleEditClick(linkedTask, e)}
