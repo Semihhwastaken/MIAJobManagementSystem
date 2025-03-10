@@ -224,7 +224,7 @@ namespace JobTrackingAPI.Services
                 }
 
                 var tasks = await _tasks.Find(t => t.AssignedUserIds != null && t.AssignedUserIds.Any(u => u == userId) &&
-                                          (t.Status == "completed" || DateTime.UtcNow > t.DueDate))
+                                          (t.Status == "completed" || DateTime.UtcNow > (t.DueDate ?? DateTime.MinValue)))
                                 .ToListAsync();
 
                 return tasks.Select(t => new TaskHistoryDto
@@ -232,10 +232,10 @@ namespace JobTrackingAPI.Services
                     Id = t.Id,
                     Title = t.Title,
                     Description = t.Description,
-                    Status = DateTime.UtcNow > t.DueDate ? "overdue" : "completed",
+                    Status = DateTime.UtcNow > (t.DueDate ?? DateTime.MinValue) ? "overdue" : "completed",
                     Priority = t.Priority,
                     Category = t.Category,
-                    DueDate = t.DueDate,
+                    DueDate = t.DueDate ?? DateTime.MinValue, // Fix: Add null coalescing operator to handle nullable DateTime
                     AssignedUsers = t.AssignedUsers?.Select(u => new UserDto { Id = u.Id, FullName = u.FullName ?? string.Empty }).ToList() ?? new List<UserDto>()
                 }).ToList();
             }

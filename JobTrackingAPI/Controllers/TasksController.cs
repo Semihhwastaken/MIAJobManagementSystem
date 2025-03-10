@@ -44,10 +44,10 @@ namespace JobTrackingAPI.Controllers
             var database = mongoClient.GetDatabase(settings.Value.DatabaseName);
             _tasksService = tasksService;
             _notificationService = notificationService;
-            _usersCollection = database.GetCollection<User>(settings.Value.UsersCollectionName);
-            _tasksCollection = database.GetCollection<TaskItem>("Tasks");
-            _teamsCollection = database.GetCollection<Team>("Teams");
             _teamsService = teamsService;
+            _usersCollection = database.GetCollection<User>(settings.Value.UsersCollectionName);
+            _tasksCollection = database.GetCollection<TaskItem>(settings.Value.TasksCollectionName);
+            _teamsCollection = database.GetCollection<Team>(settings.Value.TeamsCollectionName);
             _cacheService = cacheService;
             _logger = logger;
             _userService = userService;
@@ -359,7 +359,7 @@ namespace JobTrackingAPI.Controllers
                         var allTasks = await _tasksService.GetTasks();
                         
                         // Her görev için sahiplik ve yetki bilgilerini işaretle
-                        foreach (var task in allTasks)
+                        foreach (var task in allTasks ?? Enumerable.Empty<TaskItem>())
                         {
                             if (task.AssignedUserIds != null && task.AssignedUserIds.Contains(userId))
                             {
@@ -374,28 +374,31 @@ namespace JobTrackingAPI.Controllers
                             }
                         }
                         
-                        return allTasks;
+                        return allTasks ?? new List<TaskItem>();
                     },
                     TimeSpan.FromMinutes(5) // Önbellek süresini kısalttık
                 );
                 
                 // Her istek için önbellekten gelse bile izinleri doğrula
                 bool isAdmin = user.OwnerTeams.Count > 0;
-                foreach (var task in tasks)
+                if (tasks != null)
                 {
-                    if (task.AssignedUserIds != null && task.AssignedUserIds.Contains(userId))
+                    foreach (var task in tasks)
                     {
-                        task.IsAssignedToCurrentUser = true;
-                    }
-                    
-                    // Admin veya görevin ekibinin sahibi ise izinleri ekle
-                    if (isAdmin || (task.TeamId != null && await IsTeamOwner(userId, task.TeamId)))
-                    {
-                        task.HasManagePermission = true;
+                        if (task.AssignedUserIds != null && task.AssignedUserIds.Contains(userId))
+                        {
+                            task.IsAssignedToCurrentUser = true;
+                        }
+                        
+                        // Admin veya görevin ekibinin sahibi ise izinleri ekle
+                        if (isAdmin || (task.TeamId != null && await IsTeamOwner(userId, task.TeamId)))
+                        {
+                            task.HasManagePermission = true;
+                        }
                     }
                 }
                 
-                return Ok(tasks);
+                return Ok(tasks ?? new List<TaskItem>());
             }
             catch (Exception ex)
             {
@@ -738,34 +741,235 @@ namespace JobTrackingAPI.Controllers
         
         [HttpGet("dashboard")]
         [Authorize]
-        public async Task<ActionResult<DashboardStats>> GetDashboardStats()
+        public async Task<ActionResult<DashboardStats>> GetDashboardStats([FromQuery] bool forTeam = false, [FromQuery] string? teamId = null)
         {
             try
             {
-                _logger.LogInformation("Getting dashboard stats for current user");
-                
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                 {
-                    return BadRequest(new { message = "User not authenticated" });
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
+
+                // Fix the conditional expression by ensuring both return the same type
+                List<TaskItem> tasks;
+                if (forTeam)
+                {
+                    var teamTasks = await _tasksService.GetTasksByTeamsAsync(new List<string> { teamId ?? string.Empty });
+                    tasks = teamTasks.ToList();
+                }
+                else
+                {
+                    tasks = (await _tasksService.GetTasks()).ToList();
                 }
                 
-                var stats = await _cacheService.GetOrUpdateAsync(
-                    $"dashboard_stats_{userId}",
-                    async () => {
-                        await Task.Delay(1);
-                        return new { message = "200" };
-                    },
-                    TimeSpan.FromMinutes(5)
-                );
-                
+                tasks = tasks ?? new List<TaskItem>();
+
+                // If not forTeam, filter tasks for current user
+                if (!forTeam)
+                {
+                    tasks = tasks.Where(t => t.AssignedUserIds?.Contains(userId) == true).ToList();
+                }
+
+                var completedTasks = tasks.Where(t => t.Status == "completed").ToList();
+                var inProgressTasks = tasks.Where(t => t.Status == "in-progress").ToList();
+                var overdueTasks = tasks.Where(t => t.Status == "overdue").ToList();
+
+                var previousDate = DateTime.UtcNow.AddDays(-7);
+                var previousTasks = tasks.Where(t => t.CreatedAt <= previousDate).ToList();
+                var previousCompleted = previousTasks.Count(t => t.Status == "completed");
+                var previousInProgress = previousTasks.Count(t => t.Status == "in-progress");
+                var previousOverdue = previousTasks.Count(t => t.Status == "overdue");
+
+                var chartData = Enumerable.Range(0, 7)
+                    .Select(i => DateTime.UtcNow.Date.AddDays(-i))
+                    .Select(date => new ChartDataPoint
+                    {
+                        Date = date,
+                        DateString = date.ToString("dd/MM"),
+                        Completed = completedTasks.Count(t => 
+                            t.CompletedDate?.Date == date.Date),
+                        NewTasks = tasks.Count(t => t.CreatedAt.Date == date.Date)
+                    })
+                    .OrderBy(d => d.Date)
+                    .ToList();
+
+                var stats = new DashboardStats
+                {
+                    TotalTasks = tasks.Count(),
+                    CompletedTasks = completedTasks.Count(),
+                    InProgressTasks = inProgressTasks.Count(),
+                    OverdueTasks = overdueTasks.Count(),
+                    PreviousTotalTasks = previousTasks.Count(),
+                    PreviousCompletedTasks = previousCompleted,
+                    PreviousInProgressTasks = previousInProgress,
+                    PreviousOverdueTasks = previousOverdue,
+                    LineChartData = chartData
+                };
+
+                if (forTeam && !string.IsNullOrEmpty(teamId))
+                {
+                    var team = await _teamsService.GetTeamById(teamId);
+                    if (team != null)
+                    {
+                        var tasksCount = tasks.Count();
+                        var completionRate = tasksCount > 0 
+                            ? (completedTasks.Count() * 100.0) / tasksCount 
+                            : 0;
+
+                        var averageDuration = completedTasks
+                            .Where(t => t.CompletedDate.HasValue)
+                            .Select(t => (t.CompletedDate!.Value - t.CreatedAt).TotalDays)
+                            .DefaultIfEmpty(0)
+                            .Average();
+
+                        var onTimeCompletions = completedTasks.Count(t => 
+                            t.CompletedDate.HasValue && 
+                            t.DueDate.HasValue && 
+                            t.CompletedDate.Value <= t.DueDate.Value);
+
+                        var performanceScore = CalculateTeamPerformanceScore(
+                            tasksCount,
+                            completedTasks.Count(),
+                            overdueTasks.Count(),
+                            onTimeCompletions,
+                            averageDuration
+                        );
+
+                        stats.TeamActivity = new TeamActivity
+                        {
+                            CompletedTasksCount = completedTasks.Count(),
+                            CompletionRate = Math.Round(completionRate, 1),
+                            AverageTaskDuration = Math.Round(averageDuration, 1),
+                            PerformanceScore = Math.Round(performanceScore, 1)
+                        };
+
+                        stats.TopContributors = await GetTopContributors(team, tasks.ToList());
+                    }
+                }
+
                 return Ok(stats);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving dashboard stats");
-                return BadRequest(new { message = ex.Message });
+                _logger.LogError(ex, "Error getting dashboard stats");
+                return StatusCode(500, new { message = "An error occurred while getting dashboard stats" });
             }
+        }
+
+        private async Task<List<TopContributor>> GetTopContributors(Team team, List<TaskItem> teamTasks)
+        {
+            var contributors = new List<TopContributor>();
+            
+            foreach (var member in team.Members ?? Enumerable.Empty<TeamMember>())
+            {
+                var userTasks = teamTasks
+                    .Where(t => t.AssignedUserIds?.Contains(member.Id) == true)
+                    .ToList();
+
+                var completedTasksCount = userTasks.Count(t => t.Status == "completed");
+                var score = CalculateUserPerformanceScore(userTasks);
+
+                var user = await _usersCollection.Find(u => u.Id == member.Id).FirstOrDefaultAsync();
+                if (user != null)
+                {
+                    contributors.Add(new TopContributor
+                    {
+                        Id = user.Id,
+                        Name = user.FullName ?? "Unknown",
+                        ProfileImage = user.ProfileImage ?? "",
+                        TasksCompleted = completedTasksCount,
+                        PerformanceScore = score,
+                        Role = user.Title ?? user.Position ?? "Team Member"
+                    });
+                }
+            }
+
+            return contributors
+                .OrderByDescending(c => c.PerformanceScore)
+                .Take(5)
+                .ToList();
+        }
+
+        private double CalculateTeamPerformanceScore(
+            int totalTasks,
+            int completedTasks,
+            int overdueTasks,
+            int onTimeCompletions,
+            double averageDuration)
+        {
+            if (totalTasks == 0) return 0;
+
+            const double completionWeight = 0.4;
+            const double onTimeWeight = 0.3;
+            const double overdueWeight = 0.2;
+            const double durationWeight = 0.1;
+
+            var completionScore = (completedTasks * 100.0) / totalTasks;
+            var onTimeScore = completedTasks > 0 ? (onTimeCompletions * 100.0) / completedTasks : 0;
+            var overdueScore = 100 - (totalTasks > 0 ? (overdueTasks * 100.0) / totalTasks : 0);
+            
+            var durationScore = averageDuration <= 5 ? 100 : Math.Max(0, 100 - ((averageDuration - 5) * 10));
+
+            var finalScore = (completionScore * completionWeight) +
+                            (onTimeScore * onTimeWeight) +
+                            (overdueScore * overdueWeight) +
+                            (durationScore * durationWeight);
+
+            return Math.Min(100, Math.Max(0, finalScore));
+        }
+
+        private double CalculateUserPerformanceScore(List<TaskItem> userTasks)
+        {
+            if (userTasks == null || userTasks.Count == 0) return 0;
+
+            var completedTasks = userTasks.Count(t => t.Status == "completed");
+            var overdueTasks = userTasks.Count(t => t.Status == "overdue");
+            var onTimeCompletions = userTasks.Count(t => 
+                t.Status == "completed" && 
+                t.CompletedDate.HasValue && 
+                t.DueDate.HasValue && 
+                t.CompletedDate.Value <= t.DueDate.Value);
+
+            var averageDuration = userTasks
+                .Where(t => t.CompletedDate.HasValue)
+                .Select(t => (t.CompletedDate!.Value - t.CreatedAt).TotalDays)
+                .DefaultIfEmpty(0)
+                .Average();
+
+            return CalculateTeamPerformanceScore(
+                userTasks.Count,
+                completedTasks,
+                overdueTasks,
+                onTimeCompletions,
+                averageDuration
+            );
+        }
+
+        private void InvalidateTaskRelatedCaches(TaskItem? task)
+        {
+            if (task == null) return;
+            
+            // Clear user-specific caches
+            if (task.AssignedUserIds != null)
+            {
+                foreach (var userId in task.AssignedUserIds)
+                {
+                    _cacheService.Remove($"user_tasks_{userId}");
+                    _cacheService.Remove($"active_tasks_{userId}");
+                }
+            }
+
+            // Clear team-specific caches
+            if (!string.IsNullOrEmpty(task.TeamId))
+            {
+                _cacheService.Remove($"team_tasks_{task.TeamId}");
+                _cacheService.Remove($"team_stats_{task.TeamId}");
+            }
+
+            // Clear global caches
+            _cacheService.Remove("dashboard_stats");
+            _cacheService.Remove("all_tasks");
         }
         
         [HttpGet("history")]
@@ -801,88 +1005,6 @@ namespace JobTrackingAPI.Controllers
             {
                 _logger.LogError(ex, "Error retrieving task history");
                 return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
-            }
-        }
-        
-        // Helper method to invalidate all related caches when a task is modified
-        private void InvalidateTaskRelatedCaches(TaskItem task)
-        {
-            try
-            {
-                _logger.LogInformation("Task-related caches are being invalidated for TaskId={TaskId}", task?.Id ?? "unknown");
-                
-                // Tüm görevler önbelleğini sil
-                _cacheService.Remove("all_tasks");
-                
-                // Görevler sorguları için tüm önbellekleri temizle
-                var userIds = new List<string>();
-                
-                // Atanmış kullanıcılar için önbellekleri temizle
-                if (task?.AssignedUserIds != null)
-                {
-                    foreach (var userId in task.AssignedUserIds)
-                    {
-                        userIds.Add(userId);
-                    }
-                }
-                
-                // Görevi oluşturan kullanıcının önbelleğini de temizle
-                if (task?.CreatedBy != null && !string.IsNullOrEmpty(task.CreatedBy.Id))
-                {
-                    userIds.Add(task.CreatedBy.Id);
-                }
-                
-                // Tüm etkilenen kullanıcıların önbelleklerini temizle
-                foreach (var userId in userIds.Distinct())
-                {
-                    // Kullanıcının göreve özgü önbellekleri
-                    string userTasksCacheKey = $"user_tasks_{userId}";
-                    string allTasksUserCacheKey = $"all_tasks_{userId}";
-                    string activeTasksCacheKey = $"active_tasks_{userId}";
-                    string completedTasksCacheKey = $"completed_tasks_{userId}";
-                    
-                    _cacheService.Remove(userTasksCacheKey);
-                    _cacheService.Remove(allTasksUserCacheKey);
-                    _cacheService.Remove(activeTasksCacheKey);
-                    _cacheService.Remove(completedTasksCacheKey);
-                    
-                    _logger.LogInformation("Invalidated task caches for user {UserId}", userId);
-                }
-                
-                // Ekibe özel önbellekleri temizle
-                if (!string.IsNullOrEmpty(task?.TeamId))
-                {
-                    string teamTasksCacheKey = $"team_tasks_{task.TeamId}";
-                    _cacheService.Remove(teamTasksCacheKey);
-                    _logger.LogInformation("Invalidated task caches for team {TeamId}", task.TeamId);
-                }
-                
-                // Görev geçmişi ve pano önbelleklerini temizle
-                _cacheService.Remove("task_history");
-                _cacheService.Remove("dashboard_stats");
-                
-                // Görev durumu tamamlandı veya süresi geçmiş ise özel önbellekleri temizle
-                if (task?.Status == "completed" || task?.Status == "overdue")
-                {
-                    // Kullanıcıya özel görev geçmişi önbelleklerini temizle
-                    if (task.AssignedUserIds != null)
-                    {
-                        foreach (var userId in task.AssignedUserIds)
-                        {
-                            string taskHistoryCacheKey = $"task_history_{userId}";
-                            string dashboardStatsCacheKey = $"dashboard_stats_{userId}";
-                            _cacheService.Remove(taskHistoryCacheKey);
-                            _cacheService.Remove(dashboardStatsCacheKey);
-                        }
-                    }
-                }
-                
-                _logger.LogInformation("Task-related caches invalidation completed for TaskId={TaskId}", task?.Id ?? "unknown");
-            }
-            catch (Exception ex)
-            {
-                // Don't let cache issues block the main operation
-                _logger.LogError(ex, "Error during cache invalidation for task {TaskId}, continuing operation", task?.Id ?? "unknown");
             }
         }
     }

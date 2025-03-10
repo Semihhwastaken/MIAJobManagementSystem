@@ -68,11 +68,12 @@ namespace JobTrackingAPI.Models
             Status = task.Status;
             Priority = task.Priority;
             Category = task.Category;
-            DueDate = task.DueDate;
+            DueDate = task.DueDate ?? DateTime.UtcNow; // Fix: Add null coalescing operator to handle nullable DateTime
             AssignedUsers = new List<AssignedUser>(task.AssignedUsers);
             ChangedOn = DateTime.UtcNow;
             ChangedBy = changedBy;
             ChangeType = changeType;
+            Timestamp = DateTime.UtcNow; // Ensure Timestamp is set to a non-nullable value
         }
     }
 }

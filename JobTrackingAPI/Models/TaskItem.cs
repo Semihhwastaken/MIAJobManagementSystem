@@ -90,23 +90,23 @@ namespace JobTrackingAPI.Models
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; } = string.Empty;
+        public string Id { get; set; } = null!;
     
         [BsonElement("title")]
         [JsonPropertyName("title")]
-        public string Title { get; set; } = string.Empty;
+        public string Title { get; set; } = null!;
     
         [BsonElement("description")]
         [JsonPropertyName("description")]
-        public string Description { get; set; } = string.Empty;
+        public string? Description { get; set; }
     
         [BsonElement("status")]
         [JsonPropertyName("status")]
-        public string Status { get; set; } = string.Empty;
+        public string Status { get; set; } = "pending";
     
         [BsonElement("priority")]
         [JsonPropertyName("priority")]
-        public string Priority { get; set; } = string.Empty;
+        public string Priority { get; set; } = "medium";
     
         [BsonElement("category")]
         [JsonPropertyName("category")]
@@ -126,7 +126,7 @@ namespace JobTrackingAPI.Models
     
         [BsonElement("dueDate")]
         [JsonPropertyName("dueDate")]
-        public DateTime DueDate { get; set; }
+        public DateTime? DueDate { get; set; }
     
         [BsonElement("createdAt")]
         [JsonPropertyName("createdAt")]
@@ -142,11 +142,11 @@ namespace JobTrackingAPI.Models
     
         [BsonElement("subTasks")]
         [JsonPropertyName("subTasks")]
-        public List<SubTask> SubTasks { get; set; } = new List<SubTask>();
+        public List<SubTask>? SubTasks { get; set; } = new List<SubTask>();
     
         [BsonElement("attachments")]
         [JsonPropertyName("attachments")]
-        public List<TaskAttachment> Attachments { get; set; } = new List<TaskAttachment>();
+        public List<TaskAttachment>? Attachments { get; set; } = new List<TaskAttachment>();
     
         [BsonElement("comments")]
         [JsonPropertyName("comments")]
@@ -154,11 +154,11 @@ namespace JobTrackingAPI.Models
     
         [BsonElement("teamId")]
         [JsonPropertyName("teamId")]
-        public string TeamId { get; set; } = string.Empty;
+        public string? TeamId { get; set; }
 
         [BsonElement("dependencies")]
         [JsonPropertyName("dependencies")]
-        public List<string> Dependencies { get; set; } = new List<string>();
+        public List<string>? Dependencies { get; set; } = new List<string>();
 
         [BsonElement("completedDate")]
         [JsonPropertyName("completedDate")]

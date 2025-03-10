@@ -20,16 +20,17 @@ namespace JobTrackingAPI.Controllers
     {
         private readonly ITeamService _teamService;
         private readonly IUserService _userService;
+        private readonly ITasksService _tasksService;
         private readonly IMongoDatabase _database;
         private readonly IMemoryCache _cache;
         private readonly ILogger<TeamController> _logger;
-        private static readonly SemaphoreSlim _updateStatusSemaphore = new SemaphoreSlim(1, 1);
-        private static DateTime _lastStatusUpdate = DateTime.MinValue;
         private readonly NotificationService _notificationService;
+        private readonly IMongoCollection<User> _usersCollection;
 
         public TeamController(
             ITeamService teamService, 
-            IUserService userService, 
+            IUserService userService,
+            ITasksService tasksService,
             IMongoDatabase database, 
             IMemoryCache memoryCache,
             ILogger<TeamController> logger,
@@ -37,10 +38,12 @@ namespace JobTrackingAPI.Controllers
         {
             _teamService = teamService;
             _userService = userService;
+            _tasksService = tasksService;
             _database = database;
             _cache = memoryCache;
             _logger = logger;
             _notificationService = notificationService;
+            _usersCollection = database.GetCollection<User>("Users");
         }
 
         [HttpGet("members/{userId}/performance")]
@@ -51,7 +54,7 @@ namespace JobTrackingAPI.Controllers
                 var cacheKey = $"performance_{userId}";
                 
                 // Try to get performance from cache
-                if (_cache.TryGetValue(cacheKey, out PerformanceScore cachedPerformance))
+                if (_cache.TryGetValue(cacheKey, out PerformanceScore? cachedPerformance))
                 {
                     return Ok(cachedPerformance);
                 }
@@ -118,7 +121,7 @@ namespace JobTrackingAPI.Controllers
                 var cacheKey = $"teams_{userId}";
                 
                 // Check if teams are cached
-                if (_cache.TryGetValue(cacheKey, out List<Team> cachedTeams))
+                if (_cache.TryGetValue(cacheKey, out List<Team>? cachedTeams))
                 {
                     return Ok(cachedTeams);
                 }
@@ -153,7 +156,7 @@ namespace JobTrackingAPI.Controllers
                 var cacheKey = $"myTeams_{userId}";
                 
                 // Check if teams are cached
-                if (_cache.TryGetValue(cacheKey, out List<Team> cachedTeams))
+                if (_cache.TryGetValue(cacheKey, out List<Team>? cachedTeams))
                 {
                     return Ok(cachedTeams);
                 }
@@ -179,7 +182,7 @@ namespace JobTrackingAPI.Controllers
                 var cacheKey = "all_members";
                 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out List<TeamMember> cachedMembers))
+                if (_cache.TryGetValue(cacheKey, out List<TeamMember>? cachedMembers))
                 {
                     return Ok(cachedMembers);
                 }
@@ -205,7 +208,7 @@ namespace JobTrackingAPI.Controllers
                 var cacheKey = "departments";
                 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out List<string> cachedDepartments))
+                if (_cache.TryGetValue(cacheKey, out List<string>? cachedDepartments))
                 {
                     return Ok(cachedDepartments);
                 }
@@ -231,7 +234,7 @@ namespace JobTrackingAPI.Controllers
                 var cacheKey = $"members_dept_{department}";
                 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out List<TeamMember> cachedMembers))
+                if (_cache.TryGetValue(cacheKey, out List<TeamMember>? cachedMembers))
                 {
                     return Ok(cachedMembers);
                 }
@@ -287,7 +290,7 @@ namespace JobTrackingAPI.Controllers
 
                 // Önbellekte var mı kontrol et
                 var cacheKey = $"team_members_{teamId}";
-                if (_cache.TryGetValue(cacheKey, out List<TeamMember> cachedMembers))
+                if (_cache.TryGetValue(cacheKey, out List<TeamMember>? cachedMembers))
                 {
                     _logger.LogInformation("Takım üyeleri önbellekten alındı: {TeamId}", teamId);
                     return Ok(cachedMembers);
@@ -306,8 +309,6 @@ namespace JobTrackingAPI.Controllers
             {
                 _logger.LogError(ex, "Takım üyeleri alınırken hata: {TeamId}", teamId);
                 return StatusCode(500, new { message = $"Takım üyeleri alınırken bir hata oluştu: {ex.Message}" });
-                _logger.LogError(ex, "Takım üyeleri alınırken hata oluştu: {TeamId}", teamId);
-                return StatusCode(500, new { message = ex.Message });
             }
         }
 
@@ -400,7 +401,7 @@ namespace JobTrackingAPI.Controllers
                             Id = userId,
                             Username = user.Username,
                             Email = user.Email,
-                            FullName = user.FullName,
+                            FullName = user.FullName ?? string.Empty,
                             Department = request.Department,
                             ProfileImage = user.ProfileImage,
                             Title = user.Title,
@@ -715,7 +716,7 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
-                Team updatedTeam = null;
+                Team? updatedTeam = null;
                 foreach (var expertise in request.Experties)
                 {
                     updatedTeam = await _teamService.AddExpertiesAsync(memberId, expertise);
@@ -755,7 +756,7 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 // Sadece Owner rolündeki kullanıcılar departmanları güncelleyebilir
-                var isOwner = team.Members.Any(m => m.Id == userId && m.Role == "Owner");
+                var isOwner = team.Members?.Any(m => m.Id == userId && m.Role == "Owner") ?? false;
                 if (!isOwner)
                 {
                     return Forbid("Bu işlemi sadece takım sahibi yapabilir");
@@ -804,13 +805,161 @@ namespace JobTrackingAPI.Controllers
                 return StatusCode(500, new { message = "An error occurred while updating member statuses", error = ex.Message });
             }
         }
-        
-        private void ClearTeamRelatedCaches(string teamId)
+
+        [HttpGet("{id}/activity")]
+        public async Task<IActionResult> GetTeamActivity(string id)
         {
+            try
+            {
+                if (string.IsNullOrEmpty(id))
+                    return BadRequest("Team ID is required");
+
+                var team = await _teamService.GetTeamById(id);
+                if (team == null)
+                    return NotFound("Team not found");
+
+                var teamTasks = await _tasksService.GetTasksByTeamsAsync(new List<string> { id }); // Fixed method name from GetTasksByTeamAsync to GetTasksByTeamsAsync
+                if (teamTasks == null || !teamTasks.Any())
+                    return Ok(new { message = "No tasks found" });
+                
+                var tasksList = teamTasks.ToList(); // Convert to List to avoid multiple enumerations
+                var completedTasks = tasksList.Where(t => t.Status == "completed").ToList();
+                var completionRate = tasksList.Count > 0 ? (completedTasks.Count() * 100.0) / tasksList.Count : 0;
+
+                var averageDuration = completedTasks
+                    .Where(t => t.CompletedDate.HasValue)
+                    .Select(t => (t.CompletedDate!.Value - t.CreatedAt).TotalDays)
+                    .DefaultIfEmpty(0)
+                    .Average();
+
+                var overdueTasksCount = tasksList.Count(t => t.Status == "overdue");
+                var onTimeCompletions = completedTasks.Count(t => 
+                    t.CompletedDate.HasValue && 
+                    t.DueDate.HasValue && 
+                    t.CompletedDate.Value <= t.DueDate.Value);
+
+                var performanceScore = CalculateTeamPerformanceScore(
+                    tasksList.Count,
+                    completedTasks.Count(),
+                    overdueTasksCount,
+                    onTimeCompletions,
+                    averageDuration
+                );
+
+                var teamMembers = team.Members ?? new List<TeamMember>();
+                var topContributors = new List<dynamic>();
+
+                foreach (var member in teamMembers)
+                {
+                    var userTasks = tasksList.Where(t => 
+                        t.AssignedUserIds != null && 
+                        t.AssignedUserIds.Contains(member.Id)).ToList();
+
+                    var memberCompletedTasks = userTasks.Count(t => t.Status == "completed");
+                    var memberScore = CalculateUserPerformanceScore(userTasks);
+
+                    var user = await _usersCollection.Find(u => u.Id == member.Id).FirstOrDefaultAsync();
+                    if (user != null)
+                    {
+                        topContributors.Add(new
+                        {
+                            id = user.Id,
+                            name = user.FullName ?? "Unknown",
+                            profileImage = user.ProfileImage ?? "",
+                            tasksCompleted = memberCompletedTasks,
+                            performanceScore = memberScore,
+                            role = user.Title ?? user.Position ?? "Team Member"
+                        });
+                    }
+                }
+
+                var response = new
+                {
+                    activity = new
+                    {
+                        completedTasksCount = completedTasks.Count(),
+                        completionRate = completionRate,
+                        averageTaskDuration = Math.Round(averageDuration, 1),
+                        performanceScore = Math.Round(performanceScore, 1)
+                    },
+                    topContributors = topContributors.OrderByDescending(c => c.performanceScore).Take(5)
+                };
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting team activity for team {TeamId}", id);
+                return StatusCode(500, new { message = "Internal server error" });
+            }
+        }
+
+        private double CalculateTeamPerformanceScore(
+            int totalTasks,
+            int completedTasks,
+            int overdueTasks,
+            int onTimeCompletions,
+            double averageDuration)
+        {
+            if (totalTasks == 0) return 0;
+
+            // Weight factors for different components
+            const double completionWeight = 0.4;
+            const double onTimeWeight = 0.3;
+            const double overdueWeight = 0.2;
+            const double durationWeight = 0.1;
+
+            // Calculate individual components
+            var completionScore = (completedTasks * 100.0) / totalTasks;
+            var onTimeScore = completedTasks > 0 ? (onTimeCompletions * 100.0) / completedTasks : 0;
+            var overdueScore = 100 - (totalTasks > 0 ? (overdueTasks * 100.0) / totalTasks : 0);
+            
+            // Duration score - inverse relationship (lower is better)
+            // Assuming 5 days is optimal, anything more reduces the score
+            var durationScore = averageDuration <= 5 ? 100 : Math.Max(0, 100 - ((averageDuration - 5) * 10));
+
+            // Calculate weighted average
+            var finalScore = (completionScore * completionWeight) +
+                            (onTimeScore * onTimeWeight) +
+                            (overdueScore * overdueWeight) +
+                            (durationScore * durationWeight);
+
+            return Math.Min(100, Math.Max(0, finalScore));
+        }
+
+        private double CalculateUserPerformanceScore(List<TaskItem>? userTasks)
+        {
+            if (userTasks == null || userTasks.Count == 0) return 0;
+
+            var completedTasks = userTasks.Count(t => t.Status == "completed");
+            var overdueTasks = userTasks.Count(t => t.Status == "overdue");
+            var onTimeCompletions = userTasks.Count(t => 
+                t.Status == "completed" && 
+                t.CompletedDate.HasValue && 
+                t.DueDate.HasValue && 
+                t.CompletedDate.Value <= t.DueDate.Value);
+
+            var averageDuration = userTasks
+                .Where(t => t.CompletedDate.HasValue)
+                .Select(t => (t.CompletedDate!.Value - t.CreatedAt).TotalDays)
+                .DefaultIfEmpty(0)
+                .Average();
+
+            return CalculateTeamPerformanceScore(
+                userTasks.Count,
+                completedTasks,
+                overdueTasks,
+                onTimeCompletions,
+                averageDuration
+            );
+        }
+        
+        private void ClearTeamRelatedCaches(string? teamId)
+        {
+            if (string.IsNullOrEmpty(teamId)) return;
+            
             _cache.Remove($"team_members_{teamId}");
             _cache.Remove($"team_{teamId}");
-            
-            // Clear all-members cache as it may contain team members
             _cache.Remove("all_members");
         }
         
