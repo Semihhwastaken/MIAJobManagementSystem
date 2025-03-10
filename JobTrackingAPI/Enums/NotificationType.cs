@@ -18,5 +18,6 @@ namespace JobTrackingAPI.Enums
         TeamStatusCreated,
         TeamStatusUpdated,
         TeamStatusDeleted,
+        FeedbackResponse,
     }
 }
