@@ -18,12 +18,13 @@ namespace JobTrackingAPI.Services
         Task AddTaskToHistory(string userId, string taskId);
         Task AddToAssignedJobs(string userId, string taskId);
         Task RemoveFromAssignedJobs(string userId, string taskId);
-        
+
         // Yeni eklenen metodlar
         Task<List<User>> GetUsersByIds(List<string> userIds);
         Task AddOwnerTeam(string userId, string teamId);
         Task AddMemberTeam(string userId, string teamId);
         Task RemoveOwnerTeam(string userId, string teamId);
         Task RemoveMemberTeam(string userId, string teamId);
+        Task UpdateUserSubscriptionAsync(string userId, string planType, string subscriptionId);
     }
-} 
+}

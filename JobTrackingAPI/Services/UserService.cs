@@ -5,18 +5,22 @@ using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using JobTrackingAPI.Settings;
 using System.Linq;
+using Microsoft.Extensions.Logging;
+using System;
 
 namespace JobTrackingAPI.Services
 {
     public class UserService : IUserService
     {
         private readonly IMongoCollection<User> _users;
+        private readonly ILogger<UserService> _logger;
 
-        public UserService(IOptions<MongoDbSettings> settings)
+        public UserService(IOptions<MongoDbSettings> settings, ILogger<UserService> logger)
         {
             var client = new MongoClient(settings.Value.ConnectionString);
             var database = client.GetDatabase(settings.Value.DatabaseName);
             _users = database.GetCollection<User>(settings.Value.UsersCollectionName);
+            _logger = logger;
         }
 
         public async Task<User> GetUserById(string id)
@@ -90,33 +94,73 @@ namespace JobTrackingAPI.Services
             {
                 return new List<User>();
             }
-            
+
             var filter = Builders<User>.Filter.In(u => u.Id, userIds);
             return await _users.Find(filter).ToListAsync();
         }
-        
+
         public async Task AddOwnerTeam(string userId, string teamId)
         {
             var update = Builders<User>.Update.AddToSet(u => u.OwnerTeams, teamId);
             await _users.UpdateOneAsync(u => u.Id == userId, update);
         }
-        
+
         public async Task AddMemberTeam(string userId, string teamId)
         {
             var update = Builders<User>.Update.AddToSet(u => u.MemberTeams, teamId);
             await _users.UpdateOneAsync(u => u.Id == userId, update);
         }
-        
+
         public async Task RemoveOwnerTeam(string userId, string teamId)
         {
             var update = Builders<User>.Update.Pull(u => u.OwnerTeams, teamId);
             await _users.UpdateOneAsync(u => u.Id == userId, update);
         }
-        
+
         public async Task RemoveMemberTeam(string userId, string teamId)
         {
             var update = Builders<User>.Update.Pull(u => u.MemberTeams, teamId);
             await _users.UpdateOneAsync(u => u.Id == userId, update);
+        }
+
+        public async Task UpdateUserSubscriptionAsync(string userId, string planType, string subscriptionId)
+        {
+            try
+            {
+                var user = await _users.Find(u => u.Id == userId).FirstOrDefaultAsync();
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found with ID: {UserId}", userId);
+                    return;
+                }
+
+                // Create update definition for subscription fields
+                var update = Builders<User>.Update
+                    .Set(u => u.SubscriptionPlan, planType)
+                    .Set(u => u.SubscriptionId, subscriptionId)
+                    .Set(u => u.SubscriptionDate, DateTime.UtcNow)
+                    .Set(u => u.SubscriptionExpiryDate, planType.ToLower() switch
+                    {
+                        "pro" => DateTime.UtcNow.AddMonths(1),
+                        "enterprise" => DateTime.UtcNow.AddYears(1),
+                        _ => DateTime.UtcNow.AddMonths(1)
+                    });
+
+                var result = await _users.UpdateOneAsync(u => u.Id == userId, update);
+                if (result.ModifiedCount > 0)
+                {
+                    _logger.LogInformation("Updated subscription for user {UserId} to plan {PlanType}", userId, planType);
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to update subscription for user {UserId}", userId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating subscription for user {UserId}", userId);
+                throw;
+            }
         }
     }
 }

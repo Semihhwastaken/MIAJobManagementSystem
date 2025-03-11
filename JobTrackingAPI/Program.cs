@@ -71,8 +71,8 @@ namespace JobTrackingAPI
                     {
                         var accessToken = context.Request.Query["access_token"];
                         var path = context.HttpContext.Request.Path;
-                        
-                        if (!string.IsNullOrEmpty(accessToken) && 
+
+                        if (!string.IsNullOrEmpty(accessToken) &&
                             path.StartsWithSegments("/chatHub"))
                         {
                             context.Token = accessToken;
@@ -114,6 +114,13 @@ namespace JobTrackingAPI
                 );
             });
 
+            // Add Stripe settings configuration
+            builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("StripeSettings"));
+            builder.Services.AddScoped<IStripeService, StripeService>();
+
+            // Configure Stripe
+            Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
+
             // Add Memory Cache
             builder.Services.AddMemoryCache();
             builder.Services.AddDistributedMemoryCache(); // IDistributedCache için in-memory implementasyon
@@ -149,9 +156,9 @@ namespace JobTrackingAPI
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo 
-                { 
-                    Title = "Job Tracking API", 
+                c.SwaggerDoc("v1", new OpenApiInfo
+                {
+                    Title = "Job Tracking API",
                     Version = "v1",
                     Description = "API for the Job Tracking Application"
                 });
@@ -197,7 +204,8 @@ namespace JobTrackingAPI
                 options.MultipartBodyLengthLimit = 100_000_000; // 100 MB
             });
 
-            builder.Services.AddSignalR(options => {
+            builder.Services.AddSignalR(options =>
+            {
                 options.MaximumReceiveMessageSize = 102400; // 100KB
                 options.EnableDetailedErrors = false;
                 options.MaximumParallelInvocationsPerClient = 2;
@@ -211,10 +219,10 @@ namespace JobTrackingAPI
             {
                 var mongoClient = app.Services.GetRequiredService<IMongoClient>();
                 var mongoSettings = app.Services.GetRequiredService<IOptions<MongoDbSettings>>().Value;
-                
+
                 // Bağlantıyı test et
                 mongoClient.ListDatabaseNames().ToList();
-                
+
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine($"MongoDB bağlantısı başarılı! Veritabanı: {mongoSettings.DatabaseName}");
                 Console.ResetColor();

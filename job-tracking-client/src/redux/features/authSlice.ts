@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import axios from 'axios';
 import { RESET_STATE } from './actionTypes';
 
@@ -7,10 +7,14 @@ interface AuthState {
     token: string | null;
     user: {
         id: string;
-        username:string;
+        username: string;
         email: string;
         fullName: string;
         role: string;
+        subscriptionPlan: string;
+        subscriptionStatus: string;
+        subscriptionId: string;
+        subscriptionEndDate: string | null;
     } | null;
     isAuthenticated: boolean;
     loading: boolean;
@@ -65,22 +69,35 @@ const authSlice = createSlice({
             localStorage.removeItem('token');
             localStorage.removeItem('user');
         },
-        setUser: (state, action) => {
+        setUser: (state, action: PayloadAction<AuthState['user']>) => {
             state.user = action.payload;
             state.isAuthenticated = !!action.payload;
             if (action.payload) {
                 localStorage.setItem('user', JSON.stringify(action.payload));
             }
         },
-        setToken: (state, action) => {
+        setToken: (state, action: PayloadAction<string>) => {
             state.token = action.payload;
             state.isAuthenticated = !!action.payload;
             if (action.payload) {
                 localStorage.setItem('token', action.payload);
             }
         },
-        setDataPreloaded: (state, action) => {
+        setDataPreloaded: (state, action: PayloadAction<boolean>) => {
             state.dataPreloaded = action.payload;
+        },
+        updateSubscription: (state, action: PayloadAction<{
+            subscriptionPlan: string;
+            subscriptionStatus: string;
+            subscriptionId: string;
+            subscriptionEndDate: string | null;
+        }>) => {
+            if (state.user) {
+                state.user = {
+                    ...state.user,
+                    ...action.payload
+                };
+            }
         }
     },
     extraReducers: (builder) => {
@@ -109,5 +126,5 @@ const authSlice = createSlice({
     }
 });
 
-export const { logout, setUser, setToken, setDataPreloaded } = authSlice.actions;
+export const { logout, setUser, setToken, setDataPreloaded, updateSubscription } = authSlice.actions;
 export default authSlice.reducer;
