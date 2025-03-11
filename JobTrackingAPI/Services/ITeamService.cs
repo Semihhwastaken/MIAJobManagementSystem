@@ -47,5 +47,6 @@ namespace JobTrackingAPI.Services
         Task<Team> UpdateTeamDepartmentsAsync(string teamId, List<DepartmentStats> departments);
         Task<(bool success, string message)> DeleteTeamAsync(string teamId, string userId);
         Task<Team> GetByInviteLinkAsync(string inviteLink);
+        Task<int> GetTotalTeamCount();
     }
 }

@@ -66,6 +66,9 @@ namespace JobTrackingAPI.Models
         [BsonElement("availabilitySchedule")]
         public AvailabilitySchedule? AvailabilitySchedule { get; set; }
 
+        [BsonElement("role")]
+        public string Role { get; set; } = "User"; // Default role is "User", can be "Admin" or "User"
+
         [BsonElement("onlineStatus")]
         public string OnlineStatus { get; set; } = "offline";
 

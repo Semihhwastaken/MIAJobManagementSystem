@@ -29,5 +29,6 @@ export interface AuthResponse {
         phone: string;
         position: string;
         profileImage?: string;
+        role: string;
     };
 }

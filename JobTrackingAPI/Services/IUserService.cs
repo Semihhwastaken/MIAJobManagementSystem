@@ -25,5 +25,9 @@ namespace JobTrackingAPI.Services
         Task AddMemberTeam(string userId, string teamId);
         Task RemoveOwnerTeam(string userId, string teamId);
         Task RemoveMemberTeam(string userId, string teamId);
+
+        Task<int> GetTotalUserCount();
+        Task<int> GetActiveUserCount();
+        Task<List<User>> GetPaginatedUsers(int page, int pageSize);
     }
-} 
+}

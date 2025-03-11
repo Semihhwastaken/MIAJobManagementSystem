@@ -3,15 +3,18 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 import { RESET_STATE } from './actionTypes';
 
+interface User {
+    id: string;
+    username: string;
+    email: string;
+    fullName: string;
+    department: string;
+    role: string; // Add role to User interface
+}
+
 interface AuthState {
     token: string | null;
-    user: {
-        id: string;
-        username:string;
-        email: string;
-        fullName: string;
-        role: string;
-    } | null;
+    user: User | null;
     isAuthenticated: boolean;
     loading: boolean;
     error: string | null;
@@ -43,10 +46,20 @@ export const login = createAsyncThunk(
             const response = await axios.post('/api/auth/login', credentials);
             const { token, user } = response.data;
             
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(user));
+            // Make sure we store the role along with other user data
+            const userData = {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                fullName: user.fullName,
+                department: user.department,
+                role: user.role // Include role in stored user data
+            };
             
-            return { token, user };
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(userData));
+            
+            return { token, user: userData };
         } catch (error: any) {
             return rejectWithValue(error.response?.data?.message || 'Giriş yapılırken bir hata oluştu');
         }

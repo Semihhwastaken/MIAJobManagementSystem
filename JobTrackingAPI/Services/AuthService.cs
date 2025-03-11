@@ -389,6 +389,7 @@ namespace JobTrackingAPI.Services
                     new Claim(ClaimTypes.NameIdentifier, user.Id),
                     new Claim(ClaimTypes.Name, user.Username),
                     new Claim(ClaimTypes.Email, user.Email),
+                    new Claim(ClaimTypes.Role, user.Role), // Add role claim
                     new Claim("FullName", user.FullName ?? string.Empty),
                     new Claim("Department", user.Department ?? string.Empty)
                 }),

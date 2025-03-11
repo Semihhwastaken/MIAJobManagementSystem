@@ -24,6 +24,8 @@ import { SnackbarProvider } from 'notistack';
 import { RootState } from './redux/store';
 import { fetchTasks } from './redux/features/tasksSlice';
 import { AppDispatch } from './redux/store';
+import FeedbackButton from './components/Feedback/FeedbackButton';
+import AdminDashboard from './pages/Admin/AdminDashboard';
 
 const AppContent: React.FC = () => {
   const { isDarkMode } = useTheme();
@@ -83,6 +85,7 @@ const AppContent: React.FC = () => {
         try {
           const response = await getCurrentUser();
           if (response.user) {
+            console.log('Current user data:', response.user); // Debug log
             dispatch(setUser(response.user));
           }
         } catch (error) {
@@ -282,10 +285,27 @@ const AppContent: React.FC = () => {
                     )
                   }
                 />
+                <Route
+                  path="/admin"
+                  element={
+                    isAuthenticated && user?.role === 'Admin' ? (
+                      (() => {
+                        console.log('User role:', user?.role); // Add this debug log
+                        return <AdminDashboard />;
+                      })()
+                    ) : (
+                      (() => {
+                        console.log('Access denied. Auth:', isAuthenticated, 'Role:', user?.role); // Add this debug log
+                        return <Navigate to="/" replace />;
+                      })()
+                    )
+                  }
+                />
               </Routes>
             </Layout>
           </Router>
         </AuthContext.Provider>
+        <FeedbackButton />
       </div>
       <Toaster position="top-right" />
     </MuiThemeProvider>
@@ -309,8 +329,10 @@ const App: React.FC = () => {
           username: userData.username,
           email: userData.email,
           fullName: userData.fullName,
-          department: userData.department
+          department: userData.department,
+          role: userData.role  // Make sure role is included here
         }));
+        console.log('Initialized user data:', userData); // Debug log
       } catch (error) {
         console.error('Error initializing auth state:', error);
         localStorage.removeItem('user');

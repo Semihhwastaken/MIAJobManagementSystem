@@ -56,6 +56,9 @@ namespace JobTrackingAPI.Models
         [BsonElement("respondedAt")]
         public DateTime? RespondedAt { get; set; }
 
+        [BsonElement("lastUpdated")]
+        public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
+
         [BsonElement("isRead")]
         public bool IsRead { get; set; } = false;
     }

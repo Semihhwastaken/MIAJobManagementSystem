@@ -71,7 +71,7 @@ namespace JobTrackingAPI.Controllers
                 request.ProfileImage
             );
 
-            if (!success)
+            if (!success || user == null)
             {
                 return BadRequest(new { message });
             }
@@ -159,6 +159,7 @@ namespace JobTrackingAPI.Controllers
                         fullName = user.FullName,
                         username = user.Username,
                         department = user.Department,
+                        role = user.Role, // Add role to the response
                         title = user.Title,
                         position = user.Position,
                         phone = user.Phone,
@@ -229,7 +230,8 @@ namespace JobTrackingAPI.Controllers
                         performanceScore = user.PerformanceScore,
                         completedTasksCount = user.CompletedTasksCount,
                         createdDate = user.CreatedDate,
-                        lastLoginDate = user.LastLoginDate
+                        lastLoginDate = user.LastLoginDate,
+                        role = user.Role
                     } 
                 });
             }
@@ -241,7 +243,7 @@ namespace JobTrackingAPI.Controllers
 
         [Authorize]
         [HttpPost("logout")]
-        public async Task<IActionResult> Logout()
+        public IActionResult Logout()
         {
             try
             {

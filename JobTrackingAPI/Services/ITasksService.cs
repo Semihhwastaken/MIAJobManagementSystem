@@ -21,5 +21,6 @@ namespace JobTrackingAPI.Services
         Task<IEnumerable<TaskItem>> GetTasksByTeamsAsync(List<string> teamIds);
         Task<bool> AssignUserToTaskAsync(string taskId, string userId);
         Task<bool> RemoveUserFromTaskAsync(string taskId, string userId);
+        Task<int> GetTotalTaskCount();
     }
 }

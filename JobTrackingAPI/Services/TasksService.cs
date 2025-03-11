@@ -472,5 +472,10 @@ namespace JobTrackingAPI.Services
                 return task;
             }
         }
+
+        public async Task<int> GetTotalTaskCount()
+        {
+            return (int)await _tasks.CountDocumentsAsync(Builders<TaskItem>.Filter.Empty);
+        }
     }
 }

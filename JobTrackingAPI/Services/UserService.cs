@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using JobTrackingAPI.Settings;
 using System.Linq;
+using System;
 
 namespace JobTrackingAPI.Services
 {
@@ -117,6 +118,49 @@ namespace JobTrackingAPI.Services
         {
             var update = Builders<User>.Update.Pull(u => u.MemberTeams, teamId);
             await _users.UpdateOneAsync(u => u.Id == userId, update);
+        }
+
+        public async Task<int> GetTotalUserCount()
+        {
+            try
+            {
+                return (int)await _users.CountDocumentsAsync(Builders<User>.Filter.Empty);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting total user count: {ex.Message}");
+                return 0;
+            }
+        }
+
+        public async Task<int> GetActiveUserCount()
+        {
+            try
+            {
+                var filter = Builders<User>.Filter.Eq(u => u.UserStatus, "active");
+                return (int)await _users.CountDocumentsAsync(filter);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting active user count: {ex.Message}");
+                return 0;
+            }
+        }
+
+        public async Task<List<User>> GetPaginatedUsers(int page, int pageSize)
+        {
+            try
+            {
+                return await _users.Find(Builders<User>.Filter.Empty)
+                    .Skip((page - 1) * pageSize)
+                    .Limit(pageSize)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting paginated users: {ex.Message}");
+                return new List<User>();
+            }
         }
     }
 }

@@ -60,4 +60,29 @@ if (token) {
     );
 });
 
+axiosInstance.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+            console.log('Request with token:', config.url, token); // Debug log
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
+axiosInstance.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        console.error('API Error:', error.response?.status, error.response?.data); // Debug log
+        if (error.response?.status === 403) {
+            console.error('Permission denied - User role:', JSON.parse(localStorage.getItem('user') || '{}').role);
+        }
+        return Promise.reject(error);
+    }
+);
+
 export { axiosInstance as default, notificationAxiosInstance };

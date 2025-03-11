@@ -1417,4 +1417,9 @@ public class TeamService : ITeamService
             return null;
         }
     }
+
+    public async Task<int> GetTotalTeamCount()
+    {
+        return (int)await _teams.CountDocumentsAsync(Builders<Team>.Filter.Empty);
+    }
 }

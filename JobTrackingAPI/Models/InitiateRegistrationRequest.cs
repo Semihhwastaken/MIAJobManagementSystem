@@ -30,6 +30,7 @@ namespace JobTrackingAPI.Models
 
         [Required(ErrorMessage = "Pozisyon gereklidir")]
         public required string Position { get; set; }
+        public string? Role { get; set; } = "User";
 
         public string? ProfileImage { get; set; }
     }

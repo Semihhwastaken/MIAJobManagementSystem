@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using JobTrackingAPI.Models;
 using JobTrackingAPI.Services;
-using MongoDB.Driver;
+using JobTrackingAPI.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 
 namespace JobTrackingAPI.Controllers
@@ -10,94 +10,129 @@ namespace JobTrackingAPI.Controllers
     [Route("api/[controller]")]
     public class FeedbackController : ControllerBase
     {
-        private readonly IMongoCollection<Feedback> _feedback;
+        private readonly IFeedbackService _feedbackService;
         private readonly INotificationService _notificationService;
+        private readonly ILogger<FeedbackController> _logger;
 
-        public FeedbackController(IMongoDatabase database, INotificationService notificationService)
+        public FeedbackController(
+            IFeedbackService feedbackService,
+            INotificationService notificationService,
+            ILogger<FeedbackController> logger)
         {
-            _feedback = database.GetCollection<Feedback>("Feedbacks");
+            _feedbackService = feedbackService;
             _notificationService = notificationService;
+            _logger = logger;
         }
 
         [HttpGet("public")]
         public async Task<ActionResult<IEnumerable<Feedback>>> GetPublicFeedbacks()
         {
-            var feedbacks = await _feedback
-                .Find(f => f.IsPublic)
-                .SortByDescending(f => f.CreatedAt)
-                .Limit(10)
-                .ToListAsync();
-            return Ok(feedbacks);
+            try
+            {
+                var feedbacks = await _feedbackService.GetPublicFeedbacksAsync();
+                return Ok(feedbacks);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting public feedbacks");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         [Authorize]
         [HttpPost]
         public async Task<ActionResult<Feedback>> CreateFeedback([FromBody] Feedback feedback)
         {
-            await _feedback.InsertOneAsync(feedback);
-        
-
-            return CreatedAtAction(nameof(GetPublicFeedbacks), new { id = feedback.Id }, feedback);
+            try
+            {
+                var createdFeedback = await _feedbackService.CreateFeedbackAsync(feedback);
+                return CreatedAtAction(nameof(GetPublicFeedbacks), new { id = createdFeedback.Id }, createdFeedback);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating feedback");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Feedback>>> GetAllFeedbacks([FromQuery] string? status)
         {
-            var filter = Builders<Feedback>.Filter.Empty;
-            if (!string.IsNullOrEmpty(status) && Enum.TryParse<FeedbackStatus>(status, out var feedbackStatus))
+            try
             {
-                filter = Builders<Feedback>.Filter.Eq(f => f.Status, feedbackStatus);
+                var feedbacks = await _feedbackService.GetAllFeedbacksAsync(status);
+                return Ok(feedbacks);
             }
-
-            var feedbacks = await _feedback
-                .Find(filter)
-                .SortByDescending(f => f.CreatedAt)
-                .ToListAsync();
-            return Ok(feedbacks);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all feedbacks");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         [Authorize(Roles = "Admin")]
         [HttpPut("{id}/status")]
         public async Task<ActionResult> UpdateFeedbackStatus(string id, [FromBody] FeedbackStatusUpdate update)
         {
-            var feedback = await _feedback.FindOneAndUpdateAsync(
-                f => f.Id == id,
-                Builders<Feedback>.Update
-                    .Set(f => f.Status, update.Status)
-                    .Set(f => f.AdminResponse, update.Response)
-                    .Set(f => f.RespondedAt, update.Status == FeedbackStatus.Responded ? DateTime.UtcNow : (DateTime?)null)
-            );
-
-            if (feedback == null)
-                return NotFound();
-
-            if (update.Status == FeedbackStatus.Responded && update.Response != null)
+            try
             {
-                await _notificationService.SendFeedbackResponseNotificationAsync(
-                    feedback.UserId,
-                    feedback.Content,
-                    update.Response
-                );
-            }
+                var feedback = await _feedbackService.UpdateFeedbackStatusAsync(id, update.Status, update.Response);
+                
+                if (feedback == null)
+                    return NotFound();
 
-            return NoContent();
+                if (update.Status == FeedbackStatus.Responded && update.Response != null)
+                {
+                    await _notificationService.SendFeedbackResponseNotificationAsync(
+                        feedback.UserId,
+                        feedback.Content,
+                        update.Response
+                    );
+                }
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating feedback status: {Id}", id);
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         [Authorize(Roles = "Admin")]
         [HttpGet("stats")]
-        public async Task<ActionResult<object>> GetFeedbackStats()
+        public async Task<ActionResult<FeedbackStats>> GetFeedbackStats()
         {
-            var allFeedbacks = await _feedback.Find(_ => true).ToListAsync();
-            
-            return Ok(new
+            try
             {
-                total = allFeedbacks.Count,
-                newFeedbacks = allFeedbacks.Count(f => f.Status == FeedbackStatus.New),
-                responded = allFeedbacks.Count(f => f.Status == FeedbackStatus.Responded),
-                archived = allFeedbacks.Count(f => f.Status == FeedbackStatus.Archived),
-                averageRating = allFeedbacks.Any() ? allFeedbacks.Average(f => f.Rating) : 0
-            });
+                var stats = await _feedbackService.GetFeedbackStatsAsync();
+                return Ok(stats);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting feedback stats");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpDelete("{id}")]
+        public async Task<ActionResult> DeleteFeedback(string id)
+        {
+            try
+            {
+                var result = await _feedbackService.DeleteFeedbackAsync(id);
+                if (!result)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting feedback: {Id}", id);
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         public class FeedbackStatusUpdate

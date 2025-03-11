@@ -9,8 +9,10 @@ using Microsoft.OpenApi.Models;
 using JobTrackingAPI.Filters;
 using MongoDB.Driver;
 using System.Text;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.FileProviders;
+using JobTrackingAPI.Interfaces;
 
 namespace JobTrackingAPI
 {
@@ -61,6 +63,7 @@ namespace JobTrackingAPI
                     ValidateIssuer = false,
                     ValidateAudience = false,
                     ValidateLifetime = true,
+                    RoleClaimType = ClaimTypes.Role, // Add this line
                     ClockSkew = TimeSpan.Zero
                 };
 
@@ -92,8 +95,8 @@ namespace JobTrackingAPI
 
             builder.Services.AddScoped<IMongoDatabase>(sp =>
             {
-                var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
                 var client = sp.GetRequiredService<IMongoClient>();
+                var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
                 return client.GetDatabase(settings.DatabaseName);
             });
 
@@ -137,6 +140,8 @@ namespace JobTrackingAPI
             builder.Services.AddScoped<INotificationService, NotificationService>();
             builder.Services.AddScoped<CalendarEventService>();
             builder.Services.AddScoped<DashboardService>();
+            builder.Services.AddSingleton<ISystemMonitoringService, SystemMonitoringService>();
+            builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 
             // Register background services
             builder.Services.AddHostedService<StatusUpdateBackgroundService>();
