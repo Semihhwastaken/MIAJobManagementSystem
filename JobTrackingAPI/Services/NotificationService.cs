@@ -210,5 +210,18 @@ namespace JobTrackingAPI.Services
                 return false;
             }
         }
+
+        public async Task<bool> SendFeedbackResponseNotificationAsync(string userId, string feedbackContent, string response)
+        {
+            var notification = new NotificationDto
+            {
+                UserId = userId,
+                Title = "Geri Bildiriminize Yanıt",
+                Message = $"'{feedbackContent.Substring(0, Math.Min(50, feedbackContent.Length))}...' için yanıt: {response}",
+                Type = NotificationType.FeedbackResponse,
+            };
+
+            return await SendNotificationAsync(notification);
+        }
     }
 }

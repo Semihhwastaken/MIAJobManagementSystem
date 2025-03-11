@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { ChatWindow } from '../../components/Chat/ChatWindow';
@@ -18,24 +19,43 @@ interface Conversation {
     avatar?: string;
 }
 
+interface TeamMember {
+    id: string;
+    username: string;
+    fullName: string;
+    department?: string;
+    title?: string;
+    position?: string;
+    profileImage?: string;
+}
+
+interface Team {
+    id: string;
+    name: string;
+    members: TeamMember[];
+}
+
+interface UserData {
+    id: string;
+    username: string;
+    fullName: string;
+    department?: string;
+    title?: string;
+    position?: string;
+    profileImage?: string;
+}
+
 const Chat: React.FC = () => {
     const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; profilImage?: string; } | null>(null);
     const [, setConversations] = useState<Conversation[]>([]);
+    const [expandedTeams, setExpandedTeams] = useState<{ [key: string]: boolean }>({});
+    const [searchQuery, setSearchQuery] = useState(''); // Add this line
 
-    interface User {
-        id?: string;
-        username: string;
-        email: string;
-        fullName?: string;
-        department?: string;
-        title?: string;
-        position?: string;
-        profileImage?: string;
-    }
+    // Update the userTeams state with proper typing
+    const [userTeams, setUserTeams] = useState<Team[]>([]);
 
-    const [availableUsers, setAvailableUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [, setError] = useState<string | null>(null);
     const currentUser = useSelector((state: RootState) => state.auth.user);
 
     const fetchUnreadCounts = useCallback(async () => {
@@ -88,23 +108,51 @@ const Chat: React.FC = () => {
        
     }, [currentUser?.id, fetchUnreadCounts]);
 
-    // Fetch available users
+    // Modify the useEffect for fetching teams with proper typing
     useEffect(() => {
-        const fetchAvailableUsers = async () => {
+        const fetchUserTeams = async () => {
             if (!currentUser?.id) return;
 
             try {
-                const response = await axiosInstance.get('/Users');
-                const users = response.data.filter((user: User) => user.id !== currentUser.id);
-                setAvailableUsers(users);
+                const teamsResponse = await axiosInstance.get<Team[]>('/Team');
+                const usersResponse = await axiosInstance.get<UserData[]>('/Users');
+                const usersMap = new Map(usersResponse.data.map(user => [user.id, user]));
+
+                const enrichedTeams = teamsResponse.data
+                    .filter(team => team.members.some(member => member.id === currentUser.id))
+                    .map(team => ({
+                        ...team,
+                        members: team.members.map(member => {
+                            const fullUserData = usersMap.get(member.id);
+                            return {
+                                ...member,
+                                fullName: fullUserData?.fullName || member.fullName || member.username || 'İsimsiz Üye',
+                                username: fullUserData?.username || member.username,
+                                department: fullUserData?.department || member.department,
+                                title: fullUserData?.title || member.title,
+                                position: fullUserData?.position || member.position,
+                                profileImage: fullUserData?.profileImage || member.profileImage
+                            };
+                        })
+                    }));
+
+                console.log('Enriched team members:', enrichedTeams);
+                setUserTeams(enrichedTeams);
             } catch (err) {
-                console.error('Error fetching available users:', err);
-                setError('Failed to load available users');
+                console.error('Error fetching teams:', err);
+                setError('Failed to load teams');
             }
         };
 
-        fetchAvailableUsers();
+        fetchUserTeams();
     }, [currentUser?.id]);
+
+    const toggleTeam = (teamId: string) => {
+        setExpandedTeams(prev => ({
+            ...prev,
+            [teamId]: !prev[teamId]
+        }));
+    };
 
     if (!currentUser) {
         return (
@@ -122,76 +170,125 @@ const Chat: React.FC = () => {
         );
     }
 
-    return (
-        <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-            {/* Left sidebar - User list */}
-            <div className="w-1/4 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-y-auto">
-                {/* Search bar */}
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                    <div className="relative">
-                        <input
-                            type="text"
-                            placeholder="Search users..."
-                            className="w-full px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 border-0 focus:ring-2 focus:ring-blue-500 dark:text-gray-200"
-                        />
-                        <div className="absolute right-3 top-2.5 text-gray-400">
-                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </div>
+    const filteredTeams = userTeams.map(team => ({
+        ...team,
+        members: team.members.filter(member => 
+            member.id !== currentUser?.id && // Don't show current user
+            (member.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+             member.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+             member.department?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+             member.title?.toLowerCase().includes(searchQuery.toLowerCase()))
+        )
+    })).filter(team => team.members.length > 0); // Only show teams with matching members
+
+    const renderLeftSidebar = () => (
+        <div className="w-1/4 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-y-auto">
+            {/* Modern Search bar */}
+            <div className="p-6">
+                <div className="relative">
+                    <input
+                        type="text"
+                        placeholder="Kullanıcı ara..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full px-5 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border-0 
+                        focus:ring-2 focus:ring-blue-500 dark:text-gray-200 shadow-sm
+                        placeholder:text-gray-400 text-sm transition-all duration-200 ease-in-out"
+                    />
+                    <div className="absolute right-4 top-3.5 text-gray-400">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
                     </div>
                 </div>
-
-                {loading ? (
-                    <div className="flex justify-center items-center h-64">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                    </div>
-                ) : error ? (
-                    <div className="p-4">
-                        <div className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 p-4 rounded-lg">
-                            {error}
-                        </div>
-                    </div>
-                ) : (
-                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {availableUsers.map((user) => (
-                            <div
-                                key={user.id}
-                                onClick={() => setSelectedUser({ id: user.id || '', name: user.fullName || user.username, profilImage: user.profileImage }) }
-                                className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-150 ease-in-out ${
-                                    selectedUser?.id === user.id ? 'bg-blue-50 dark:bg-blue-900/30' : ''
-                                }`}
-                            >
-                                <div className="flex items-center space-x-4">
-                                    <div className="relative">
-                                        <img
-                                            src={user.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName || user.username)}&background=random`}
-                                            alt={user.fullName || user.username}
-                                            className="h-10 w-10 rounded-full object-cover"
-                                        />
-                                        <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white dark:border-gray-800"></div>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                                            {user.fullName || user.username}
-                                        </p>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                                            {user.department || 'No department'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
             </div>
 
-            {/* Right side - Chat window */}
-            <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900">
+            {/* Teams and Members List with modern styling */}
+            <div className="px-3 pb-3 space-y-2">
+                {filteredTeams.map((team) => (
+                    <div key={team.id} className="bg-gray-50 dark:bg-gray-800 rounded-2xl overflow-hidden">
+                        {/* Team Header with modern styling */}
+                        <div
+                            onClick={() => toggleTeam(team.id)}
+                            className={`p-4 cursor-pointer transition-all duration-200 ease-in-out
+                                hover:bg-gray-100 dark:hover:bg-gray-700 
+                                flex justify-between items-center rounded-2xl
+                                ${expandedTeams[team.id] ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                        >
+                            <span className="font-medium text-gray-900 dark:text-white text-sm">
+                                {team.name}
+                            </span>
+                            <svg
+                                className={`w-5 h-5 transform transition-transform duration-200 text-gray-500
+                                    ${expandedTeams[team.id] ? 'rotate-180' : ''}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                        
+                        {/* Team Members with modern styling */}
+                        {expandedTeams[team.id] && (
+                            <div className="p-2">
+                                {team.members
+                                    .filter((member: any) => member.id !== currentUser?.id)
+                                    .map((member: any) => (
+                                        <div
+                                            key={member.id}
+                                            onClick={() => setSelectedUser({
+                                                id: member.id,
+                                                name: member.fullName || member.username,
+                                                profilImage: member.profileImage
+                                            })}
+                                            className={`p-3 rounded-xl transition-all duration-200 ease-in-out
+                                                hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer mb-1
+                                                ${selectedUser?.id === member.id ? 
+                                                    'bg-blue-50 dark:bg-blue-900/30 shadow-sm' : ''}`}
+                                        >
+                                            <div className="flex items-center space-x-3">
+                                                <div className="relative flex-shrink-0">
+                                                    <img
+                                                        src={member.profileImage || 
+                                                            `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                                                member.fullName || member.username)}&background=random`}
+                                                        alt={member.fullName || member.username}
+                                                        className="h-12 w-12 rounded-full object-cover ring-2 ring-white dark:ring-gray-700"
+                                                    />
+                                                    <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 
+                                                        ring-2 ring-white dark:ring-gray-700"></div>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 
+                                                        truncate leading-tight">
+                                                        {member.fullName || member.username}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400 
+                                                        truncate mt-1">
+                                                        {member.title || member.position || member.department || 'Ekip Üyesi'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+            {renderLeftSidebar()}
+            <div className="flex-1 flex flex-col bg-white dark:bg-gray-800 rounded-l-3xl shadow-xl">
                 {selectedUser ? (
                     <ChatWindow
                         currentUserId={currentUser?.id || ''}
                         selectedUser={selectedUser}
+                        onClose={() => setSelectedUser(null)} // Add this line
                     />
                 ) : (
                     <div className="flex-1 flex items-center justify-center">

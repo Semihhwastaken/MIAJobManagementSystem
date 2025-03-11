@@ -75,5 +75,17 @@ namespace JobTrackingAPI.Services
         /// <param name="userId">Kullanıcı ID'si</param>
         /// <returns>İşlem başarılı ise true, değilse false</returns>
         Task<bool> SendTestNotificationAsync(string userId);
+
+        /// <summary>
+        /// Geri bildirim yanıt bildirimi gönderir
+        /// </summary>
+        /// <param name="userId">Kullanıcı ID'si</param>
+        /// <param name="feedbackContent">Geri bildirim içeriği</param>
+        /// <param name="response">Admin yanıtı</param>
+        /// <returns>İşlem başarılı ise true, değilse false</returns>
+        Task<bool> SendFeedbackResponseNotificationAsync(
+            string userId,
+            string feedbackContent,
+            string response);
     }
 }

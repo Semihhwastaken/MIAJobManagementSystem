@@ -3,6 +3,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useInView } from "framer-motion";
+import axiosInstance from "../../services/axiosInstance";
+import { Feedback } from '../../types/feedback';
+import { Rating } from "@mui/material";
+import FeedbackForm from "../../components/Feedback/FeedbackForm";
+import { getInitials } from '../../utils/helper';
 
 const App: React.FC = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -17,73 +22,39 @@ const App: React.FC = () => {
         navigate("/login");
     };
 
-    const testimonials = [
-        {
-            name: "Alexandra Thompson",
-            role: "Product Manager at TechCorp",
-            content:
-                "TaskFlow has revolutionized how our team manages projects. The intuitive interface and powerful features have increased our productivity by 40%.",
-            avatar:
-                "https://public.readdy.ai/ai/img_res/af8c60391f533d6308a6699a66e9b389.jpg",
-        },
-        {
-            name: "Richard Martinez",
-            role: "CEO of InnovateLabs",
-            content:
-                "Since implementing TaskFlow, our team collaboration has improved significantly. It's become an essential part of our daily operations.",
-            avatar:
-                "https://public.readdy.ai/ai/img_res/e67ec462b09ef04d398ff2b99ecd21a6.jpg",
-        },
-        {
-            name: "Jennifer Chen",
-            role: "Team Lead at DesignPro",
-            content:
-                "The analytics and reporting features in TaskFlow provide invaluable insights into our team's performance and project progress.",
-            avatar:
-                "https://public.readdy.ai/ai/img_res/9b56331dae804e5efdeaaf3974cd45fe.jpg",
-        },
-        {
-            name: "Michael Brown",
-            role: "CTO at FutureTech",
-            content:
-                "TaskFlow's integration capabilities have streamlined our development process. The automation features save us countless hours every week.",
-            avatar:
-                "https://public.readdy.ai/ai/img_res/d8c9f3a2b1e5f7g6h4i2j8k9l5m3n1.jpg",
-        },
-        {
-            name: "Sarah Wilson",
-            role: "Project Manager at GlobalSoft",
-            content:
-                "The real-time collaboration features in TaskFlow have made remote work seamless. Our team efficiency has increased by 60%.",
-            avatar:
-                "https://public.readdy.ai/ai/img_res/a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5.jpg",
-        },
-        {
-            name: "David Kim",
-            role: "Engineering Lead at InnovateX",
-            content:
-                "TaskFlow's customizable workflows have transformed how we handle complex projects. The learning curve was minimal, but the impact was immediate.",
-            avatar:
-                "https://public.readdy.ai/ai/img_res/p9q8r7s6t5u4v3w2x1y0z9a8b7c6d5.jpg",
-        },
-    ];
+    const [publicFeedbacks, setPublicFeedbacks] = useState<Feedback[]>([]);
+
+    useEffect(() => {
+        const fetchFeedbacks = async () => {
+            try {
+                const response = await axiosInstance.get('/feedback/public');
+                setPublicFeedbacks(response.data);
+                console.log('Public feedbacks:', response.data);
+                
+            } catch (error) {
+                console.error('Error fetching feedbacks:', error);
+            }
+        };
+
+        fetchFeedbacks();
+    }, []);
 
     // Otomatik slider için useEffect
     useEffect(() => {
         const timer = setInterval(() => {
-            setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
+            setCurrentTestimonial((prev) => (prev + 1) % publicFeedbacks.length);
         }, 5000); // Her 5 saniyede bir değişecek
 
         return () => clearInterval(timer);
-    }, [testimonials.length]);
+    }, [publicFeedbacks.length]);
     
     const nextTestimonial = () => {
-        setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
+        setCurrentTestimonial((prev) => (prev + 1) % publicFeedbacks.length);
     };
 
     const prevTestimonial = () => {
         setCurrentTestimonial((prev) =>
-            prev === 0 ? testimonials.length - 1 : prev - 1
+            prev === 0 ? publicFeedbacks.length - 1 : prev - 1
         );
     };
 
@@ -142,6 +113,22 @@ const App: React.FC = () => {
         },
         tap: { scale: 0.95 }
     };
+
+    // Testimonials section içinde
+    const formattedTestimonials = publicFeedbacks.map(item => ({
+        name: item.userName,
+        role: item.userRole,
+        content: item.content,
+        avatar: item.userAvatar || getInitials(item.userName),
+        rating: item.rating,
+        isInitials: !item.userAvatar
+    }));
+
+    useEffect(() => {
+        if (formattedTestimonials.length > 0) {
+            setCurrentTestimonial(0);
+        }
+    }, [formattedTestimonials.length]);
 
     return (
         <motion.div
@@ -202,25 +189,19 @@ const App: React.FC = () => {
                                 href="#features"
                                 className="text-gray-600 hover:text-indigo-600 transition-colors"
                             >
-                                Features
+                                Özellikler
                             </a>
                             <a
                                 href="#pricing"
                                 className="text-gray-600 hover:text-indigo-600 transition-colors"
                             >
-                                Pricing
+                                Hizmetler
                             </a>
                             <a
                                 href="#testimonials"
                                 className="text-gray-600 hover:text-indigo-600 transition-colors"
                             >
-                                Testimonials
-                            </a>
-                            <a
-                                href="#contact"
-                                className="text-gray-600 hover:text-indigo-600 transition-colors"
-                            >
-                                Contact
+                                İletişim
                             </a>
                         </div>
 
@@ -238,7 +219,7 @@ const App: React.FC = () => {
                                     style={{ zIndex: -1 }}
                                     transition={{ duration: 0.3 }}
                                 />
-                                Log in
+                                Giriş Yap
                             </motion.button>
                             <motion.button
                                 variants={buttonVariants}
@@ -253,7 +234,7 @@ const App: React.FC = () => {
                                     style={{ zIndex: -1 }}
                                     transition={{ duration: 0.3 }}
                                 />
-                                Start Free Trial
+                                Ücretsiz Deneme Başlat
                             </motion.button>
                         </div>
 
@@ -282,38 +263,32 @@ const App: React.FC = () => {
                                 href="#features"
                                 className="block text-gray-600 hover:text-indigo-600 py-2"
                             >
-                                Features
+                                Özellikler
                             </a>
                             <a
                                 href="#pricing"
                                 className="block text-gray-600 hover:text-indigo-600 py-2"
                             >
-                                Pricing
+                                Hizmetler
                             </a>
                             <a
                                 href="#testimonials"
                                 className="block text-gray-600 hover:text-indigo-600 py-2"
                             >
-                                Testimonials
-                            </a>
-                            <a
-                                href="#contact"
-                                className="block text-gray-600 hover:text-indigo-600 py-2"
-                            >
-                                Contact
+                                İletişim
                             </a>
                             <div className="pt-4 space-y-4">
                                 <button
                                     onClick={handleLogin}
                                     className="!rounded-button w-full text-gray-600 hover:text-indigo-600 py-2"
                                 >
-                                    Log in
+                                    Giriş Yap
                                 </button>
                                 <button
                                     onClick={handleStartFreeTrial}
                                     className="!rounded-button w-full bg-indigo-600 text-white py-2 hover:bg-indigo-700"
                                 >
-                                    Start Free Trial
+                                    Ücretsiz Deneme Başlat
                                 </button>
                             </div>
                         </div>
@@ -348,7 +323,7 @@ const App: React.FC = () => {
                                 transition={{ delay: 0.2, duration: 0.5 }}
                                 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6"
                             >
-                                Transform Your Team's Productivity with TaskFlow
+                                TaskFlow ile Ekibinizin Verimliliğini Artırın
                             </motion.h1>
                             <motion.p
                                 initial={{ y: 20, opacity: 0 }}
@@ -356,8 +331,7 @@ const App: React.FC = () => {
                                 transition={{ delay: 0.4, duration: 0.5 }}
                                 className="text-xl text-gray-600 mb-8"
                             >
-                                Streamline your workflow, enhance collaboration, and achieve
-                                more with our intelligent task management platform.
+                                İş akışınızı düzenleyin, işbirliğini artırın ve akıllı görev yönetim platformumuzla daha fazlasını başarın.
                             </motion.p>
                             <motion.div
                                 initial={{ y: 20, opacity: 0 }}
@@ -369,13 +343,13 @@ const App: React.FC = () => {
                                     onClick={handleStartFreeTrial}
                                     className="!rounded-button bg-indigo-600 text-white px-8 py-3 text-lg hover:bg-indigo-700 transition-colors"
                                 >
-                                    Get Started Free
+                                    Ücretsiz Başlayın
                                 </button>
                                 <button
                                     onClick={handleLogin}
                                     className="!rounded-button bg-white text-indigo-600 px-8 py-3 text-lg hover:bg-gray-50 transition-colors"
                                 >
-                                    Watch Demo
+                                    Demo İzle
                                 </button>
                             </motion.div>
                         </motion.div>
@@ -401,11 +375,10 @@ const App: React.FC = () => {
                 <div className="max-w-7xl mx-auto px-4">
                     <motion.div variants={itemVariants} className="text-center mb-16">
                         <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                            Everything you need to manage tasks effectively
+                            Görevleri Etkili Bir Şekilde Yönetmek İçin İhtiyacınız Olan Her Şey
                         </h2>
                         <p className="text-xl text-gray-600">
-                            Powerful features that help you streamline workflows and boost
-                            productivity
+                            İş akışlarını düzenlemenize ve verimliliği artırmanıza yardımcı olan güçlü özellikler
                         </p>
                     </motion.div>
 
@@ -413,39 +386,39 @@ const App: React.FC = () => {
                         {[
                             {
                                 icon: "fas fa-chart-line",
-                                title: "Advanced Analytics",
+                                title: "Gelişmiş Analitik",
                                 description:
-                                    "Get detailed insights into team performance and project progress with comprehensive analytics.",
+                                    "Ekip performansı ve proje ilerlemesi hakkında ayrıntılı bilgiler edinin.",
                             },
                             {
                                 icon: "fas fa-users",
-                                title: "Team Collaboration",
+                                title: "Ekip İşbirliği",
                                 description:
-                                    "Work together seamlessly with real-time updates and communication tools.",
+                                    "Gerçek zamanlı güncellemeler ve iletişim araçları ile sorunsuz çalışın.",
                             },
                             {
                                 icon: "fas fa-clock",
-                                title: "Time Tracking",
+                                title: "Zaman Takibi",
                                 description:
-                                    "Monitor time spent on tasks and improve team efficiency with detailed time analytics.",
+                                    "Görevlerde harcanan zamanı izleyin ve ekip verimliliğini artırın.",
                             },
                             {
                                 icon: "fas fa-calendar-alt",
-                                title: "Smart Scheduling",
+                                title: "Akıllı Planlama",
                                 description:
-                                    "Optimize task scheduling with AI-powered recommendations and calendar integration.",
+                                    "AI destekli öneriler ve takvim entegrasyonu ile görev planlamasını optimize edin.",
                             },
                             {
                                 icon: "fas fa-mobile-alt",
-                                title: "Mobile Access",
+                                title: "Mobil Erişim",
                                 description:
-                                    "Stay productive on the go with our powerful mobile apps for iOS and Android.",
+                                    "iOS ve Android için güçlü mobil uygulamalarımızla hareket halindeyken üretken kalın.",
                             },
                             {
                                 icon: "fas fa-shield-alt",
-                                title: "Enterprise Security",
+                                title: "Kurumsal Güvenlik",
                                 description:
-                                    "Keep your data safe with enterprise-grade security and compliance features.",
+                                    "Verilerinizi kurumsal düzeyde güvenlik ve uyumluluk özellikleri ile koruyun.",
                             },
                         ].map((feature, index) => (
                             <motion.div
@@ -479,43 +452,43 @@ const App: React.FC = () => {
                 <div className="max-w-7xl mx-auto px-4">
                     <motion.div variants={itemVariants} className="text-center mb-16">
                         <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                            Simple, Transparent Pricing
+                            Basit, Şeffaf Fiyatlandırma
                         </h2>
                         <p className="text-xl text-gray-600">
-                            Choose the plan that works best for you
+                            Size en uygun planı seçin
                         </p>
                     </motion.div>
 
                     <div className="grid md:grid-cols-3 gap-8">
                         {[
                             {
-                                title: "Free",
+                                title: "Ücretsiz",
                                 price: "$0",
                                 features: [
-                                    "Up to 5 users",
-                                    "Unlimited tasks",
-                                    "Basic reporting",
+                                    "5 kullanıcıya kadar",
+                                    "Sınırsız görev",
+                                    "Temel raporlama",
                                 ],
                             },
                             {
                                 title: "Pro",
                                 price: "$9.99",
                                 features: [
-                                    "Up to 10 users",
-                                    "Unlimited tasks",
-                                    "Advanced reporting",
-                                    "Custom workflows",
+                                    "10 kullanıcıya kadar",
+                                    "Sınırsız görev",
+                                    "Gelişmiş raporlama",
+                                    "Özel iş akışları",
                                 ],
                             },
                             {
-                                title: "Enterprise",
-                                price: "Custom",
+                                title: "Kurumsal",
+                                price: "Özel",
                                 features: [
-                                    "Unlimited users",
-                                    "Unlimited tasks",
-                                    "Advanced reporting",
-                                    "Custom workflows",
-                                    "Dedicated support",
+                                    "Sınırsız kullanıcı",
+                                    "Sınırsız görev",
+                                    "Gelişmiş raporlama",
+                                    "Özel iş akışları",
+                                    "Özel destek",
                                 ],
                             },
                         ].map((plan, index) => (
@@ -555,11 +528,10 @@ const App: React.FC = () => {
                 <div className="max-w-7xl mx-auto px-4">
                     <motion.div variants={itemVariants} className="text-center mb-12">
                         <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                            What Our Customers Say
+                            Müşterilerimiz Ne Diyor
                         </h2>
                         <p className="text-xl text-gray-600">
-                            Don't just take our word for it - hear from our satisfied
-                            customers
+                            Sadece bizim sözümüze güvenmeyin - memnun müşterilerimizin söylediklerini dinleyin
                         </p>
                     </motion.div>
 
@@ -568,33 +540,50 @@ const App: React.FC = () => {
                         className="relative max-w-3xl mx-auto"
                     >
                         <AnimatePresence mode="wait">
-                            <motion.div
-                                key={currentTestimonial}
-                                initial={{ opacity: 0, x: 100 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -100 }}
-                                transition={{ duration: 0.5 }}
-                                className="bg-white rounded-lg shadow-lg p-8"
-                            >
-                                <div className="flex items-center mb-6">
-                                    <img
-                                        src={testimonials[currentTestimonial].avatar}
-                                        alt={testimonials[currentTestimonial].name}
-                                        className="w-16 h-16 rounded-full object-cover"
-                                    />
-                                    <div className="ml-4">
-                                        <h3 className="text-xl font-semibold text-gray-900">
-                                            {testimonials[currentTestimonial].name}
-                                        </h3>
-                                        <p className="text-gray-600">
-                                            {testimonials[currentTestimonial].role}
-                                        </p>
+                            {formattedTestimonials.length > 0 && (
+                                <motion.div
+                                    key={currentTestimonial}
+                                    initial={{ opacity: 0, x: 100 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -100 }}
+                                    transition={{ duration: 0.5 }}
+                                    className="bg-white rounded-lg shadow-lg p-8"
+                                >
+                                    <div className="flex items-center mb-6">
+                                        {formattedTestimonials[currentTestimonial].isInitials ? (
+                                            <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xl">
+                                                {formattedTestimonials[currentTestimonial].avatar}
+                                            </div>
+                                        ) : (
+                                            <img
+                                                src={formattedTestimonials[currentTestimonial].avatar}
+                                                alt={formattedTestimonials[currentTestimonial].name}
+                                                className="w-16 h-16 rounded-full object-cover"
+                                            />
+                                        )}
+                                        <div className="ml-4">
+                                            <h3 className="text-xl font-semibold text-gray-900">
+                                                {formattedTestimonials[currentTestimonial].name}
+                                            </h3>
+                                            <p className="text-gray-600">
+                                                {formattedTestimonials[currentTestimonial].role}
+                                            </p>
+                                            {formattedTestimonials[currentTestimonial].rating && (
+                                                <div className="mt-1">
+                                                    <Rating 
+                                                        value={formattedTestimonials[currentTestimonial].rating} 
+                                                        readOnly 
+                                                        size="small"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                                <p className="text-gray-600 text-lg italic">
-                                    "{testimonials[currentTestimonial].content}"
-                                </p>
-                            </motion.div>
+                                    <p className="text-gray-600 text-lg italic">
+                                        "{formattedTestimonials[currentTestimonial].content}"
+                                    </p>
+                                </motion.div>
+                            )}
                         </AnimatePresence>
 
                         <div className="flex justify-between items-center mt-6">
@@ -621,7 +610,7 @@ const App: React.FC = () => {
                             </motion.button>
 
                             <div className="flex space-x-2">
-                                {testimonials.map((_, index) => (
+                                {formattedTestimonials.map((_, index) => (
                                     <motion.button
                                         key={index}
                                         whileHover={{ scale: 1.2 }}
@@ -674,10 +663,10 @@ const App: React.FC = () => {
                 <div className="max-w-7xl mx-auto px-4">
                     <motion.div variants={itemVariants} className="text-center mb-16">
                         <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                            Get in Touch
+                            İletişime Geçin
                         </h2>
                         <p className="text-xl text-gray-600">
-                            We'd love to hear from you
+                            Sizden haber almak isteriz
                         </p>
                     </motion.div>
 
@@ -686,7 +675,7 @@ const App: React.FC = () => {
                         className="max-w-2xl mx-auto"
                     >
                         <div className="bg-white rounded-lg shadow-lg p-8">
-                            {/* Contact form içeriği */}
+                            <FeedbackForm />
                         </div>
                     </motion.div>
                 </div>
@@ -696,23 +685,22 @@ const App: React.FC = () => {
             <section className="bg-indigo-600 py-20">
                 <div className="max-w-7xl mx-auto px-4 text-center">
                     <h2 className="text-3xl font-bold text-white mb-6">
-                        Ready to transform your team's productivity?
+                        Ekibinizin Verimliliğini Artırmaya Hazır mısınız?
                     </h2>
                     <p className="text-xl text-indigo-100 mb-8 max-w-2xl mx-auto">
-                        Join thousands of teams who have already improved their
-                        workflow with TaskFlow
+                        TaskFlow ile iş akışlarını iyileştiren binlerce ekibe katılın
                     </p>
                     <button
                         onClick={handleStartFreeTrial}
                         className="!rounded-button bg-white text-indigo-600 px-8 py-3 text-lg hover:bg-gray-50 transition-colors"
                     >
-                        Start Your Free Trial
+                        Ücretsiz Denemenizi Başlatın
                     </button>
                 </div>
             </section>
 
             {/* Footer */}
-            <motion.footer
+            <motion.div
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
                 transition={{ duration: 0.6 }}
@@ -728,14 +716,13 @@ const App: React.FC = () => {
                                 </span>
                             </div>
                             <p className="text-gray-400">
-                                Empowering teams to achieve more through intelligent
-                                task management.
+                                Akıllı görev yönetimi ile ekiplerin daha fazlasını başarmasını sağlıyoruz.
                             </p>
                         </div>
 
                         <div>
                             <h3 className="text-lg font-semibold text-white mb-4">
-                                Product
+                                Ürün
                             </h3>
                             <ul className="space-y-2">
                                 <li>
@@ -743,7 +730,7 @@ const App: React.FC = () => {
                                         href="#"
                                         className="hover:text-white transition-colors"
                                     >
-                                        Features
+                                        Özellikler
                                     </a>
                                 </li>
                                 <li>
@@ -751,7 +738,7 @@ const App: React.FC = () => {
                                         href="#"
                                         className="hover:text-white transition-colors"
                                     >
-                                        Pricing
+                                        Fiyatlandırma
                                     </a>
                                 </li>
                                 <li>
@@ -759,7 +746,7 @@ const App: React.FC = () => {
                                         href="#"
                                         className="hover:text-white transition-colors"
                                     >
-                                        Security
+                                        Güvenlik
                                     </a>
                                 </li>
                                 <li>
@@ -767,7 +754,7 @@ const App: React.FC = () => {
                                         href="#"
                                         className="hover:text-white transition-colors"
                                     >
-                                        Enterprise
+                                        Kurumsal
                                     </a>
                                 </li>
                             </ul>
@@ -775,7 +762,7 @@ const App: React.FC = () => {
 
                         <div>
                             <h3 className="text-lg font-semibold text-white mb-4">
-                                Company
+                                Şirket
                             </h3>
                             <ul className="space-y-2">
                                 <li>
@@ -783,7 +770,7 @@ const App: React.FC = () => {
                                         href="#"
                                         className="hover:text-white transition-colors"
                                     >
-                                        About
+                                        Hakkımızda
                                     </a>
                                 </li>
                                 <li>
@@ -791,7 +778,7 @@ const App: React.FC = () => {
                                         href="#"
                                         className="hover:text-white transition-colors"
                                     >
-                                        Careers
+                                        Kariyer
                                     </a>
                                 </li>
                                 <li>
@@ -807,7 +794,7 @@ const App: React.FC = () => {
                                         href="#"
                                         className="hover:text-white transition-colors"
                                     >
-                                        Contact
+                                        İletişim
                                     </a>
                                 </li>
                             </ul>
@@ -815,7 +802,7 @@ const App: React.FC = () => {
 
                         <div>
                             <h3 className="text-lg font-semibold text-white mb-4">
-                                Connect
+                                Bağlantılar
                             </h3>
                             <div className="flex space-x-4">
                                 <a
@@ -841,10 +828,10 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-400">
-                        <p>&copy; 2025 TaskFlow. All rights reserved.</p>
+                        <p>&copy; 2025 TaskFlow. Tüm hakları saklıdır.</p>
                     </div>
                 </div>
-            </motion.footer>
+            </motion.div>
         </motion.div>
     );
 };
