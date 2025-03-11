@@ -25,6 +25,7 @@ namespace JobTrackingAPI.Controllers
         private readonly TasksService _tasksService;
         private readonly TeamService _teamService;
         private readonly DashboardService _dashboardService;
+        private readonly UserService _userService;
 
         public AuthController(
             AuthService authService, 
@@ -33,7 +34,8 @@ namespace JobTrackingAPI.Controllers
             IMongoDatabase database,
             TasksService tasksService, 
             TeamService teamService, 
-            DashboardService dashboardService)
+            DashboardService dashboardService,
+            UserService userService)
         {
             _authService = authService;
             _logger = logger;
@@ -42,6 +44,7 @@ namespace JobTrackingAPI.Controllers
             _tasksService = tasksService;
             _teamService = teamService;
             _dashboardService = dashboardService;
+            _userService = userService;
         }
 
         [HttpPost("register/initiate")]
@@ -149,6 +152,9 @@ namespace JobTrackingAPI.Controllers
                     return BadRequest(new { message = "Kullanıcı verileri yüklenirken bir hata oluştu. Lütfen tekrar deneyin." });
                 }
 
+                // Login başarılı olduğunda IsOnline'ı true yap
+                await _userService.UpdateUserOnlineStatus(user.Id, true);
+
                 return Ok(new
                 {
                     token,
@@ -243,7 +249,7 @@ namespace JobTrackingAPI.Controllers
 
         [Authorize]
         [HttpPost("logout")]
-        public IActionResult Logout()
+        public async Task<IActionResult> Logout()
         {
             try
             {
@@ -252,6 +258,9 @@ namespace JobTrackingAPI.Controllers
                 {
                     return Unauthorized(new { message = "Kullanıcı girişi yapılmamış" });
                 }
+
+                // Logout olurken IsOnline'ı false yap
+                await _userService.UpdateUserOnlineStatus(userId, false);
 
                 // Kullanıcıya ait tüm cache verilerini temizle
                 _cacheService.InvalidateUserCaches(userId);

@@ -33,11 +33,27 @@ const FeedbackManagement: React.FC = () => {
 
   const updateFeedbackStatus = async (id: string, status: FeedbackStatus, response?: string) => {
     try {
-      await axiosInstance.put(`/feedback/${id}/status`, { status, response });
+      const requestBody = {
+        update: {
+          status: status,
+          ...(response && { response })
+        }
+      };
+
+      await axiosInstance.put(`/feedback/${id}/status`, requestBody, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
       enqueueSnackbar('Geri bildirim durumu güncellendi', { variant: 'success' });
       fetchFeedbacks();
-    } catch (error) {
-      enqueueSnackbar('Geri bildirim güncellenirken hata oluştu', { variant: 'error' });
+    } catch (error: any) {
+      console.error('Error updating feedback:', error.response?.data);
+      const errorMessage = error.response?.data?.status?.[0] || 
+                          error.response?.data?.update?.[0] ||
+                          'Geri bildirim güncellenirken hata oluştu';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
     }
   };
 

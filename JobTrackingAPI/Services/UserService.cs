@@ -6,19 +6,23 @@ using MongoDB.Driver;
 using JobTrackingAPI.Settings;
 using System.Linq;
 using System;
+using Microsoft.Extensions.Logging;
 
 namespace JobTrackingAPI.Services
 {
     public class UserService : IUserService
     {
         private readonly IMongoCollection<User> _users;
+        private readonly ILogger<UserService> _logger;
 
-        public UserService(IOptions<MongoDbSettings> settings)
+        public UserService(IOptions<MongoDbSettings> settings, ILogger<UserService> logger)
         {
+            _logger = logger;
             var client = new MongoClient(settings.Value.ConnectionString);
             var database = client.GetDatabase(settings.Value.DatabaseName);
             _users = database.GetCollection<User>(settings.Value.UsersCollectionName);
         }
+        
 
         public async Task<User> GetUserById(string id)
         {
@@ -137,12 +141,18 @@ namespace JobTrackingAPI.Services
         {
             try
             {
-                var filter = Builders<User>.Filter.Eq(u => u.UserStatus, "active");
+                // Son 15 dakika içinde aktif olan kullanıcıları say
+                var fifteenMinutesAgo = DateTime.UtcNow.AddMinutes(-45);
+                var filter = Builders<User>.Filter.And(
+                    Builders<User>.Filter.Eq(u => u.IsOnline, true),
+                    Builders<User>.Filter.Gt(u => u.LastLoginDate, fifteenMinutesAgo)
+                );
+
                 return (int)await _users.CountDocumentsAsync(filter);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error getting active user count: {ex.Message}");
+                _logger.LogError(ex, "Error getting active user count");
                 return 0;
             }
         }
@@ -160,6 +170,24 @@ namespace JobTrackingAPI.Services
             {
                 Console.WriteLine($"Error getting paginated users: {ex.Message}");
                 return new List<User>();
+            }
+        }
+
+        public async Task<bool> UpdateUserOnlineStatus(string userId, bool isOnline)
+        {
+            try
+            {
+                var update = Builders<User>.Update
+                    .Set(u => u.IsOnline, isOnline)
+                    .Set(u => u.LastLoginDate, DateTime.UtcNow);
+
+                var result = await _users.UpdateOneAsync(u => u.Id == userId, update);
+                return result.ModifiedCount > 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error updating online status for user {userId}");
+                return false;
             }
         }
     }

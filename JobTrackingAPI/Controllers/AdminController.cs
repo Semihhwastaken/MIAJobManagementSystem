@@ -90,6 +90,91 @@ namespace JobTrackingAPI.Controllers
             }
         }
 
+        [HttpGet("taskStats")]
+        public async Task<ActionResult<object>> GetTaskStats()
+        {
+            try
+            {
+                var allTasks = await _tasksService.GetTasks();
+                var stats = new
+                {
+                    TasksByStatus = new
+                    {
+                        Completed = allTasks.Count(t => t.Status == "completed"),
+                        InProgress = allTasks.Count(t => t.Status == "in-progress"),
+                        Overdue = allTasks.Count(t => t.Status == "overdue")
+                    },
+                    TasksByPriority = new
+                    {
+                        High = allTasks.Count(t => t.Priority == "High"),
+                        Medium = allTasks.Count(t => t.Priority == "Medium"),
+                        Low = allTasks.Count(t => t.Priority == "Low")
+                    },
+                    AverageCompletionTime = allTasks
+                        .Where(t => t.Status == "completed" && t.CompletedDate.HasValue)
+                        .Select(t => (t.CompletedDate!.Value - t.CreatedAt).TotalDays)
+                        .DefaultIfEmpty(0)
+                        .Average()
+                };
+
+                return Ok(stats);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting task statistics");
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("teamStats")]
+        public async Task<ActionResult<object>> GetTeamStats()
+        {
+            try
+            {
+                var teams = await _teamService.GetAllTeams();
+                if (teams == null) return Ok(new { TotalTeams = 0 });
+
+                var teamStats = new List<object>();
+                foreach (var team in teams)
+                {
+                    var teamTasks = await _tasksService.GetTasks(teamId: team.Id ?? string.Empty);
+                    var activeTasks = teamTasks?.Count(t => t.Status != "completed") ?? 0;
+                    var completionRate = await CalculateTeamCompletionRate(team.Id ?? string.Empty, teamTasks ?? Enumerable.Empty<TaskItem>());
+                    
+                    teamStats.Add(new
+                    {
+                        TeamId = team.Id,
+                        TeamName = team.Name,
+                        CompletionRate = completionRate
+                    });
+                }
+
+                var stats = new
+                {
+                    TotalTeams = teams.Count(),
+                    TeamsWithActiveTasks = teams.Count(t => 
+                        teamStats.Any(ts => ((dynamic)ts).TeamId == t.Id && ((dynamic)ts).CompletionRate < 100)),
+                    AverageTeamSize = teams.Average(t => t.Members?.Count ?? 0),
+                    TeamPerformance = teamStats
+                };
+
+                return Ok(stats);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting team statistics");
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        private async Task<double> CalculateTeamCompletionRate(string teamId, IEnumerable<TaskItem>? teamTasks = null)
+        {
+            var tasks = teamTasks ?? await _tasksService.GetTasks(teamId: teamId);
+            if (tasks == null || !tasks.Any()) return 0;
+
+            return (double)tasks.Count(t => t.Status == "completed") / tasks.Count() * 100;
+        }
+
         private async Task<SystemStats> GetSystemStats()
         {
             var stats = new SystemStats

@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
   Cell
 } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 interface AdminStats {
   totalUsers: number;
@@ -32,33 +33,97 @@ interface AdminStats {
   }>;
 }
 
+interface TaskStats {
+  tasksByStatus: {
+    completed: number;
+    inProgress: number;
+    overdue: number;
+  };
+  tasksByPriority: {
+    high: number;
+    medium: number;
+    low: number;
+  };
+  averageCompletionTime: number;
+}
+
+interface TeamStats {
+  totalTeams: number;
+  teamsWithActiveTasks: number;
+  averageTeamSize: number;
+  teamPerformance: Array<{
+    teamId: string;
+    teamName: string;
+    completionRate: number;
+  }>;
+}
+
+// Update the SectionRef interface definition
+interface SectionRef {
+  [key: string]: React.RefObject<HTMLDivElement>;
+}
+
 const AdminDashboard: React.FC = () => {
   const { isDarkMode } = useTheme();
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [taskStats, setTaskStats] = useState<TaskStats | null>(null);
+  const [teamStats, setTeamStats] = useState<TeamStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Update the refs declaration to use MutableRefObject
+  const sectionRefs: SectionRef = {
+    stats: React.useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>,
+    system: React.useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>,
+    tasks: React.useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>,
+    teams: React.useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>,
+    feedback: React.useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>,
+  };
+
+  // Update the scrollToSection function to handle null
+  const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
+    if (ref.current) {
+      ref.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchAllStats = async () => {
       try {
+        setLoading(true);
         const token = localStorage.getItem('token');
         console.log('Fetching admin stats with token:', token); // Debug log
         
-        const response = await axiosInstance.get('/admin/dashboard', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        setStats(response.data);
+        const [dashboardStats, taskStatsData, teamStatsData] = await Promise.all([
+          axiosInstance.get('/admin/dashboard', {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }),
+          axiosInstance.get('/admin/taskStats', {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }),
+          axiosInstance.get('/admin/teamStats', {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          })
+        ]);
+
+        setStats(dashboardStats.data);
+        setTaskStats(taskStatsData.data);
+        setTeamStats(teamStatsData.data);
       } catch (err: any) {
         console.error('Admin dashboard error:', err.response?.data); // Debug log
-        setError('Failed to load admin statistics');
+        setError('Failed to load statistics');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStats();
+    fetchAllStats();
   }, []);
 
   if (loading) {
@@ -77,10 +142,67 @@ const AdminDashboard: React.FC = () => {
         isDarkMode ? 'text-white' : 'text-gray-800'
       }`}
     >
-      <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
+      {/* Add Navigation Header */}
+      <div className="sticky top-0 z-50 bg-opacity-90 backdrop-blur-sm mb-8 -mx-4 px-4 py-4 shadow-lg border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <div className="flex space-x-4">
+            <button
+              onClick={() => scrollToSection(sectionRefs.stats)}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                isDarkMode 
+                  ? 'hover:bg-gray-700 text-gray-300' 
+                  : 'hover:bg-gray-100 text-gray-700'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => scrollToSection(sectionRefs.system)}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                isDarkMode 
+                  ? 'hover:bg-gray-700 text-gray-300' 
+                  : 'hover:bg-gray-100 text-gray-700'
+              }`}
+            >
+              System
+            </button>
+            <button
+              onClick={() => scrollToSection(sectionRefs.tasks)}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                isDarkMode 
+                  ? 'hover:bg-gray-700 text-gray-300' 
+                  : 'hover:bg-gray-100 text-gray-700'
+              }`}
+            >
+              Tasks
+            </button>
+            <button
+              onClick={() => scrollToSection(sectionRefs.teams)}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                isDarkMode 
+                  ? 'hover:bg-gray-700 text-gray-300' 
+                  : 'hover:bg-gray-100 text-gray-700'
+              }`}
+            >
+              Teams
+            </button>
+            <button
+              onClick={() => scrollToSection(sectionRefs.feedback)}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                isDarkMode 
+                  ? 'hover:bg-gray-700 text-gray-300' 
+                  : 'hover:bg-gray-100 text-gray-700'
+              }`}
+            >
+              Feedback
+            </button>
+          </div>
+        </div>
+      </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      {/* Update existing sections with refs */}
+      <div ref={sectionRefs.stats} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Stats cards here */}
         <StatCard
           title="Total Users"
@@ -104,8 +226,7 @@ const AdminDashboard: React.FC = () => {
         />
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      <div ref={sectionRefs.system} className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* System Stats */}
         <div className={`p-6 rounded-lg ${
           isDarkMode ? 'bg-gray-800' : 'bg-white'
@@ -175,8 +296,61 @@ const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Task Analysis Section */}
+      {taskStats && (
+        <div ref={sectionRefs.tasks} className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+            <h2 className="text-xl font-semibold mb-4">Task Analysis</h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={[
+                { name: 'High', value: taskStats.tasksByPriority.high },
+                { name: 'Medium', value: taskStats.tasksByPriority.medium },
+                { name: 'Low', value: taskStats.tasksByPriority.low }
+              ]}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Bar dataKey="value" fill="#8884d8" />
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="mt-4">
+              <p>Average Completion Time: {taskStats.averageCompletionTime.toFixed(1)} days</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Team Performance Section */}
+      {teamStats && (
+        <div ref={sectionRefs.teams} className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg mb-8`}>
+          <h2 className="text-xl font-semibold mb-4">Team Performance</h2>
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+              <p className="text-sm">Average Team Size</p>
+              <p className="text-2xl font-bold">{teamStats.averageTeamSize.toFixed(1)}</p>
+            </div>
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+              <p className="text-sm">Teams with Active Tasks</p>
+              <p className="text-2xl font-bold">{teamStats.teamsWithActiveTasks}</p>
+            </div>
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+              <p className="text-sm">Total Teams</p>
+              <p className="text-2xl font-bold">{teamStats.totalTeams}</p>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={teamStats.teamPerformance}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="teamName" />
+              <YAxis />
+              <Bar dataKey="completionRate" fill="#82ca9d" name="Completion Rate %" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       {/* Feedback Management Section */}
-      <div className="mt-8">
+      <div ref={sectionRefs.feedback} className="mt-8">
         <FeedbackManagement />
       </div>
 

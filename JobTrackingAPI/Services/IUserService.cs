@@ -29,5 +29,6 @@ namespace JobTrackingAPI.Services
         Task<int> GetTotalUserCount();
         Task<int> GetActiveUserCount();
         Task<List<User>> GetPaginatedUsers(int page, int pageSize);
+        Task<bool> UpdateUserOnlineStatus(string userId, bool isOnline);
     }
 }

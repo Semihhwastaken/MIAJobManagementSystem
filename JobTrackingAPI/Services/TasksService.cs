@@ -477,5 +477,35 @@ namespace JobTrackingAPI.Services
         {
             return (int)await _tasks.CountDocumentsAsync(Builders<TaskItem>.Filter.Empty);
         }
+
+        public async Task<IEnumerable<TaskItem>> GetTasks(string teamId = null)
+        {
+            try
+            {
+                // If no teamId provided, return all tasks
+                if (string.IsNullOrEmpty(teamId))
+                {
+                    return await _tasks.Find(_ => true).ToListAsync();
+                }
+
+                // Filter tasks by teamId
+                var filter = Builders<TaskItem>.Filter.Eq(t => t.TeamId, teamId);
+                var tasks = await _tasks.Find(filter).ToListAsync();
+                
+                // Enrich tasks with user data
+                var enrichedTasks = new List<TaskItem>();
+                foreach (var task in tasks)
+                {
+                    enrichedTasks.Add(await EnrichTaskWithUserData(task));
+                }
+
+                return enrichedTasks;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting tasks for team {teamId}: {ex.Message}");
+                return new List<TaskItem>();
+            }
+        }
     }
 }
