@@ -38,7 +38,6 @@ interface TaskState {
 // Cache süreleri
 const ACTIVE_TASKS_CACHE_DURATION = 5 * 60 * 1000; // 5 dakika
 const COMPLETED_TASKS_CACHE_DURATION = 30 * 60 * 1000; // 30 dakika
-const USER_TASKS_CACHE_DURATION = 15 * 60 * 1000; // 15 dakika
 
 const initialState: TaskState = {
     items: [],
@@ -49,11 +48,6 @@ const initialState: TaskState = {
     taskHistory: [],
     lastHistoryFetch: null,
     lastUserTasksFetch: {}
-};
-
-// Cache kontrolü için yardımcı fonksiyon
-const isCacheValid = (lastFetch: number, duration: number) => {
-    return Date.now() - lastFetch < duration;
 };
 
 export const fetchTasks = createAsyncThunk(
