@@ -30,10 +30,10 @@ namespace JobTrackingAPI.Controllers
         private readonly CacheService _cacheService;
         private readonly ILogger<TasksController> _logger;
         private readonly IUserService _userService;
-    
+
         public TasksController(
             ITasksService tasksService,
-            IMongoClient mongoClient, 
+            IMongoClient mongoClient,
             IOptions<MongoDbSettings> settings,
             NotificationService notificationService,
             ITeamService teamsService,
@@ -52,25 +52,25 @@ namespace JobTrackingAPI.Controllers
             _logger = logger;
             _userService = userService;
         }
-    
+
         [HttpPost]
         public async Task<ActionResult<TaskItem>> CreateTask([FromBody] TaskItem task)
         {
             try
             {
                 _logger.LogInformation("Creating new task with title: {Title}", task?.Title ?? "null");
-                
+
                 // Validate required fields
                 if (task == null)
                     return BadRequest(new { message = "Task data is required" });
                 if (string.IsNullOrEmpty(task.Title))
                     return BadRequest(new { message = "Task title is required" });
-                
+
                 // Initialize collections if they're null
                 task.Attachments ??= new List<TaskAttachment>();
                 task.Dependencies ??= new List<string>();
                 task.SubTasks ??= new List<SubTask>();
-                
+
                 // Atanan kullanıcıları doğrula ve bilgilerini güncelle
                 if (task.AssignedUsers != null && task.AssignedUsers.Any())
                 {
@@ -112,13 +112,13 @@ namespace JobTrackingAPI.Controllers
                 // Tarihleri ayarla
                 task.CreatedAt = DateTime.UtcNow;
                 task.UpdatedAt = DateTime.UtcNow;
-                
+
                 // Check if dependencies exist and are valid
                 if (task.Dependencies.Any())
                 {
                     var dependencyTasks = await _tasksService.GetTasks();
                     var validDependencyIds = dependencyTasks.Select(t => t.Id).ToList();
-                    
+
                     if (task.Dependencies.Any(depId => !validDependencyIds.Contains(depId)))
                     {
                         return BadRequest(new { message = "One or more dependency tasks do not exist" });
@@ -126,7 +126,7 @@ namespace JobTrackingAPI.Controllers
                 }
                 var createdTask = await _tasksService.CreateTask(task);
                 _logger.LogInformation("Task created successfully: {TaskId}", createdTask.Id);
-                
+
                 // Görev atanan kullanıcıların assignedJobs listelerini güncelle
                 if (createdTask.AssignedUserIds != null && createdTask.AssignedUserIds.Any())
                 {
@@ -143,10 +143,10 @@ namespace JobTrackingAPI.Controllers
                         }
                     }
                 }
-                
+
                 // Invalidate caches after creating a new task
                 InvalidateTaskRelatedCaches(createdTask);
-                
+
                 return CreatedAtAction(nameof(GetTask), new { id = createdTask.Id }, createdTask);
             }
             catch (Exception ex)
@@ -163,7 +163,7 @@ namespace JobTrackingAPI.Controllers
             try
             {
                 _logger.LogInformation("Completing task: {TaskId}", id);
-                
+
                 var task = await _tasksService.GetTask(id);
                 if (task == null)
                     return NotFound(new { message = "Task not found" });
@@ -174,7 +174,7 @@ namespace JobTrackingAPI.Controllers
                 var oldStatus = task.Status;
                 task.Status = "completed";
                 task.CompletedDate = DateTime.UtcNow;
-                
+
                 // Update task first
                 await _tasksService.UpdateTask(id, task);
                 _logger.LogInformation("Task {TaskId} marked as completed", id);
@@ -196,10 +196,11 @@ namespace JobTrackingAPI.Controllers
                     });
                 }
                 {
-                    
+
                 }
-                
-                try {
+
+                try
+                {
                     // Update performance score for each assigned user
                     if (task.AssignedUsers != null)
                     {
@@ -214,9 +215,9 @@ namespace JobTrackingAPI.Controllers
                                     _logger.LogWarning("Skipping performance update for user {UserId} - no team membership found", user.Id);
                                     continue;
                                 }
-                                
+
                                 await _teamsService.UpdateUserPerformance(user.Id);
-                                
+
                                 // Invalidate user-related caches
                                 _cacheService.InvalidateUserCaches(user.Id);
                             }
@@ -233,17 +234,17 @@ namespace JobTrackingAPI.Controllers
                     _logger.LogError(perfEx, "Error updating performance scores for task {TaskId}", id);
                     // Return success even if performance update fails, since the task was completed
                 }
-                
+
                 // Ekibe ait önbelleği temizle
                 if (!string.IsNullOrEmpty(task?.TeamId))
                 {
                     _logger.LogInformation("Invalidating team caches for TeamId={TeamId}", task.TeamId);
                     _cacheService.InvalidateTeamCaches(task.TeamId);
                 }
-                
+
                 // Invalidate task-related caches
                 InvalidateTaskRelatedCaches(task);
-                
+
                 return Ok(new { message = "Task completed successfully" });
             }
             catch (Exception ex)
@@ -252,55 +253,55 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-        
+
         [HttpPut("{id}")]
         public async Task<ActionResult> UpdateTask(string id, [FromBody] TaskItem updatedTask)
         {
             try
             {
                 _logger.LogInformation("Updating task: {TaskId}", id);
-                
+
                 var existingTask = await _tasksService.GetTask(id);
                 if (existingTask == null)
                     return NotFound();
                 // Check if task became overdue
-                if (existingTask.Status != "completed" && 
-                    DateTime.UtcNow > existingTask.DueDate && 
+                if (existingTask.Status != "completed" &&
+                    DateTime.UtcNow > existingTask.DueDate &&
                     existingTask.Status != "overdue")
                 {
                     updatedTask.Status = "overdue";
                 }
-                
+
                 // Önce eski görev verilerini al
                 var oldAssignedUserIds = existingTask.AssignedUserIds?.ToList() ?? new List<string>();
                 var newAssignedUserIds = updatedTask.AssignedUsers?.Select(u => u.Id).ToList() ?? new List<string>();
-                
+
                 // Atanan kullanıcılarda değişiklik varsa bildirimleri gönder
                 var removedUserIds = oldAssignedUserIds.Where(id => !newAssignedUserIds.Contains(id)).ToList();
                 var addedUserIds = newAssignedUserIds.Where(id => !oldAssignedUserIds.Contains(id)).ToList();
-                
+
                 // Yeni AssignedUserIds listesini güncelle
                 updatedTask.AssignedUserIds = newAssignedUserIds;
-                
+
                 // Görevden çıkarılan kullanıcılardan bu görevi kaldır
                 foreach (var userId in removedUserIds)
                 {
                     await _userService.RemoveFromAssignedJobs(userId, id);
                     _logger.LogInformation("Removed task {TaskId} from user {UserId} assigned jobs", id, userId);
                 }
-                
+
                 // Göreve yeni eklenen kullanıcılara bu görevi ekle
                 foreach (var userId in addedUserIds)
                 {
                     await _userService.AddToAssignedJobs(userId, id);
                     _logger.LogInformation("Added task {TaskId} to user {UserId} assigned jobs", id, userId);
                 }
-                
+
                 // UpdateTask in the service now handles file deletion if status changes to completed or overdue
                 await _tasksService.UpdateTask(id, updatedTask);
-                
+
                 _logger.LogInformation("Task {TaskId} updated successfully", id);
-                
+
                 // Send notifications to all assigned users about the task update
                 if (updatedTask.AssignedUsers != null)
                 {
@@ -316,10 +317,10 @@ namespace JobTrackingAPI.Controllers
                         });
                     }
                 }
-                
+
                 // Invalidate task-related caches
                 InvalidateTaskRelatedCaches(updatedTask);
-                
+
                 return Ok(updatedTask);
             }
             catch (Exception ex)
@@ -328,36 +329,37 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-        
+
         [HttpGet]
         public async Task<ActionResult<IEnumerable<TaskItem>>> GetTasks()
         {
             try
             {
                 _logger.LogInformation("Getting all tasks");
-                
+
                 // Kullanıcı kimliğini al
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                 {
                     return Unauthorized();
                 }
-                
+
                 // Kullanıcı bilgilerini al - yetkilendirme için
                 var user = await _usersCollection.Find(u => u.Id == userId).FirstOrDefaultAsync();
                 if (user == null)
                 {
                     return NotFound(new { message = "Kullanıcı bulunamadı" });
                 }
-                
+
                 // Cache anahtarını kullanıcıya özel oluştur
                 string cacheKey = $"all_tasks_{userId}";
                 var tasks = await _cacheService.GetOrUpdateAsync(
                     cacheKey,
-                    async () => {
+                    async () =>
+                    {
                         _logger.LogInformation("Cache missed, loading tasks from database");
                         var allTasks = await _tasksService.GetTasks();
-                        
+
                         // Her görev için sahiplik ve yetki bilgilerini işaretle
                         foreach (var task in allTasks ?? Enumerable.Empty<TaskItem>())
                         {
@@ -365,20 +367,20 @@ namespace JobTrackingAPI.Controllers
                             {
                                 task.IsAssignedToCurrentUser = true;
                             }
-                            
+
                             // Admin veya görevin ekibinin sahibi ise izinleri ekle
-                            if (user.OwnerTeams.Count > 0 || 
+                            if (user.OwnerTeams.Count > 0 ||
                                 (task.TeamId != null && await IsTeamOwner(userId, task.TeamId)))
                             {
                                 task.HasManagePermission = true;
                             }
                         }
-                        
+
                         return allTasks ?? new List<TaskItem>();
                     },
                     TimeSpan.FromMinutes(5) // Önbellek süresini kısalttık
                 );
-                
+
                 // Her istek için önbellekten gelse bile izinleri doğrula
                 bool isAdmin = user.OwnerTeams.Count > 0;
                 if (tasks != null)
@@ -389,7 +391,7 @@ namespace JobTrackingAPI.Controllers
                         {
                             task.IsAssignedToCurrentUser = true;
                         }
-                        
+
                         // Admin veya görevin ekibinin sahibi ise izinleri ekle
                         if (isAdmin || (task.TeamId != null && await IsTeamOwner(userId, task.TeamId)))
                         {
@@ -397,7 +399,7 @@ namespace JobTrackingAPI.Controllers
                         }
                     }
                 }
-                
+
                 return Ok(tasks ?? new List<TaskItem>());
             }
             catch (Exception ex)
@@ -406,7 +408,7 @@ namespace JobTrackingAPI.Controllers
                 return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
             }
         }
-        
+
         // Kullanıcının belirtilen ekibin sahibi olup olmadığını kontrol eden yardımcı metod
         private async Task<bool> IsTeamOwner(string userId, string teamId)
         {
@@ -416,7 +418,7 @@ namespace JobTrackingAPI.Controllers
                 {
                     return false;
                 }
-                
+
                 var team = await _teamsCollection.Find(t => t.Id == teamId).FirstOrDefaultAsync();
                 return team != null && team.CreatedById == userId;
             }
@@ -425,23 +427,24 @@ namespace JobTrackingAPI.Controllers
                 return false;
             }
         }
-        
+
         [HttpGet("user/{userId}/active-tasks")]
         public async Task<ActionResult<IEnumerable<TaskItem>>> GetUserActiveTasks(string userId)
         {
             _logger.LogInformation("Getting active tasks for user: {UserId}", userId);
-            
-            try 
+
+            try
             {
                 var tasks = await _cacheService.GetOrUpdateAsync(
                     $"active_tasks_{userId}",
-                    async () => {
+                    async () =>
+                    {
                         var allTasks = await _tasksService.GetTasksByUserId(userId);
                         return allTasks.Where(t => t.Status != "completed" && t.Status != "cancelled").ToList();
                     },
                     TimeSpan.FromMinutes(10)
                 );
-                
+
                 return Ok(tasks);
             }
             catch (Exception ex)
@@ -450,23 +453,23 @@ namespace JobTrackingAPI.Controllers
                 return StatusCode(500, new { message = "Internal server error" });
             }
         }
-        
+
         [HttpGet("{id}")]
         public async Task<ActionResult<TaskItem>> GetTask(string id)
         {
             _logger.LogInformation("Getting task details: {TaskId}", id);
-            
-            try 
+
+            try
             {
                 var task = await _cacheService.GetOrUpdateAsync(
                     $"task_{id}",
                     async () => await _tasksService.GetTask(id),
                     TimeSpan.FromMinutes(15)
                 );
-                
+
                 if (task == null)
                     return NotFound();
-                    
+
                 return Ok(task);
             }
             catch (Exception ex)
@@ -475,20 +478,20 @@ namespace JobTrackingAPI.Controllers
                 return StatusCode(500, new { message = "Internal server error" });
             }
         }
-        
+
         [HttpGet("user/{userId}")]
         public async Task<ActionResult<IEnumerable<TaskItem>>> GetUserTasks(string userId)
         {
             _logger.LogInformation("Getting all tasks for user: {UserId}", userId);
-            
-            try 
+
+            try
             {
                 var tasks = await _cacheService.GetOrUpdateAsync(
                     $"user_tasks_{userId}",
                     async () => await _tasksService.GetTasksByUserId(userId),
                     TimeSpan.FromMinutes(15)
                 );
-                
+
                 return Ok(tasks);
             }
             catch (Exception ex)
@@ -497,44 +500,44 @@ namespace JobTrackingAPI.Controllers
                 return StatusCode(500, new { message = "Internal server error" });
             }
         }
-        
+
         [HttpGet("download/{attachmentId}/{fileName}")]
         public IActionResult DownloadFile(string attachmentId, string fileName)
-        {   
+        {
             _logger.LogInformation("Downloading file: {FileName}, attachment ID: {AttachmentId}", fileName, attachmentId);
-            
+
             var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", fileName);
-            
+
             if (!System.IO.File.Exists(filePath))
             {
                 _logger.LogWarning("File not found: {FilePath}", filePath);
                 return NotFound("File not found");
             }
-                
+
             var contentType = "application/octet-stream";
             var originalFileName = fileName.Substring(fileName.IndexOf('_') + 1);
-            
+
             _logger.LogInformation("Serving file: {FileName}", originalFileName);
             return PhysicalFile(filePath, contentType, originalFileName);
         }
-        
+
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteTask(string id)
         {
             try
             {
                 _logger.LogInformation("Deleting task: {TaskId}", id);
-                
+
                 var task = await _tasksService.GetTask(id);
                 if (task == null)
                 {
                     _logger.LogWarning("Attempted to delete non-existent task: {TaskId}", id);
                     return NotFound("Task not found");
                 }
-                
+
                 // DeleteTask in the service now handles file deletion
                 await _tasksService.DeleteTask(id);
-                
+
                 _logger.LogInformation("Task {TaskId} deleted successfully", id);
 
                 foreach (var item in task.AssignedUsers)
@@ -545,11 +548,11 @@ namespace JobTrackingAPI.Controllers
                         _logger.LogWarning("User not found: {UserId} for task {TaskId}", item.Id, id);
                         continue;
                     }
-                    
+
                     // Kullanıcının assignedJobs listesinden görevi kaldır
                     await _userService.RemoveFromAssignedJobs(user.Id, id);
                     _logger.LogInformation("Removed task {TaskId} from user {UserId} assigned jobs", id, user.Id);
-                    
+
                     await _notificationService.SendNotificationAsync(new NotificationDto
                     {
                         UserId = user.Id,
@@ -559,10 +562,10 @@ namespace JobTrackingAPI.Controllers
                         RelatedJobId = task.Id
                     });
                 }
-                
+
                 // Invalidate task-related caches
                 InvalidateTaskRelatedCaches(task);
-                
+
                 return Ok(new { message = "Task deleted successfully" });
             }
             catch (Exception ex)
@@ -571,24 +574,24 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-        
+
         [HttpPut("{id}/status")]
         public async Task<ActionResult> UpdateTaskStatus(string id, [FromBody] string status)
         {
             try
             {
                 _logger.LogInformation("Updating status for task {TaskId} to {Status}", id, status);
-                
+
                 var task = await _tasksService.GetTask(id);
                 if (task == null)
                     return NotFound();
                 var oldStatus = task.Status;
                 task.Status = status;
-                
+
                 if (status == "completed" && oldStatus != "completed")
                 {
                     task.CompletedDate = DateTime.UtcNow;
-                    
+
                     // Check subtasks
                     if (task.SubTasks != null && task.SubTasks.Any(st => !st.Completed))
                     {
@@ -596,7 +599,7 @@ namespace JobTrackingAPI.Controllers
                         return BadRequest("Tüm alt görevler tamamlanmadan görev tamamlanamaz");
                     }
                 }
-                
+
                 // Update task
                 if (status == "completed")
                 {
@@ -607,7 +610,7 @@ namespace JobTrackingAPI.Controllers
                         .Set(t => t.IsLocked, true) // Görevi kilitli olarak işaretle
                         .Set(t => t.CompletedDate, DateTime.UtcNow);
                     await _tasksCollection.UpdateOneAsync(t => t.Id == id, updateTask);
-                    
+
                     // Send notifications to all assigned users about task completion
                     if (task.AssignedUsers != null)
                     {
@@ -623,7 +626,7 @@ namespace JobTrackingAPI.Controllers
                             });
                         }
                     }
-                    
+
                     // Update team statistics
                     if (task.AssignedUsers != null)
                     {
@@ -631,7 +634,7 @@ namespace JobTrackingAPI.Controllers
                         {
                             // Her kullanıcı için görev listesini getir
                             var userTasks = await _tasksService.GetTasksByUserId(assignedUser.Id);
-                            
+
                             // Doğru ekip için performans skorunu güncelle
                             if (!string.IsNullOrEmpty(task.TeamId))
                             {
@@ -640,7 +643,7 @@ namespace JobTrackingAPI.Controllers
                                 {
                                     // Sadece görevin ait olduğu ekipteki performans skorunu güncelle
                                     await _teamsService.UpdateUserPerformance(assignedUser.Id);
-                                    
+
                                     // Invalidate user cache after performance update
                                     _cacheService.InvalidateUserCaches(assignedUser.Id);
                                 }
@@ -653,19 +656,19 @@ namespace JobTrackingAPI.Controllers
                     // For other status updates
                     await _tasksService.UpdateTask(id, task);
                 }
-                
+
                 _logger.LogInformation("Task {TaskId} status updated from {OldStatus} to {NewStatus}", id, oldStatus, status);
-                
+
                 // Ekibe ait önbelleği temizle
                 if (!string.IsNullOrEmpty(task?.TeamId))
                 {
                     _logger.LogInformation("Invalidating team caches for TeamId={TeamId}", task.TeamId);
                     _cacheService.InvalidateTeamCaches(task.TeamId);
                 }
-                
+
                 // Invalidate task-related caches
                 InvalidateTaskRelatedCaches(task);
-                
+
                 return Ok(new { message = "Task status updated successfully" });
             }
             catch (Exception ex)
@@ -674,29 +677,29 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-        
+
         [HttpPost("{id}/file")]
         public async Task<IActionResult> FileUpload(string id, IFormFile file)
         {
             try
             {
-                _logger.LogInformation("Uploading file to task {TaskId}: {FileName}, size: {FileSize}KB", 
+                _logger.LogInformation("Uploading file to task {TaskId}: {FileName}, size: {FileSize}KB",
                     id, file?.FileName ?? "null", file?.Length / 1024 ?? 0);
-                    
+
                 // Check if the task is completed or overdue before allowing file upload
                 var task = await _tasksService.GetTask(id);
-                if (task == null) 
+                if (task == null)
                     return NotFound("Task not found");
                 if (task.Status == "completed" || task.Status == "overdue")
                     return BadRequest("Cannot upload files to completed or overdue tasks");
                 if (file == null || file.Length == 0)
                     return BadRequest("No file uploaded.");
-                
+
                 if (file.Length > 1024 * 1024 * 10) // 10MB limit
                     return BadRequest("File size exceeds the limit (10MB).");
-                var allowedExtensions = new[] {".jpg", ".png", ".jpeg", ".pdf", ".zip", ".docx", ".doc", ".rar", ".txt", ".xlsx", ".xls",".enc"};
+                var allowedExtensions = new[] { ".jpg", ".png", ".jpeg", ".pdf", ".zip", ".docx", ".doc", ".rar", ".txt", ".xlsx", ".xls", ".enc" };
                 var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
-                
+
                 if (!allowedExtensions.Contains(fileExtension))
                     return BadRequest("Invalid file format.");
                 var uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
@@ -708,22 +711,24 @@ namespace JobTrackingAPI.Controllers
                     await file.CopyToAsync(stream);
                 }
                 var fileUrl = $"/uploads/{uniqueFileName}";
-                
+
                 _logger.LogInformation("File uploaded successfully to {FilePath}", fileUrl);
-                
+
                 await _tasksService.FileUpload(id, fileUrl);
-                
+
                 // Invalidate task cache
                 InvalidateTaskRelatedCaches(task);
-                
+
                 var updatedTask = await _tasksService.GetTask(id);
                 var attachment = updatedTask?.Attachments?.LastOrDefault();
                 if (attachment == null)
                     return Ok(new { taskId = id, message = "File uploaded but attachment details not available" });
-                
-                return Ok(new { 
+
+                return Ok(new
+                {
                     taskId = id,
-                    attachment = new {
+                    attachment = new
+                    {
                         id = attachment.Id,
                         fileName = attachment.FileName,
                         fileUrl = attachment.FileUrl,
@@ -738,7 +743,7 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-        
+
         [HttpGet("dashboard")]
         [Authorize]
         public async Task<ActionResult<DashboardStats>> GetDashboardStats([FromQuery] bool forTeam = false, [FromQuery] string? teamId = null)
@@ -762,7 +767,7 @@ namespace JobTrackingAPI.Controllers
                 {
                     tasks = (await _tasksService.GetTasks()).ToList();
                 }
-                
+
                 tasks = tasks ?? new List<TaskItem>();
 
                 // If not forTeam, filter tasks for current user
@@ -787,7 +792,7 @@ namespace JobTrackingAPI.Controllers
                     {
                         Date = date,
                         DateString = date.ToString("dd/MM"),
-                        Completed = completedTasks.Count(t => 
+                        Completed = completedTasks.Count(t =>
                             t.CompletedDate?.Date == date.Date),
                         NewTasks = tasks.Count(t => t.CreatedAt.Date == date.Date)
                     })
@@ -813,8 +818,8 @@ namespace JobTrackingAPI.Controllers
                     if (team != null)
                     {
                         var tasksCount = tasks.Count();
-                        var completionRate = tasksCount > 0 
-                            ? (completedTasks.Count() * 100.0) / tasksCount 
+                        var completionRate = tasksCount > 0
+                            ? (completedTasks.Count() * 100.0) / tasksCount
                             : 0;
 
                         var averageDuration = completedTasks
@@ -823,9 +828,9 @@ namespace JobTrackingAPI.Controllers
                             .DefaultIfEmpty(0)
                             .Average();
 
-                        var onTimeCompletions = completedTasks.Count(t => 
-                            t.CompletedDate.HasValue && 
-                            t.DueDate.HasValue && 
+                        var onTimeCompletions = completedTasks.Count(t =>
+                            t.CompletedDate.HasValue &&
+                            t.DueDate.HasValue &&
                             t.CompletedDate.Value <= t.DueDate.Value);
 
                         var performanceScore = CalculateTeamPerformanceScore(
@@ -860,7 +865,7 @@ namespace JobTrackingAPI.Controllers
         private async Task<List<TopContributor>> GetTopContributors(Team team, List<TaskItem> teamTasks)
         {
             var contributors = new List<TopContributor>();
-            
+
             foreach (var member in team.Members ?? Enumerable.Empty<TeamMember>())
             {
                 var userTasks = teamTasks
@@ -908,7 +913,7 @@ namespace JobTrackingAPI.Controllers
             var completionScore = (completedTasks * 100.0) / totalTasks;
             var onTimeScore = completedTasks > 0 ? (onTimeCompletions * 100.0) / completedTasks : 0;
             var overdueScore = 100 - (totalTasks > 0 ? (overdueTasks * 100.0) / totalTasks : 0);
-            
+
             var durationScore = averageDuration <= 5 ? 100 : Math.Max(0, 100 - ((averageDuration - 5) * 10));
 
             var finalScore = (completionScore * completionWeight) +
@@ -925,10 +930,10 @@ namespace JobTrackingAPI.Controllers
 
             var completedTasks = userTasks.Count(t => t.Status == "completed");
             var overdueTasks = userTasks.Count(t => t.Status == "overdue");
-            var onTimeCompletions = userTasks.Count(t => 
-                t.Status == "completed" && 
-                t.CompletedDate.HasValue && 
-                t.DueDate.HasValue && 
+            var onTimeCompletions = userTasks.Count(t =>
+                t.Status == "completed" &&
+                t.CompletedDate.HasValue &&
+                t.DueDate.HasValue &&
                 t.CompletedDate.Value <= t.DueDate.Value);
 
             var averageDuration = userTasks
@@ -949,7 +954,7 @@ namespace JobTrackingAPI.Controllers
         private void InvalidateTaskRelatedCaches(TaskItem? task)
         {
             if (task == null) return;
-            
+
             // Clear user-specific caches
             if (task.AssignedUserIds != null)
             {
@@ -971,26 +976,27 @@ namespace JobTrackingAPI.Controllers
             _cacheService.Remove("dashboard_stats");
             _cacheService.Remove("all_tasks");
         }
-        
+
         [HttpGet("history")]
         public async Task<ActionResult<IEnumerable<TaskHistoryDto>>> GetTaskHistory()
         {
             try
             {
                 _logger.LogInformation("Getting task history for current user");
-                
+
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                 {
                     return Unauthorized();
                 }
-                
+
                 var cacheKey = $"task_history_{userId}";
                 var tasks = await _cacheService.GetOrUpdateAsync(
                     cacheKey,
-                    async () => {
+                    async () =>
+                    {
                         var allTasks = await _tasksService.GetTasks();
-                        return allTasks.Where(t => 
+                        return allTasks.Where(t =>
                                        (t.Status == "completed" || t.Status == "overdue") &&
                                        (t.AssignedUserIds != null && t.AssignedUserIds.Contains(userId)))
                                      .OrderByDescending(t => t.UpdatedAt)
@@ -998,7 +1004,7 @@ namespace JobTrackingAPI.Controllers
                     },
                     TimeSpan.FromMinutes(30)
                 );
-                
+
                 return Ok(tasks);
             }
             catch (Exception ex)
@@ -1009,4 +1015,3 @@ namespace JobTrackingAPI.Controllers
         }
     }
 }
-

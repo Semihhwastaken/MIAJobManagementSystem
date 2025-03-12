@@ -4,7 +4,7 @@ import { Team, TeamMember } from '../../types/team';
 import { fileUpload, Task as TaskType, fetchTasks, createTask, updateTask } from '../../redux/features/tasksSlice';
 import teamService from '../../services/teamService';
 import { Listbox, Transition } from '@headlessui/react';
-import { DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { CheckIcon, ChevronUpDownIcon, XCircleIcon, DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useSnackbar } from 'notistack';
 import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 
@@ -56,7 +56,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
   const initialFormData: FormData = {
     title: task?.title || '',
     description: task?.description || '',
-    dueDate: task?.dueDate || new Date().toISOString().split('T')[0],
+    dueDate: formatDateForInput(task?.dueDate || new Date().toISOString().split('T')[0]),
     priority: (task?.priority || 'medium') as TaskPriority,
     status: (task?.status || 'todo') as TaskStatus,
     category: task?.category || 'Bug',
@@ -114,13 +114,10 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         status: task.status,
         category: task.category,
         assignedUsers: task.assignedUsers || [],
-        assignedUserIds: task.assignedUserIds || [],
         subTasks: task.subTasks,
         teamId: task.teamId,
         dependencies: task.dependencies,
         attachments: task.attachments,
-        createdAt: task.createdAt || new Date().toISOString(),
-        updatedAt: task.updatedAt || new Date().toISOString(),
         completedDate: task?.status === 'completed' ? new Date() : null,
       });
     }
@@ -143,8 +140,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
           if (selectedUser) {
             setFormData(prevState => ({
               ...prevState,
-              assignedUsers: selectedUser ? [selectedUser] : [],
-              assignedUserIds: selectedUser ? [selectedUser.id || ''] : []
+              assignedUsers: selectedUser ? [selectedUser] : []
             }));
           }
         }
@@ -175,51 +171,94 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const now = new Date().toISOString();
-    
+  
+    // Add more thorough validation
+    if (!formData.title.trim()) {
+      enqueueSnackbar('Başlık alanı zorunludur', { variant: 'error' });
+      return;
+    }
+
     if (!formData.dueDate) {
       enqueueSnackbar('Bitiş tarihi zorunludur', { variant: 'error' });
       return;
     }
 
-    const dueDate = new Date(formData.dueDate);
-    dueDate.setHours(23, 59, 59, 999);
-    const localOffset = dueDate.getTimezoneOffset() * 60000;
-    const dueDateUTC = new Date(dueDate.getTime() - localOffset);
+    if (!selectedTeamId && !task?.teamId && !teamId) {
+      enqueueSnackbar('Lütfen bir ekip seçin', { variant: 'error' });
+      return;
+    }
 
     try {
-      // Task payload'ını oluştur
+      // Format the date correctly for the API
+      const dueDate = new Date(formData.dueDate);
+      dueDate.setHours(23, 59, 59, 999);
+      
+      // Ensure all subtasks have required fields but don't set IDs
+      const processedSubTasks = formData.subTasks.map(subTask => ({
+        // Keep ID if exists but don't generate new ones - let MongoDB handle it
+        ...(subTask.id ? { id: subTask.id } : {}),
+        title: subTask.title,
+        completed: Boolean(subTask.completed)
+      }));
+
+      // Ensure all assignedUsers have the required fields
+      const processedAssignedUsers = formData.assignedUsers.map(user => ({
+        id: user.id || '',
+        username: user.username || '',
+        email: user.email || '',
+        fullName: user.fullName || user.username || '',
+        department: user.department || '',
+        title: user.title || '',
+        position: user.position || '',
+        profileImage: user.profileImage || ''
+      }));
+
+      // Extract user IDs for the assignedUserIds field
+      const assignedUserIds = processedAssignedUsers
+        .filter(user => user.id)
+        .map(user => user.id);
+
+      // Create a complete task payload with all required fields
       const taskPayload = {
-        ...formData,
-        teamId: selectedTeamId || task?.teamId || teamId,
+        // Don't include id for new tasks - the createTask thunk will generate one
+        // For existing tasks, the id will be added before dispatching
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        teamId: selectedTeamId || task?.teamId || teamId || '',
         createdAt: task ? task.createdAt : now,
         updatedAt: now,
-        dueDate: dueDateUTC.toISOString(),
-        status: (formData.status === 'in-progress' ? 'in-progress' : 'todo') as TaskStatus,
-        dependencies: formData.dependencies,
-        attachments: task?.attachments || [],
-        assignedUserIds: formData.assignedUsers.map(user => user._id || '')
+        dueDate: dueDate.toISOString(),
+        status: formData.status || 'todo',
+        priority: formData.priority || 'medium',
+        category: formData.category || 'Bug',
+        subTasks: processedSubTasks,
+        dependencies: formData.dependencies || [],
+        attachments: formData.attachments || [],
+        assignedUsers: processedAssignedUsers,
+        assignedUserIds: assignedUserIds
       };
+
+      console.log('Task payload before dispatch:', taskPayload);
 
       let taskId = '';
 
-      // Eğer task varsa update, yoksa create işlemi yap
       if (task && task.id) {
-        // Mevcut görevi güncelle
+        // Update existing task
         const updatedTask = await dispatch(updateTask({
           ...taskPayload,
           id: task.id
-        } as TaskType)).unwrap();
+        })).unwrap();
         
         taskId = updatedTask.id;
         enqueueSnackbar('Görev başarıyla güncellendi', { variant: 'success' });
       } else {
-        // Yeni görev oluştur
-        const createdTask = await dispatch(createTask(taskPayload as Omit<TaskType, 'id'>)).unwrap();
+        // Create new task
+        const createdTask = await dispatch(createTask(taskPayload)).unwrap();
         taskId = createdTask.id;
         enqueueSnackbar('Görev başarıyla oluşturuldu', { variant: 'success' });
       }
       
-      // Eğer dosya seçilmişse, task ID ile dosyayı yükle
+      // Handle file upload if needed
       if (selectedFile && taskId) {
         try {
           await dispatch(fileUpload({ taskId, file: selectedFile })).unwrap();
@@ -233,7 +272,19 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
       onClose();
     } catch (error) {
       console.error('Error submitting form:', error);
-      enqueueSnackbar('Form gönderilirken bir hata oluştu', { variant: 'error' });
+      
+      // Try to get a more specific error message if available
+      let errorMessage = 'Form gönderilirken bir hata oluştu';
+      if (typeof error === 'object' && error !== null) {
+        const anyError = error as any;
+        if (anyError.message) {
+          errorMessage = anyError.message;
+        } else if (anyError.errors) {
+          errorMessage = Object.values(anyError.errors).join(', ');
+        }
+      }
+      
+      enqueueSnackbar(errorMessage, { variant: 'error' });
     }
   };
 
@@ -317,15 +368,12 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
   };
 
   const handleUserToggle = (user: TeamMember) => {
-    const isSelected = formData.assignedUsers.some(u => u._id === user.id);
+    const isSelected = formData.assignedUsers.some(u => u.id === user.id);
     setFormData({
       ...formData,
       assignedUsers: isSelected
-        ? formData.assignedUsers.filter(u => u._id !== user.id)
-        : [...formData.assignedUsers, user],
-      assignedUserIds: isSelected
-        ? formData.assignedUserIds.filter(id => id !== user.id)
-        : [...formData.assignedUserIds, user.id || '']
+        ? formData.assignedUsers.filter(u => u.id !== user.id)
+        : [...formData.assignedUsers, user]
     });
   };
 
@@ -342,8 +390,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
   const handleRemoveUser = (userId: string) => {
     setFormData({
       ...formData,
-      assignedUsers: formData.assignedUsers.filter(user => user._id !== userId),
-      assignedUserIds: formData.assignedUserIds.filter(id => id !== userId)
+      assignedUsers: formData.assignedUsers.filter(user => user.id !== userId)
     });
   };
 
@@ -586,7 +633,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
                     <span>{user.fullName || user.username}</span>
                     <button
                       type="button"
-                      onClick={() => handleRemoveUser(user._id!)}
+                      onClick={() => handleRemoveUser(user.id!)}
                       className="text-gray-500 hover:text-gray-700"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -601,7 +648,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
               <Listbox
                 value={null}
                 onChange={(selectedUser: TeamMember) => {
-                  if (selectedUser && !formData.assignedUsers.some(u => u._id === selectedUser.id)) {
+                  if (selectedUser && !formData.assignedUsers.some(u => u.id === selectedUser.id)) {
                     setFormData({
                       ...formData,
                       assignedUsers: [...formData.assignedUsers, selectedUser]
@@ -631,7 +678,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
                         </div>
                       ) : (
                         users
-                          .filter(user => !formData.assignedUsers.some(u => u._id === user.id))
+                          .filter(user => !formData.assignedUsers.some(u => u.id === user.id))
                           .map(user => (
                             <Listbox.Option
                               key={user.id}

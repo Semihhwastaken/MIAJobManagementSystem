@@ -466,7 +466,7 @@ namespace JobTrackingAPI.Controllers
 
                 await _teamService.UpdateAsync(teamId, existingTeam);
 
-                // Clear caches
+                // Clear team related caches
                 ClearTeamRelatedCaches(teamId);
 
                 return Ok("Takım başarıyla güncellendi");
@@ -479,7 +479,7 @@ namespace JobTrackingAPI.Controllers
 
         [HttpDelete("{teamId}")]
         [Authorize]
-        public async Task<IActionResult> DeleteTeam(string teamId, [FromBody] DeleteTeamRequest request)
+        public async Task<IActionResult> DeleteTeam(string teamId)
         {
             try
             {
@@ -489,22 +489,11 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized(new { message = "Kullanıcı girişi yapılmamış" });
                 }
 
-                // Validate that the authenticated user matches the request userId
-                if (userId != request.UserId)
-                {
-                    return BadRequest(new { message = "Unauthorized deletion attempt" });
-                }
-
-                // Get team data before deletion
                 var team = await _teamService.GetTeamById(teamId);
                 if (team == null)
                 {
                     return NotFound(new { message = "Takım bulunamadı" });
                 }
-
-                // Store members for notifications before deletion
-                var members = team.Members?.ToList() ?? new List<TeamMember>();
-                var teamName = team.Name;
 
                 var result = await _teamService.DeleteTeamAsync(teamId, userId);
                 if (!result.success)
@@ -512,19 +501,19 @@ namespace JobTrackingAPI.Controllers
                     return BadRequest(new { message = result.message });
                 }
 
-                // Send notifications to all members
-                foreach (var member in members)
+                // Send notifications to all team members
+                foreach (var member in team.Members)
                 {
                     await _notificationService.SendNotificationAsync(
                         userId: member.Id,
                         title: "Takım Silindi",
-                        message: $"{teamName} adlı takım silindi",
+                        message: $"{team.Name} adlı takım silindi",
                         notificationType: NotificationType.TeamStatusDeleted,
-                        relatedJobId: teamId
+                        relatedJobId: team.Id
                     );
                 }
 
-                // Clear team related caches
+                // Clear all relevant caches
                 ClearTeamRelatedCaches(teamId);
                 _cache.Remove($"teams_{userId}");
                 _cache.Remove($"myTeams_{userId}");
@@ -534,7 +523,6 @@ namespace JobTrackingAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting team {TeamId}", teamId);
                 return BadRequest(new { message = ex.Message });
             }
         }
@@ -634,81 +622,31 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized(new { message = "Kullanıcı girişi yapılmamış" });
                 }
 
-                // Önce team'i getir ve yetkileri kontrol et
-                var team = await _teamService.GetTeamById(teamId);
-                if (team == null)
+                var result = await _teamService.RemoveTeamMemberAsync(teamId, memberId, userId);
+                if (!result.success)
                 {
-                    return NotFound(new { message = "Takım bulunamadı" });
+                    return BadRequest(new { message = result.message });
                 }
-
-                // İşlemi yapan kullanıcı, takım kurucusu mu kontrol et (bu her zaman en yüksek yetkidir)
-                var isCreator = team.CreatedById == userId;
-
-                // Kullanıcı takımın üyesi mi ve rolü ne kontrol et
-                var requestingMember = team.Members.FirstOrDefault(m => m.Id == userId);
-
-                // Kullanıcı kendi kendini çıkarıyorsa izin ver
-                bool isSelfRemoval = userId == memberId;
-
-                // Rol bilgisi için case-insensitive kontrol (owner, Owner, OWNER hepsi kabul edilir)
-                bool isOwnerOrAdmin = false;
-
-                if (requestingMember != null && requestingMember.Role != null)
+                var t = await _teamService.GetTeamById(teamId);
+                foreach (var item in t.Members)
                 {
-                    var role = requestingMember.Role.ToLowerInvariant();
-                    isOwnerOrAdmin = role == "owner" || role == "admin";
-                }
-
-                _logger.LogInformation(
-                    "RemoveTeamMember kontrolleri: UserId={UserId}, MemberId={MemberId}, TeamId={TeamId}, IsCreator={IsCreator}, IsOwnerOrAdmin={IsOwnerOrAdmin}, IsSelfRemoval={IsSelfRemoval}",
-                    userId, memberId, teamId, isCreator, isOwnerOrAdmin, isSelfRemoval
-                );
-
-                // Yetkisi var mı?
-                if (!isCreator && !isOwnerOrAdmin && !isSelfRemoval)
-                {
-                    _logger.LogWarning(
-                        "Yetkisiz üye çıkarma denemesi: UserId={UserId}, Role={Role}, MemberId={MemberId}, TeamId={TeamId}",
-                        userId, requestingMember?.Role, memberId, teamId
-                    );
-                    return StatusCode(403, new { message = "Bu işlem için gerekli izinlere sahip değilsiniz" });
-                }
-
-                // Silinen kişi owner mı? (owner'ı sadece kendisi çıkarabilir)
-                var targetMember = team.Members.FirstOrDefault(m => m.Id == memberId);
-                if (targetMember != null &&
-                    targetMember.Role?.ToLowerInvariant() == "owner" &&
-                    !isSelfRemoval)
-                {
-                    return StatusCode(403, new { message = "Takım sahibi sadece kendisi tarafından takımdan çıkarılabilir" });
-                }
-
-                // Buraya kadar geldiyse yetkisi var demektir, işlemi gerçekleştir
-                var result = await _teamService.RemoveMemberFromTeam(teamId, memberId);
-
-                if (!result)
-                {
-                    return BadRequest(new { message = "Üye takımdan çıkarılırken bir hata oluştu" });
-                }
-
-                // Bildirim gönder
-                await _notificationService.SendNotificationAsync(
+                    await _notificationService.SendNotificationAsync(
                     userId: memberId,
                     title: "Takımdan Çıkarılma",
-                    message: $"{team.Name} adlı takımdan çıkarıldınız",
+                    message: $"{t.Name} adlı takımdan {item.FullName} kişisi çıkarıldı",
                     notificationType: NotificationType.TeamStatusDeleted,
-                    relatedJobId: teamId
+                    relatedJobId: t.Id
                 );
+                }
 
-                // Cache'leri temizle
+                // Clear caches
                 ClearTeamRelatedCaches(teamId);
                 ClearMemberRelatedCaches(memberId);
 
-                return Ok(new { success = true, message = "Üye başarıyla takımdan çıkarıldı" });
+                return Ok(new { message = result.message });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Üye çıkarma sırasında hata: TeamId={TeamId}, MemberId={MemberId}", teamId, memberId);
                 return BadRequest(new { message = ex.Message });
             }
         }
@@ -803,6 +741,27 @@ namespace JobTrackingAPI.Controllers
             catch (Exception ex)
             {
                 return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("invite-link/{teamId}/send")]
+        public async Task<IActionResult> SendInviteLinkToUser(string teamId, [FromQuery] string userId)
+        {
+            try
+            {
+                var inviteLink = await _teamService.GenerateInviteLinkAsync(teamId);
+                await _notificationService.SendNotificationAsync(
+                    userId: userId,
+                    title: "Davet Linki",
+                    message: $"Davet linkiniz: {inviteLink}  ",
+                    notificationType: NotificationType.TeamInvite
+                );
+
+                return Ok(new { message = "İlgili kullanıcılara davet linki gönderildi" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
 

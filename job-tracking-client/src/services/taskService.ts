@@ -39,11 +39,40 @@ const taskService = {
     },
 
     createTask: async (task: Partial<TaskItem>): Promise<TaskItem> => {
+        // Ensure assignedUserIds is always properly formatted
         if (task.assignedUsers && task.assignedUsers.length > 0) {
-            task.assignedUserIds = task.assignedUsers.map(user => user.id);
+            task.assignedUserIds = task.assignedUsers
+                .filter(user => user && user.id)
+                .map(user => user.id);
+        } else {
+            task.assignedUserIds = [];
         }
         
-        const response = await axiosInstance.post('/tasks', task);
+        // Format the due date properly
+        if (task.dueDate && task.dueDate instanceof Date) {
+            task.dueDate = task.dueDate.toISOString();
+        }
+        
+        // Ensure all required fields are present
+        const taskToSend = {
+            ...task,
+            title: task.title || '',
+            description: task.description || '',
+            status: task.status || 'todo',
+            priority: task.priority || 'medium',
+            category: task.category || 'Bug',
+            subTasks: (task.subTasks || []).map(st => ({
+                id: st.id || undefined,
+                title: st.title,
+                completed: Boolean(st.completed),
+            })),
+            dependencies: task.dependencies || [],
+            attachments: task.attachments || [],
+        };
+
+        console.log('taskService createTask sending:', JSON.stringify(taskToSend));
+
+        const response = await axiosInstance.post('/tasks', taskToSend);
         return response.data;
     },
 
@@ -51,7 +80,7 @@ const taskService = {
         if (task.assignedUsers && task.assignedUsers.length > 0) {
             task.assignedUserIds = task.assignedUsers.map(user => user.id);
         }
-        
+
         const response = await axiosInstance.put(`/tasks/${id}`, task);
         return response.data;
     },
