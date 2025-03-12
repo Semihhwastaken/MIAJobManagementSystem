@@ -375,7 +375,11 @@ const App: React.FC = () => {
           email: userData.email,
           fullName: userData.fullName,
           department: userData.department,
-          role: userData.role  // Make sure role is included here
+          role: userData.role,
+          subscriptionId: userData.subscriptionId,
+          subscriptionPlan: userData.subscriptionPlan,
+          subscriptionEndDate: userData.subscriptionEndDate,
+          subscriptionStatus: userData.subscriptionStatus  // Make sure role is included here
         }));
         console.log('Initialized user data:', userData); // Debug log
       } catch (error) {

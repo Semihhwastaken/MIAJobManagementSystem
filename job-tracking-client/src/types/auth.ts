@@ -30,5 +30,9 @@ export interface AuthResponse {
         position: string;
         profileImage?: string;
         role: string;
+        subscriptionPlan: string;
+        subscriptionStatus: string;
+        subscriptionId: string;
+        subscriptionEndDate: string;
     };
 }

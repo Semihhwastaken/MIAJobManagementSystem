@@ -36,7 +36,7 @@ const FeedbackManagement: React.FC = () => {
       const requestBody = {
         update: {
           status: status,
-          ...(response && { response })
+          adminResponse: response
         }
       };
 

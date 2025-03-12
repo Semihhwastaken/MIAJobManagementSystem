@@ -95,7 +95,8 @@ namespace JobTrackingAPI.Services
                     .Set(f => f.Status, status)
                     .Set(f => f.AdminResponse, response)
                     .Set(f => f.RespondedAt, status == FeedbackStatus.Responded ? DateTime.UtcNow : (DateTime?)null)
-                    .Set(f => f.LastUpdated, DateTime.UtcNow);
+                    .Set(f => f.LastUpdated, DateTime.UtcNow)
+                    .Set(f => f.IsRead, status == FeedbackStatus.Read || status == FeedbackStatus.Responded || status == FeedbackStatus.Archived);
 
                 return await _feedback.FindOneAndUpdateAsync(
                     f => f.Id == id,

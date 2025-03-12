@@ -10,6 +10,7 @@ interface AuthState {
         username: string;
         email: string;
         fullName: string;
+        department:string;
         role: string;
         subscriptionPlan: string;
         subscriptionStatus: string;
@@ -124,7 +125,13 @@ const authSlice = createSlice({
             .addCase(login.fulfilled, (state, action) => {
                 state.loading = false;
                 state.token = action.payload.token;
-                state.user = action.payload.user;
+                state.user = {
+                    ...action.payload.user,
+                    subscriptionPlan: '',
+                    subscriptionStatus: '',
+                    subscriptionId: '',
+                    subscriptionEndDate: null
+                };
                 state.isAuthenticated = true;
                 state.error = null;
                 state.dataPreloaded = false;
