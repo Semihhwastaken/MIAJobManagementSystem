@@ -4,8 +4,11 @@ import { notificationAxiosInstance } from '../../services/axiosInstance';
 import SignalRService from '../../services/signalRService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Notification } from '../../types/notification';
+import { useTheme } from '@mui/material/styles';
 
 export const NotificationCenter: React.FC = () => {
+  const theme = useTheme();
+  const isDarkMode = theme.palette.mode === 'dark';
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -63,8 +66,6 @@ export const NotificationCenter: React.FC = () => {
     };
   }, []);
   
-  
-  
   const showNotificationToast = (notification: Notification) => {
     if (!notification.id) return;
     
@@ -96,6 +97,9 @@ export const NotificationCenter: React.FC = () => {
       document.head.removeChild(style);
     };
   }, []);
+
+
+
   const handleNewNotification = useCallback((notification: Notification) => {
     setNotifications(prevNotifications => {
       const notificationExists = prevNotifications.some(n => n.id === notification.id);
@@ -278,7 +282,11 @@ export const NotificationCenter: React.FC = () => {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white transition-colors duration-200 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+        className={`relative p-2 transition-colors duration-200 rounded-full ${
+          isDarkMode 
+            ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+            : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+        }`}
       >
         <svg
           className="w-6 h-6"
@@ -312,20 +320,33 @@ export const NotificationCenter: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: 0.2 }}
-            className="fixed right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-xl shadow-xl py-1 z-50 border border-gray-100 dark:border-gray-700 max-h-[80vh] md:absolute md:max-h-[600px]"
+            className={`fixed right-0 mt-2 w-96 rounded-xl shadow-xl py-1 z-50 max-h-[80vh] md:absolute md:max-h-[600px] ${
+              isDarkMode 
+                ? 'bg-gray-800 border border-gray-700' 
+                : 'bg-white border border-gray-100'
+            }`}
             style={{
               top: "100%",
               marginRight: "1rem",
-              backdropFilter: "blur(8px)",
             }}
           >
-            <div className="sticky top-0 px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-t-xl">
+            <div className={`sticky top-0 px-4 py-3 border-b rounded-t-xl backdrop-blur-sm ${
+              isDarkMode 
+                ? 'border-gray-700 bg-gray-800/95'
+                : 'border-gray-100 bg-white/95'
+            }`}>
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Bildirimler</h3>
+                <h3 className={`text-lg font-semibold ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}>Bildirimler</h3>
                 {unreadCount > 0 && (
                   <button
                     onClick={handleMarkAllAsRead}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium px-3 py-1 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/50 transition-colors"
+                    className={`text-sm font-medium px-3 py-1 rounded-full transition-colors ${
+                      isDarkMode 
+                        ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-900/50' 
+                        : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+                    }`}
                   >
                     Tümünü Okundu İşaretle
                   </button>
@@ -333,7 +354,11 @@ export const NotificationCenter: React.FC = () => {
               </div>
             </div>
 
-            <div className="overflow-y-auto max-h-[calc(80vh-4rem)] md:max-h-[500px] scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-100 dark:scrollbar-track-gray-700">
+            <div className={`overflow-y-auto max-h-[calc(80vh-4rem)] md:max-h-[500px] scrollbar-thin ${
+              isDarkMode 
+                ? 'scrollbar-thumb-gray-600 scrollbar-track-gray-700' 
+                : 'scrollbar-thumb-gray-300 scrollbar-track-gray-100'
+            }`}>
               <AnimatePresence>
                 {notifications.length > 0 ? (
                   notifications.map((notification) => (
@@ -342,8 +367,14 @@ export const NotificationCenter: React.FC = () => {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className={`px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer border-b border-gray-50 dark:border-gray-700 transition-colors ${
-                        !notification.isRead ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
+                      className={`px-4 py-3 cursor-pointer border-b transition-colors ${
+                        !notification.isRead 
+                          ? isDarkMode 
+                            ? 'bg-blue-900/20 hover:bg-gray-700/50 border-gray-700' 
+                            : 'bg-blue-50/50 hover:bg-gray-50 border-gray-50'
+                          : isDarkMode
+                            ? 'hover:bg-gray-700/50 border-gray-700' 
+                            : 'hover:bg-gray-50 border-gray-50'
                       }`}
                       onClick={() => notification.id && handleMarkAsRead(notification.id)}
                     >
@@ -353,19 +384,27 @@ export const NotificationCenter: React.FC = () => {
                         </span>
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start">
-                            <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            <h4 className={`text-sm font-medium truncate ${
+                              isDarkMode ? 'text-white' : 'text-gray-900'
+                            }`}>
                               {notification.title}
                             </h4>
-                            <span className="text-xs text-gray-400 dark:text-gray-500 ml-2 whitespace-nowrap">
+                            <span className={`text-xs ml-2 whitespace-nowrap ${
+                              isDarkMode ? 'text-gray-500' : 'text-gray-400'
+                            }`}>
                               {getRelativeTime(notification.createdDate)}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5 line-clamp-2">
+                          <p className={`text-sm mt-0.5 line-clamp-2 ${
+                            isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                          }`}>
                             {notification.message}
                           </p>
                         </div>
                         {!notification.isRead && (
-                          <span className="w-2 h-2 rounded-full bg-blue-500 dark:bg-blue-400 mt-2 flex-shrink-0" />
+                          <span className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
+                            isDarkMode ? 'bg-blue-400' : 'bg-blue-500'
+                          }`} />
                         )}
                       </div>
                     </motion.div>
@@ -374,17 +413,23 @@ export const NotificationCenter: React.FC = () => {
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                    className={`px-4 py-8 text-center ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}
                   >
                     <svg 
-                      className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" 
+                      className={`w-16 h-16 mx-auto mb-4 ${
+                        isDarkMode ? 'text-gray-600' : 'text-gray-300'
+                      }`}
                       fill="none" 
                       stroke="currentColor" 
                       viewBox="0 0 24 24"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                     </svg>
-                    <p className="text-gray-600 dark:text-gray-400">Henüz bildirim yok</p>
+                    <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
+                      Henüz bildirim yok
+                    </p>
                   </motion.div>
                 )}
               </AnimatePresence>

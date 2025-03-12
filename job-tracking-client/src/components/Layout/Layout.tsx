@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useRef, useEffect, useState } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
@@ -19,6 +19,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { isDarkMode, toggleTheme } = useTheme();
   const isAuthPage = location.pathname === '/auth';
   const user = useSelector((state: RootState) => state.auth.user);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -80,6 +96,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   };
 
+  const toggleDropdown = () => {
+    setIsDropdownOpen(prev => !prev);
+  };
+
   const navItems = [
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/', label: 'Ana Sayfa' },
@@ -139,34 +159,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
               {/* Right side buttons */}
               <div className="flex items-center space-x-4">
-                {/* Upgrade Plan Button */}
-                <Link
-                  to="/subscription"
-                  className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    isDarkMode
-                      ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                      : 'bg-indigo-500 text-white hover:bg-indigo-600'
-                  }`}
-                >
-                  <svg
-                    className="w-4 h-4 mr-1"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 10l7-7m0 0l7 7m-7-7v18"
-                    />
-                  </svg>
-                  <span>{user?.subscriptionPlan === 'basic' ? 'Planı Yükselt' : 'Abonelik'}</span>
-                </Link>
-
-                {/* Notification Center */}
-                <NotificationCenter />
-
                 {/* Theme Toggle Button */}
                 <button
                   onClick={toggleTheme}
@@ -174,14 +166,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                       ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
-
                   aria-label="Toggle Theme"
                 >
                   {isDarkMode ? (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" />
-
                     </svg>
                   ) : (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -190,57 +179,88 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   )}
                 </button>
 
-                {/* Profile Icon */}
-                <button
+                {/* Notification Center */}
+                <NotificationCenter />
 
-                  className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-150 ease-in-out ${isDarkMode
-                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  onClick={() => navigate('/profile')}
-
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                {/* Profile Dropdown */}
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={toggleDropdown}
+                    className={`flex items-center space-x-2 p-1 rounded-full transition-colors border ${isDarkMode
+                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300 border-gray-300'
+                      }`}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                    />
-                  </svg>
-                </button>
-
-                {/* Logout Button */}
-                <button
-                  onClick={handleLogout}
-
-                  className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-150 ease-in-out ${isDarkMode
-                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                    />
-
-                  </svg>
-                </button>
+                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white overflow-hidden">
+                      {user?.profileImage ? (
+                        <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      )}
+                    </div>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {/* Dropdown Menu */}
+                  {isDropdownOpen && (
+                    <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 z-10 ${
+                      isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
+                    }`}>
+                      <div className={`px-4 py-2 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                        <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {user?.fullName || 'Kullanıcı'}
+                        </p>
+                        <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          {user?.email || 'email@example.com'}
+                        </p>
+                      </div>
+                      
+                      <Link to="/profile" className={`block px-4 py-2 text-sm ${
+                        isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                      }`}>
+                        <div className="flex items-center">
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          Profil
+                        </div>
+                      </Link>
+                      
+                      <Link to="/subscription" className={`block px-4 py-2 text-sm ${
+                        isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                      }`}>
+                        <div className="flex items-center">
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                          </svg>
+                          {user?.subscriptionPlan === 'basic' ? 'Planı Yükselt' : 'Abonelik'}
+                        </div>
+                      </Link>
+                      
+                      <button 
+                        onClick={handleLogout}
+                        className={`w-full text-left block px-4 py-2 text-sm ${
+                          isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        <div className="flex items-center">
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                          </svg>
+                          Çıkış Yap
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
