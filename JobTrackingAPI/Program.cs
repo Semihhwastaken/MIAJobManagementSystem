@@ -149,6 +149,7 @@ namespace JobTrackingAPI
             builder.Services.AddScoped<DashboardService>();
             builder.Services.AddSingleton<ISystemMonitoringService, SystemMonitoringService>();
             builder.Services.AddScoped<IFeedbackService, FeedbackService>();
+            builder.Services.AddScoped<IActivityService, ActivityService>(); // Add this line to register IActivityService
 
             // Register background services
             builder.Services.AddHostedService<StatusUpdateBackgroundService>();

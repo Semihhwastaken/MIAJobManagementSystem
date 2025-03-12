@@ -30,6 +30,7 @@ namespace JobTrackingAPI.Controllers
         private readonly CacheService _cacheService;
         private readonly ILogger<TasksController> _logger;
         private readonly IUserService _userService;
+        private readonly IActivityService _activityService;
 
         public TasksController(
             ITasksService tasksService,
@@ -39,7 +40,8 @@ namespace JobTrackingAPI.Controllers
             ITeamService teamsService,
             CacheService cacheService,
             ILogger<TasksController> logger,
-            IUserService userService)
+            IUserService userService,
+            IActivityService activityService)
         {
             var database = mongoClient.GetDatabase(settings.Value.DatabaseName);
             _tasksService = tasksService;
@@ -51,6 +53,7 @@ namespace JobTrackingAPI.Controllers
             _cacheService = cacheService;
             _logger = logger;
             _userService = userService;
+            _activityService = activityService;
         }
 
         [HttpPost]
@@ -146,6 +149,12 @@ namespace JobTrackingAPI.Controllers
 
                 // Invalidate caches after creating a new task
                 InvalidateTaskRelatedCaches(createdTask);
+
+                await _activityService.LogTaskActivity(
+                    userId: User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                    taskId: createdTask.Id,
+                    description: $"yeni görev oluşturdu: {createdTask.Title}"
+                );
 
                 return CreatedAtAction(nameof(GetTask), new { id = createdTask.Id }, createdTask);
             }
@@ -668,6 +677,12 @@ namespace JobTrackingAPI.Controllers
 
                 // Invalidate task-related caches
                 InvalidateTaskRelatedCaches(task);
+
+                await _activityService.LogTaskActivity(
+                    userId: User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                    taskId: id,
+                    description: $"görev durumunu {status} olarak güncelledi"
+                );
 
                 return Ok(new { message = "Task status updated successfully" });
             }

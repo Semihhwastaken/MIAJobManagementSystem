@@ -13,6 +13,7 @@ import {
   Cell
 } from 'recharts';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { Activity } from '../../types/activity';
 
 interface AdminStats {
   totalUsers: number;
@@ -25,12 +26,7 @@ interface AdminStats {
     apiRequests: number;
     errorRate: number;
   } | null; // Make systemStats optional
-  recentActivities: Array<{
-    id: string;
-    type: string;
-    description: string;
-    timestamp: string;
-  }>;
+  recentActivities: Activity[]; // Updated to use Activity type
 }
 
 interface TaskStats {
@@ -112,7 +108,13 @@ const AdminDashboard: React.FC = () => {
           })
         ]);
 
-        setStats(dashboardStats.data);
+        // Transform the activities to match the Activity interface
+        const transformedStats = {
+          ...dashboardStats.data,
+          recentActivities: dashboardStats.data.recentActivities.map(mapResponseToActivity)
+        };
+
+        setStats(transformedStats);
         setTaskStats(taskStatsData.data);
         setTeamStats(teamStatsData.data);
       } catch (err: any) {
@@ -284,37 +286,144 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Recent Activities */}
-        <div className={`p-6 rounded-lg ${
-          isDarkMode ? 'bg-gray-800' : 'bg-white'
-        } shadow-lg`}>
-          <h2 className="text-xl font-semibold mb-4">Recent Activities</h2>
-          <div className="space-y-4">
-            {stats?.recentActivities.map((activity) => (
-              <ActivityItem key={activity.id} activity={activity} />
-            ))}
-          </div>
-        </div>
+        <RecentActivitiesSection activities={stats?.recentActivities || []} />
       </div>
 
       {/* Task Analysis Section */}
       {taskStats && (
         <div ref={sectionRefs.tasks} className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* Task Status Chart */}
           <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
-            <h2 className="text-xl font-semibold mb-4">Task Analysis</h2>
+            <h2 className="text-xl font-semibold mb-4">Task Status Distribution</h2>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={[
-                { name: 'High', value: taskStats.tasksByPriority.high },
-                { name: 'Medium', value: taskStats.tasksByPriority.medium },
-                { name: 'Low', value: taskStats.tasksByPriority.low }
-              ]}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Bar dataKey="value" fill="#8884d8" />
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: 'Completed', value: taskStats.tasksByStatus.completed },
+                    { name: 'In Progress', value: taskStats.tasksByStatus.inProgress },
+                    { name: 'Overdue', value: taskStats.tasksByStatus.overdue }
+                  ]}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {[
+                    '#10B981', // Yeşil - Completed
+                    '#3B82F6', // Mavi - In Progress
+                    '#EF4444'  // Kırmızı - Overdue
+                  ].map((color, index) => (
+                    <Cell key={`cell-${index}`} fill={color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Task Priority Chart */}
+          <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+            <h2 className="text-xl font-semibold mb-4">Tasks by Priority</h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={[
+                  { name: 'High', value: taskStats.tasksByPriority.high, color: '#EF4444' },
+                  { name: 'Medium', value: taskStats.tasksByPriority.medium, color: '#F59E0B' },
+                  { name: 'Low', value: taskStats.tasksByPriority.low, color: '#10B981' }
+                ]}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#E5E7EB'} />
+                <XAxis 
+                  dataKey="name" 
+                  tick={{ fill: isDarkMode ? '#D1D5DB' : '#4B5563' }}
+                />
+                <YAxis 
+                  tick={{ fill: isDarkMode ? '#D1D5DB' : '#4B5563' }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: isDarkMode ? '#1F2937' : 'white',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                  labelStyle={{ color: isDarkMode ? '#D1D5DB' : '#4B5563' }}
+                />
+                <Legend 
+                  formatter={(value) => <span style={{ color: isDarkMode ? '#D1D5DB' : '#4B5563' }}>{value}</span>}
+                />
+                <Bar 
+                  dataKey="value" 
+                  name="Number of Tasks"
+                  radius={[4, 4, 0, 0]}
+                >
+                  {[
+                    '#EF4444', // Kırmızı - High
+                    '#F59E0B', // Turuncu - Medium
+                    '#10B981'  // Yeşil - Low
+                  ].map((color, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={color}
+                      style={{ filter: 'brightness(1.1)' }}
+                    />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
-            <div className="mt-4">
-              <p>Average Completion Time: {taskStats.averageCompletionTime.toFixed(1)} days</p>
+            <div className="grid grid-cols-3 gap-4 mt-4">
+              <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                <div className="flex items-center">
+                  <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
+                  <span className="text-sm font-medium">High</span>
+                </div>
+                <p className="text-lg font-bold mt-1">{taskStats.tasksByPriority.high}</p>
+              </div>
+              <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                <div className="flex items-center">
+                  <div className="w-3 h-3 rounded-full bg-yellow-500 mr-2"></div>
+                  <span className="text-sm font-medium">Medium</span>
+                </div>
+                <p className="text-lg font-bold mt-1">{taskStats.tasksByPriority.medium}</p>
+              </div>
+              <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                <div className="flex items-center">
+                  <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
+                  <span className="text-sm font-medium">Low</span>
+                </div>
+                <p className="text-lg font-bold mt-1">{taskStats.tasksByPriority.low}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Task Metrics */}
+          <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg col-span-2`}>
+            <h2 className="text-xl font-semibold mb-4">Task Metrics</h2>
+            <div className="grid grid-cols-3 gap-4">
+              <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                <p className="text-sm">Average Completion Time</p>
+                <p className="text-2xl font-bold">{taskStats.averageCompletionTime.toFixed(1)} days</p>
+              </div>
+              <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                <p className="text-sm">Total Active Tasks</p>
+                <p className="text-2xl font-bold">
+                  {taskStats.tasksByStatus.inProgress}
+                </p>
+              </div>
+              <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                <p className="text-sm">Completion Rate</p>
+                <p className="text-2xl font-bold">
+                  {((taskStats.tasksByStatus.completed / 
+                    (taskStats.tasksByStatus.completed + 
+                     taskStats.tasksByStatus.inProgress + 
+                     taskStats.tasksByStatus.overdue)) * 100).toFixed(1)}%
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -395,22 +504,130 @@ interface ActivityItemProps {
 
 const ActivityItem: React.FC<ActivityItemProps> = ({ activity }) => {
   const { isDarkMode } = useTheme();
-  
+
+  // Aktivite tipine göre renkler ve ikonlar
+  const activityStyles = {
+    user: {
+      icon: 'fas fa-user',
+      color: 'text-blue-500',
+      bg: isDarkMode ? 'bg-blue-500/20' : 'bg-blue-100'
+    },
+    task: {
+      icon: 'fas fa-tasks',
+      color: 'text-green-500',
+      bg: isDarkMode ? 'bg-green-500/20' : 'bg-green-100'
+    },
+    team: {
+      icon: 'fas fa-users',
+      color: 'text-purple-500',
+      bg: isDarkMode ? 'bg-purple-500/20' : 'bg-purple-100'
+    },
+    login: {
+      icon: 'fas fa-sign-in-alt',
+      color: 'text-yellow-500',
+      bg: isDarkMode ? 'bg-yellow-500/20' : 'bg-yellow-100'
+    },
+    system: {
+      icon: 'fas fa-cog',
+      color: 'text-red-500',
+      bg: isDarkMode ? 'bg-red-500/20' : 'bg-red-100'
+    }
+  };
+
+  const style = activityStyles[activity.type.toLowerCase() as keyof typeof activityStyles] || activityStyles.system;
+
   return (
-    <div className={`p-4 rounded-lg ${
-      isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-    }`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <span className="font-medium">{activity.type}</span>
-          <p className="text-sm text-gray-500">{activity.description}</p>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`p-4 rounded-lg ${
+        isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-white hover:bg-gray-50'
+      } transition-colors duration-200 border border-transparent hover:border-indigo-500/20`}
+    >
+      <div className="flex items-center space-x-4">
+        <div className={`${style.bg} p-3 rounded-lg`}>
+          <i className={`${style.icon} ${style.color} text-lg`}></i>
         </div>
-        <span className="text-sm text-gray-500">
-          {new Date(activity.timestamp).toLocaleString()}
-        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-1">
+            <span className={`font-medium truncate ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+              {activity.type}
+            </span>
+            <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} whitespace-nowrap ml-4`}>
+              {new Date(activity.timestamp).toLocaleString('tr-TR', {
+                hour: '2-digit',
+                minute: '2-digit',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+              })}
+            </span>
+          </div>
+          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} truncate`}>
+            {activity.description}
+          </p>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+// Recent Activities bölümünü güncelle
+const RecentActivitiesSection = ({ activities }: { activities: Activity[] }) => {
+  const { isDarkMode } = useTheme();
+  const [filter, setFilter] = useState<string>('all');
+
+  const filteredActivities = activities.filter(activity => 
+    filter === 'all' ? true : activity.type.toLowerCase() === filter
+  );
+
+  return (
+    <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold">Recent Activities</h2>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className={`rounded-lg border px-3 py-1.5 text-sm ${
+            isDarkMode 
+              ? 'bg-gray-700 border-gray-600 text-gray-200' 
+              : 'bg-white border-gray-300 text-gray-700'
+          }`}
+        >
+          <option value="all">All Activities</option>
+          <option value="user">User</option>
+          <option value="task">Task</option>
+          <option value="team">Team</option>
+          <option value="login">Login</option>
+          <option value="system">System</option>
+        </select>
+      </div>
+      
+      <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+        {filteredActivities.length === 0 ? (
+          <div className="text-center py-8">
+            <i className="fas fa-inbox text-4xl text-gray-400 mb-2"></i>
+            <p className="text-gray-500">No activities found</p>
+          </div>
+        ) : (
+          filteredActivities.map((activity) => (
+            <ActivityItem key={activity.id} activity={activity} />
+          ))
+        )}
       </div>
     </div>
   );
+};
+
+const mapResponseToActivity = (activity: any): Activity => {
+  return {
+    id: activity.id,
+    type: activity.type.toLowerCase(),
+    description: activity.description,
+    userId: activity.userId || 'system', // Provide default value if userId is missing
+    timestamp: activity.timestamp,
+    metadata: activity.metadata || {}
+  };
 };
 
 export default AdminDashboard;

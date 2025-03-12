@@ -26,6 +26,7 @@ namespace JobTrackingAPI.Controllers
         private readonly TeamService _teamService;
         private readonly DashboardService _dashboardService;
         private readonly UserService _userService;
+        private readonly IActivityService _activityService;
 
         public AuthController(
             AuthService authService, 
@@ -35,7 +36,8 @@ namespace JobTrackingAPI.Controllers
             TasksService tasksService, 
             TeamService teamService, 
             DashboardService dashboardService,
-            UserService userService)
+            UserService userService,
+            IActivityService activityService)
         {
             _authService = authService;
             _logger = logger;
@@ -45,6 +47,7 @@ namespace JobTrackingAPI.Controllers
             _teamService = teamService;
             _dashboardService = dashboardService;
             _userService = userService;
+            _activityService = activityService;
         }
 
         [HttpPost("register/initiate")]
@@ -154,6 +157,8 @@ namespace JobTrackingAPI.Controllers
 
                 // Login başarılı olduğunda IsOnline'ı true yap
                 await _userService.UpdateUserOnlineStatus(user.Id, true);
+
+                await _activityService.LogLoginActivity(user.Id);
 
                 return Ok(new
                 {

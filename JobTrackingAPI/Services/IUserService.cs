@@ -19,7 +19,6 @@ namespace JobTrackingAPI.Services
         Task AddToAssignedJobs(string userId, string taskId);
         Task RemoveFromAssignedJobs(string userId, string taskId);
 
-        // Yeni eklenen metodlar
         Task<List<User>> GetUsersByIds(List<string> userIds);
         Task AddOwnerTeam(string userId, string teamId);
         Task AddMemberTeam(string userId, string teamId);

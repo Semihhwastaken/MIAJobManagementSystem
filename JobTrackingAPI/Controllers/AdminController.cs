@@ -5,6 +5,7 @@ using JobTrackingAPI.Services;
 using JobTrackingAPI.Models;
 using System.Security.Claims;
 using Microsoft.Extensions.Logging;
+using MongoDB.Bson;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -106,9 +107,9 @@ namespace JobTrackingAPI.Controllers
                     },
                     TasksByPriority = new
                     {
-                        High = allTasks.Count(t => t.Priority == "High"),
-                        Medium = allTasks.Count(t => t.Priority == "Medium"),
-                        Low = allTasks.Count(t => t.Priority == "Low")
+                        High = allTasks.Count(t => t.Priority == "high"),
+                        Medium = allTasks.Count(t => t.Priority == "medium"),
+                        Low = allTasks.Count(t => t.Priority == "low")
                     },
                     AverageCompletionTime = allTasks
                         .Where(t => t.Status == "completed" && t.CompletedDate.HasValue)
@@ -190,9 +191,72 @@ namespace JobTrackingAPI.Controllers
 
         private async Task<List<Activity>> GetRecentActivities()
         {
-            var activities = new List<Activity>();
-            // Implementation for getting recent system activities
-            return activities;
+            try
+            {
+                var collection = _database.GetCollection<Activity>("activities");
+                var lastDay = DateTime.UtcNow.AddDays(-1);
+
+                var filter = Builders<Activity>.Filter.Gte(x => x.Timestamp, lastDay);
+                var sort = Builders<Activity>.Sort.Descending(x => x.Timestamp);
+
+                var activities = await collection
+                    .Find(filter)
+                    .Sort(sort)
+                    .Limit(50)
+                    .ToListAsync();
+
+                // Kullanıcı bilgilerini ekle
+                var userIds = activities.Select(a => a.UserId).Distinct().ToList();
+                var users = await _userService.GetUsersByIds(userIds);
+                var userDict = users.ToDictionary(u => u.Id!, u => u.Username);
+
+                // Aktivite açıklamalarını zenginleştir
+                foreach (var activity in activities)
+                {
+                    if (userDict.ContainsKey(activity.UserId))
+                    {
+                        var username = userDict[activity.UserId];
+                        activity.Description = activity.Type.ToLower() switch
+                        {
+                            "user" => $"{username} {activity.Description}",
+                            "task" => $"{username} {activity.Description}",
+                            "team" => $"{username} {activity.Description}",
+                            "login" => $"{username} {activity.Description}",
+                            _ => activity.Description
+                        };
+                    }
+                }
+
+                return activities;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching recent activities");
+                return new List<Activity>();
+            }
+        }
+
+        // Aktivite ekleme yardımcı metodu
+        public async Task AddSystemActivity(string type, string description, string userId, Dictionary<string, object>? metadata = null)
+        {
+            try
+            {
+                var activity = new Activity
+                {
+                    Id = ObjectId.GenerateNewId().ToString(),
+                    Type = type,
+                    Description = description,
+                    UserId = userId,
+                    Metadata = metadata ?? new Dictionary<string, object>(),
+                    Timestamp = DateTime.UtcNow
+                };
+
+                await _database.GetCollection<Activity>("activities").InsertOneAsync(activity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding system activity");
+            }
         }
 
         // Additional admin-specific endpoints...

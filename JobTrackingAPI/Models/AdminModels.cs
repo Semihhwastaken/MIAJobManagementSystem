@@ -58,7 +58,7 @@ namespace JobTrackingAPI.Models
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public required string Id { get; set; }
+        public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
 
         [BsonElement("type")]
         public required string Type { get; set; }
@@ -75,10 +75,5 @@ namespace JobTrackingAPI.Models
 
         [BsonElement("metadata")]
         public Dictionary<string, object> Metadata { get; set; } = new();
-
-        public Activity()
-        {
-            Id = ObjectId.GenerateNewId().ToString();
-        }
     }
 }
