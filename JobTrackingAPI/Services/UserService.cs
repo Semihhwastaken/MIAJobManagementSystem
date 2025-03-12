@@ -189,6 +189,9 @@ namespace JobTrackingAPI.Services
             {
                 _logger.LogError(ex, $"Error updating online status for user {userId}");
                 return false;
+            }
+        }
+         
         public async Task UpdateUserSubscriptionAsync(string userId, string planType, string subscriptionId)
         {
             try
