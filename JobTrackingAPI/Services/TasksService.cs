@@ -68,7 +68,7 @@ namespace JobTrackingAPI.Services
         {
             await _tasks.ReplaceOneAsync(t => t.Id == id, taskIn);
             _cacheService.InvalidateTaskRelatedCaches(taskIn);
-            
+
             // Kullanıcılara bildirim gönderme
             if (taskIn.AssignedUserIds != null && taskIn.AssignedUserIds.Count > 0)
             {
@@ -81,7 +81,7 @@ namespace JobTrackingAPI.Services
                     }
                 }
             }
-            
+
             return taskIn;
         }
 
@@ -122,25 +122,25 @@ namespace JobTrackingAPI.Services
                 // Hata işleme
             }
         }
-        
+
         public async Task<List<TaskItem>> GetAssignedTasks(string userId, string status = null)
         {
             var filter = Builders<TaskItem>.Filter.Where(t => t.AssignedUserIds != null && t.AssignedUserIds.Contains(userId));
-            
+
             if (!string.IsNullOrEmpty(status))
             {
                 filter = filter & Builders<TaskItem>.Filter.Eq(t => t.Status, status);
             }
-            
+
             var tasks = await _tasks.Find(filter).ToListAsync();
-            
+
             // Kullanıcı bilgilerini eklemek için
             foreach (var task in tasks)
             {
                 if (task.AssignedUserIds != null && task.AssignedUserIds.Count > 0)
                 {
                     var assignedUsers = new List<AssignedUser>();
-                    
+
                     foreach (var uId in task.AssignedUserIds)
                     {
                         var user = await _userService.GetUserById(uId);
@@ -155,12 +155,12 @@ namespace JobTrackingAPI.Services
                             });
                         }
                     }
-                    
+
                     // Geriye dönük uyumluluk için AssignedUsers listesini de dolduralım
                     task.AssignedUsers = assignedUsers;
                 }
             }
-            
+
             return tasks;
         }
 
@@ -191,7 +191,7 @@ namespace JobTrackingAPI.Services
             {
                 string fileName = Path.GetFileName(attachment.FileUrl);
                 string filePath = Path.Combine(_uploadsFolder, fileName);
-                
+
                 if (File.Exists(filePath))
                 {
                     try
@@ -205,7 +205,7 @@ namespace JobTrackingAPI.Services
                     }
                 }
             }
-            
+
             // Optionally clear the attachments list in the database
             var filter = Builders<TaskItem>.Filter.Eq(t => t.Id, task.Id);
             var update = Builders<TaskItem>.Update.Set(t => t.Attachments, new List<TaskAttachment>());
@@ -273,10 +273,10 @@ namespace JobTrackingAPI.Services
             try
             {
                 var tasks = await _tasks.Find(_ => true).ToListAsync();
-                
+
                 // Departmana göre filtreleme işlemi
                 var filteredTasks = new List<TaskItem>();
-                
+
                 foreach (var task in tasks)
                 {
                     // AssignedUserIds listesine göre kullanıcıları kontrol et
@@ -284,14 +284,14 @@ namespace JobTrackingAPI.Services
                     {
                         var usersInDepartment = await _users.Find(u => u.Department == department && task.AssignedUserIds.Contains(u.Id))
                             .ToListAsync();
-                        
+
                         if (usersInDepartment != null && usersInDepartment.Any())
                         {
                             filteredTasks.Add(task);
                         }
                     }
                 }
-                
+
                 return filteredTasks;
             }
             catch (Exception ex)
@@ -317,7 +317,7 @@ namespace JobTrackingAPI.Services
                 return new List<TaskItem>();
             }
         }
-        
+
         // Görevlere kullanıcı ata
         public async Task<bool> AssignUserToTaskAsync(string taskId, string userId)
         {
@@ -330,7 +330,7 @@ namespace JobTrackingAPI.Services
                     Console.WriteLine($"Görev bulunamadı: {taskId}");
                     return false;
                 }
-                
+
                 // Kullanıcıyı bul
                 var user = await _users.Find(u => u.Id == userId).FirstOrDefaultAsync();
                 if (user == null)
@@ -338,17 +338,17 @@ namespace JobTrackingAPI.Services
                     Console.WriteLine($"Kullanıcı bulunamadı: {userId}");
                     return false;
                 }
-                
+
                 // Kullanıcı zaten atanmış mı kontrol et
                 if (task.AssignedUserIds != null && task.AssignedUserIds.Contains(userId))
                 {
                     return true; // Zaten atanmış durumda
                 }
-                
+
                 // AssignedUserIds listesine ID'yi ekle
                 var updateUserIds = Builders<TaskItem>.Update.AddToSet(t => t.AssignedUserIds, userId);
                 await _tasks.UpdateOneAsync(t => t.Id == taskId, updateUserIds);
-                
+
                 // Geriye dönük uyumluluk için AssignedUsers listesini de güncelle
                 var assignedUser = new AssignedUser
                 {
@@ -361,14 +361,14 @@ namespace JobTrackingAPI.Services
                     Position = user.Position,
                     ProfileImage = user.ProfileImage
                 };
-                
+
                 var updateAssignedUsers = Builders<TaskItem>.Update.AddToSet(t => t.AssignedUsers, assignedUser);
                 await _tasks.UpdateOneAsync(t => t.Id == taskId, updateAssignedUsers);
-                
+
                 // Kullanıcının assignedJobs listesine görevi ekle
                 var userUpdate = Builders<User>.Update.AddToSet(u => u.AssignedJobs, taskId);
                 await _users.UpdateOneAsync(u => u.Id == userId, userUpdate);
-                
+
                 return true;
             }
             catch (Exception ex)
@@ -377,7 +377,7 @@ namespace JobTrackingAPI.Services
                 return false;
             }
         }
-        
+
         // Görevden kullanıcı çıkar
         public async Task<bool> RemoveUserFromTaskAsync(string taskId, string userId)
         {
@@ -390,7 +390,7 @@ namespace JobTrackingAPI.Services
                     Console.WriteLine($"Görev bulunamadı: {taskId}");
                     return false;
                 }
-                
+
                 // Kullanıcıyı bul
                 var user = await _users.Find(u => u.Id == userId).FirstOrDefaultAsync();
                 if (user == null)
@@ -398,22 +398,22 @@ namespace JobTrackingAPI.Services
                     Console.WriteLine($"Kullanıcı bulunamadı: {userId}");
                     return false;
                 }
-                
+
                 // AssignedUserIds listesinden ID'yi çıkar
                 var updateUserIds = Builders<TaskItem>.Update.Pull(t => t.AssignedUserIds, userId);
                 await _tasks.UpdateOneAsync(t => t.Id == taskId, updateUserIds);
-                
+
                 // Geriye dönük uyumluluk için AssignedUsers listesini de güncelle
                 var updateAssignedUsers = Builders<TaskItem>.Update.PullFilter(
-                    t => t.AssignedUsers, 
+                    t => t.AssignedUsers,
                     au => au.Id == userId
                 );
                 await _tasks.UpdateOneAsync(t => t.Id == taskId, updateAssignedUsers);
-                
+
                 // Kullanıcının assignedJobs listesinden görevi çıkar
                 var userUpdate = Builders<User>.Update.Pull(u => u.AssignedJobs, taskId);
                 await _users.UpdateOneAsync(u => u.Id == userId, userUpdate);
-                
+
                 return true;
             }
             catch (Exception ex)
@@ -463,7 +463,7 @@ namespace JobTrackingAPI.Services
                         task.AssignedUsers = updatedAssignedUsers;
                     }
                 }
-                
+
                 return task;
             }
             catch (Exception ex)

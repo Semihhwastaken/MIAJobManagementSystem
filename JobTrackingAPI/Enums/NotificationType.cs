@@ -2,7 +2,6 @@ namespace JobTrackingAPI.Enums
 {
     public enum NotificationType
     {
-        
         Comment,
         Mention,
         TaskAssigned,
@@ -19,5 +18,6 @@ namespace JobTrackingAPI.Enums
         TeamStatusUpdated,
         TeamStatusDeleted,
         FeedbackResponse,
+        TeamInvite
     }
 }

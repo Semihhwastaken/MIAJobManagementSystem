@@ -73,7 +73,6 @@ export interface Team {
     id: string;
     name: string;
     createdBy: string;
-    memberIds: string[];
     createdById?: string;
     inviteLink?: string;
     inviteCode?: string;

@@ -6,6 +6,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using JobTrackingAPI.Constants;
 using CreateTeamRequest = JobTrackingAPI.Models.Requests.CreateTeamRequest;
+using MongoDB.Bson;
 using Microsoft.Extensions.Logging;
 
 namespace JobTrackingAPI.Services;
@@ -739,7 +740,7 @@ public class TeamService : ITeamService
             // Kullanıcı bilgilerini çekelim
             var users = await _userService.GetUsersByIds(memberIds);
 
-            // TeamMember objelerini zenginleştirip döndürelim
+            // TeamMember objelerini zenginleştirelim
             var result = new List<TeamMember>();
 
             foreach (var member in teamData.Members)
@@ -817,45 +818,139 @@ public class TeamService : ITeamService
     /// </summary>
     public async Task<List<Team>> GetTeamsByOwnerId(string userId)
     {
-        return await _teams.Find(Builders<Team>.Filter.Eq(t => t.CreatedById, userId)).ToListAsync();
+        return await _teams.Find(t => t.CreatedById == userId).ToListAsync();
     }
 
-    public async Task<TeamMember> UpdateMemberStatusAsync(string id, string status)
+    // Yardımcı metodlar
+    private string GenerateInviteCode()
     {
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        var random = new Random();
+        return new string(Enumerable.Repeat(chars, 8)
+            .Select(s => s[random.Next(s.Length)]).ToArray());
+    }
+
+    private async Task UpdateMemberPerformanceScores(TeamMember member)
+    {
+        if (member == null)
+            throw new ArgumentNullException(nameof(member));
+
+        // Performans puanını varsayılan olarak 50 yap (0 yerine)
+        member.PerformanceScore = 50;
+        member.CompletedTasksCount = 0;
+    }
+
+    public async Task<Team> AddExpertiesAsync(string memberId, string expertise)
+    {
+        if (string.IsNullOrEmpty(memberId))
+            throw new ArgumentNullException(nameof(memberId));
+
+        if (string.IsNullOrEmpty(expertise))
+            throw new ArgumentNullException(nameof(expertise));
+
         try
         {
-            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(status))
-            {
-                _logger.LogWarning("UpdateMemberStatusAsync çağrıldı ancak id veya status boş.");
-                return null;
-            }
-
-            // Üye hangi takımda olduğunu bul
-            var team = await GetTeamByMemberId(id);
+            // Üyenin bulunduğu takımı bul
+            var team = await _teams.Find(t => t.Members.Any(m => m.Id == memberId)).FirstOrDefaultAsync();
             if (team == null)
-            {
-                return null;
-            }
+                throw new Exception("Üye bir takımda bulunamadı");
 
-            // Üyeyi güncelle
-            var member = team.Members.FirstOrDefault(m => m.Id == id);
+            // Üyeyi bul
+            var member = team.Members.FirstOrDefault(m => m.Id == memberId);
             if (member == null)
+                throw new Exception("Üye bulunamadı");
+
+            // Üyenin expertise listesini initialize et eğer null ise
+            member.Expertise ??= new List<string>();
+
+            // Yeni uzmanlığı ekle
+            if (!member.Expertise.Contains(expertise))
             {
-                return null;
+                member.Expertise.Add(expertise);
+
+                // Takımı güncelle
+                var updateResult = await _teams.ReplaceOneAsync(t => t.Id == team.Id, team);
+                if (updateResult.ModifiedCount == 0)
+                    throw new Exception("Uzmanlık güncellenirken bir hata oluştu");
             }
 
-            member.Status = status;
-
-            var filter = Builders<Team>.Filter.Eq(t => t.Id, team.Id);
-            var update = Builders<Team>.Update.Set(t => t.Members, team.Members);
-            await _teams.UpdateOneAsync(filter, update);
-
-            return member;
+            return team;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "UpdateMemberStatusAsync metodu sırasında hata oluştu");
-            return null;
+            throw new Exception($"Uzmanlık eklenirken bir hata oluştu: {ex.Message}");
+        }
+    }
+
+    public async Task<Team> UpdateTeamDepartmentsAsync(string teamId, List<DepartmentStats> departments)
+    {
+        try
+        {
+            var team = await _teams.Find(t => t.Id == teamId).FirstOrDefaultAsync();
+            if (team == null)
+                throw new Exception("Takım bulunamadı");
+
+            // Departman istatistiklerini güncelle
+            team.Departments = departments;
+
+            // Her departman için üye sayısını ve performans verilerini güncelle
+            foreach (var dept in team.Departments)
+            {
+                var membersInDept = team.Members.Where(m => m.Department == dept.Name).ToList();
+                dept.MemberCount = membersInDept.Count;
+
+                // Tamamlanan görev sayısını hesapla
+                dept.CompletedTasks = membersInDept.Sum(m => m.CompletedTasksCount);
+
+                // Ortalama performans puanını hesapla
+                dept.Performance = membersInDept.Any()
+                    ? membersInDept.Average(m => m.PerformanceScore)
+                    : 0;
+            }
+
+            var updateResult = await _teams.ReplaceOneAsync(t => t.Id == teamId, team);
+            if (updateResult.ModifiedCount == 0)
+                throw new Exception("Departmanlar güncellenirken bir hata oluştu");
+
+            return team;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Departmanlar güncellenirken bir hata oluştu: {ex.Message}");
+        }
+    }
+
+    public async Task UpdateMemberStatusesAsync(MemberMetricsUpdateDto updateData)
+    {
+        if (string.IsNullOrEmpty(updateData.TeamId))
+        {
+            throw new ArgumentException("TeamId is required");
+        }
+
+        var team = await GetTeamById(updateData.TeamId);
+        if (team == null)
+        {
+            throw new KeyNotFoundException("Team not found");
+        }
+
+        // Update metrics for all members in the team
+        var update = Builders<Team>.Update.Combine(
+            Builders<Team>.Update.Set("Members.$[].Metrics.PerformanceScore", updateData.PerformanceScore),
+            Builders<Team>.Update.Set("Members.$[].Metrics.CompletedTasks", updateData.CompletedTasks),
+            Builders<Team>.Update.Set("Members.$[].Metrics.OverdueTasks", updateData.OverdueTasks),
+            Builders<Team>.Update.Set("Members.$[].Metrics.TotalTasks", updateData.TotalTasks),
+            Builders<Team>.Update.Set("Members.$[].PerformanceScore", updateData.PerformanceScore),
+            Builders<Team>.Update.Set("Members.$[].CompletedTasksCount", updateData.CompletedTasks)
+        );
+
+        var result = await _teams.UpdateOneAsync(
+            Builders<Team>.Filter.Eq(t => t.Id, updateData.TeamId),
+            update
+        );
+
+        if (result.ModifiedCount == 0)
+        {
+            throw new Exception("Failed to update member statuses");
         }
     }
 
@@ -960,9 +1055,6 @@ public class TeamService : ITeamService
         }
     }
 
-    /// <summary>
-    /// Takımdan üye çıkarır
-    /// </summary>
     public async Task<(bool success, string message)> RemoveTeamMemberAsync(string teamId, string memberId, string requestUserId)
     {
         try
@@ -985,30 +1077,23 @@ public class TeamService : ITeamService
                 return (false, "İsteği yapan kullanıcı takımın bir üyesi değil");
             }
 
-            // Case-insensitive role check - accommodate various capitalizations
-            var requestingRole = requestingMember.Role?.ToLowerInvariant();
-            if (requestUserId != memberId &&
-                requestingRole != "admin" &&
-                requestingRole != "owner")
+            if (requestUserId != memberId && requestingMember.Role != "admin" && requestingMember.Role != "owner")
             {
-                _logger.LogWarning($"İzin hatası: User {requestUserId} tried to remove member {memberId} from team {teamId} without proper permissions. User role: {requestingMember.Role}");
                 return (false, "Bu işlem için gerekli izinlere sahip değilsiniz");
             }
 
-            // Takım sahibi çıkarılamaz (unless removing themselves)
+            // Takım sahibi çıkarılamaz
             var targetMember = team.Members.FirstOrDefault(m => m.Id == memberId);
             if (targetMember == null)
             {
                 return (false, "Üye takımda bulunamadı");
             }
 
-            var targetRole = targetMember.Role?.ToLowerInvariant();
-            if (targetRole == "owner" && requestUserId != memberId)
+            if (targetMember.Role == "owner" && requestUserId != memberId)
             {
                 return (false, "Takım sahibi başkası tarafından takımdan çıkarılamaz");
             }
 
-            // If everything checks out, proceed with removing the member
             var result = await RemoveMemberFromTeam(teamId, memberId);
             return result
                 ? (true, "Üye başarıyla takımdan çıkarıldı")
@@ -1108,39 +1193,125 @@ public class TeamService : ITeamService
             // Kullanıcı zaten takımda mı kontrol et
             if (team.Members.Any(m => m.Id == userId))
             {
-                _logger.LogInformation($"Kullanıcı {userId} zaten {team.Id} ID'li takımın üyesi. Tekrarlanan işlem engellendi.");
-                // Kullanıcı zaten takımda olduğunda başarılı dön ama takıma eklemeyi tekrar deneme
-                return true;
+                return true; // Kullanıcı zaten takımda
             }
 
-            // Kullanıcı takımda değilse, ekleme yap
-            _logger.LogInformation($"Kullanıcı {userId} takıma {team.Id} ekleniyor.");
             return await AddMemberToTeam(team.Id, userId);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "JoinTeamWithInviteCode metodu sırasında hata oluştu");
-            return false; // Error case should return false to indicate failure
+            return false;
         }
     }
 
-    public async Task<Team> GetTeamByInviteLinkAsync(string inviteLink)
+    public async Task<TeamMember> UpdateMemberStatusAsync(string id, string status)
     {
         try
         {
-            if (string.IsNullOrEmpty(inviteLink))
+            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(status))
             {
-                _logger.LogWarning("GetByInviteLinkAsync çağrıldı ancak inviteLink boş.");
+                _logger.LogWarning("UpdateMemberStatusAsync çağrıldı ancak id veya status boş.");
                 return null;
             }
 
-            // Davet bağlantısından kodu çıkar
-            var inviteCode = inviteLink.Split('/').Last();
-            return await GetTeamByInviteCodeAsync(inviteCode);
+            // Üye hangi takımda olduğunu bul
+            var team = await GetTeamByMemberId(id);
+            if (team == null)
+            {
+                return null;
+            }
+
+            // Üyeyi güncelle
+            var member = team.Members.FirstOrDefault(m => m.Id == id);
+            if (member == null)
+            {
+                return null;
+            }
+
+            member.Status = status;
+
+            var filter = Builders<Team>.Filter.Eq(t => t.Id, team.Id);
+            var update = Builders<Team>.Update.Set(t => t.Members, team.Members);
+            await _teams.UpdateOneAsync(filter, update);
+
+            return member;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "GetByInviteLinkAsync metodu sırasında hata oluştu");
+            _logger.LogError(ex, "UpdateMemberStatusAsync metodu sırasında hata oluştu");
+            return null;
+        }
+    }
+
+    public async Task<TeamMember> UpdateMemberAsync(string id, TeamMemberUpdateDto updateDto)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(id) || updateDto == null)
+            {
+                _logger.LogWarning("UpdateMemberAsync çağrıldı ancak id boş veya updateDto null.");
+                return null;
+            }
+
+            // Üye hangi takımda olduğunu bul
+            var team = await GetTeamByMemberId(id);
+            if (team == null)
+            {
+                return null;
+            }
+
+            // Üyeyi güncelle
+            var memberIndex = team.Members.FindIndex(m => m.Id == id);
+            if (memberIndex == -1)
+            {
+                return null;
+            }
+
+            var member = team.Members[memberIndex];
+
+            // Güncelleme işlemi
+            if (!string.IsNullOrEmpty(updateDto.Email))
+                member.Email = updateDto.Email;
+            if (!string.IsNullOrEmpty(updateDto.FullName))
+                member.FullName = updateDto.FullName;
+            if (!string.IsNullOrEmpty(updateDto.Department))
+                member.Department = updateDto.Department;
+            if (!string.IsNullOrEmpty(updateDto.Title))
+                member.Title = updateDto.Title;
+            if (!string.IsNullOrEmpty(updateDto.Position))
+                member.Position = updateDto.Position;
+            if (!string.IsNullOrEmpty(updateDto.Phone))
+                member.Phone = updateDto.Phone;
+            if (!string.IsNullOrEmpty(updateDto.ProfileImage))
+                member.ProfileImage = updateDto.ProfileImage;
+            if (!string.IsNullOrEmpty(updateDto.Status))
+                member.Status = updateDto.Status;
+            if (!string.IsNullOrEmpty(updateDto.OnlineStatus))
+                member.OnlineStatus = updateDto.OnlineStatus;
+            if (updateDto.Expertise != null && updateDto.Expertise.Count > 0)
+            {
+                member.Expertise ??= new List<string>();
+                // Expertise listesindeki tüm uzmnalıkları ekle
+                foreach (var expertise in updateDto.Expertise)
+                {
+                    if (!string.IsNullOrEmpty(expertise) && !member.Expertise.Contains(expertise))
+                        member.Expertise.Add(expertise);
+                }
+            }
+
+            team.Members[memberIndex] = member;
+
+            // Güncellemeyi kaydet
+            var filter = Builders<Team>.Filter.Eq(t => t.Id, team.Id);
+            var update = Builders<Team>.Update.Set(t => t.Members, team.Members);
+            await _teams.UpdateOneAsync(filter, update);
+
+            return member;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "UpdateMemberAsync metodu sırasında hata oluştu");
             return null;
         }
     }
@@ -1203,20 +1374,29 @@ public class TeamService : ITeamService
                 return (false, "Gerekli parametreler eksik");
             }
 
+            // Get user to check ownerTeams
+            var user = await _userService.GetUserById(userId);
+            if (user == null || !user.OwnerTeams.Contains(teamId))
+            {
+                return (false, "Bu takımı silme yetkiniz yok");
+            }
+
             var team = await GetTeamById(teamId);
             if (team == null)
             {
                 return (false, "Takım bulunamadı");
             }
 
-            // Yalnızca sahibin takımı silmesine izin ver
-            var member = team.Members.FirstOrDefault(m => m.Id == userId);
-            if (member == null || member.Role != "owner")
+            // Remove team memberships from all members
+            foreach (var member in team.Members)
             {
-                return (false, "Takımı silmek için sahip rolüne sahip olmalısınız");
+                await _userService.RemoveOwnerTeam(member.Id, teamId);
+                await _userService.RemoveMemberTeam(member.Id, teamId);
             }
 
+            // Delete the team
             await DeleteTeam(teamId);
+
             return (true, "Takım başarıyla silindi");
         }
         catch (Exception ex)
@@ -1226,213 +1406,7 @@ public class TeamService : ITeamService
         }
     }
 
-    /// Yardımcı metodlar
-    private string GenerateInviteCode()
-    {
-        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        var random = new Random();
-        return new string(Enumerable.Repeat(chars, 8)
-            .Select(s => s[random.Next(s.Length)]).ToArray());
-    }
-
-    public async Task<Team> AddExpertiesAsync(string memberId, string expertise)
-    {
-        if (string.IsNullOrEmpty(memberId))
-            throw new ArgumentNullException(nameof(memberId));
-
-        if (string.IsNullOrEmpty(expertise))
-            throw new ArgumentNullException(nameof(expertise));
-
-        try
-        {
-            // Üyenin bulunduğu takımı bul
-            var team = await _teams.Find(t => t.Members.Any(m => m.Id == memberId)).FirstOrDefaultAsync();
-            if (team == null)
-                throw new Exception("Üye bir takımda bulunamadı");
-
-            // Üyeyi bul
-            var member = team.Members.FirstOrDefault(m => m.Id == memberId);
-            if (member == null)
-                throw new Exception("Üye bulunamadı");
-
-            // Üyenin expertise listesini initialize et eğer null ise
-            member.Expertise ??= new List<string>();
-
-            // Yeni uzmanlığı ekle
-            if (!member.Expertise.Contains(expertise))
-            {
-                member.Expertise.Add(expertise);
-
-                // Takımı güncelle
-                var updateResult = await _teams.ReplaceOneAsync(t => t.Id == team.Id, team);
-                if (updateResult.ModifiedCount == 0)
-                    throw new Exception("Uzmanlık güncellenirken bir hata oluştu");
-            }
-
-            return team;
-        }
-        catch (Exception ex)
-        {
-            throw new Exception($"Uzmanlık eklenirken bir hata oluştu: {ex.Message}");
-        }
-    }
-
-    public async Task<Team> UpdateTeamDepartmentsAsync(string teamId, List<DepartmentStats> departments)
-    {
-        try
-        {
-            var team = await _teams.Find(t => t.Id == teamId).FirstOrDefaultAsync();
-            if (team == null)
-                throw new Exception("Takım bulunamadı");
-
-            // Departman istatistiklerini güncelle
-            team.Departments = departments;
-
-            // Her departman için üye sayısını ve performans verilerini güncelle
-            foreach (var dept in team.Departments)
-            {
-                var membersInDept = team.Members.Where(m => m.Department == dept.Name).ToList();
-                dept.MemberCount = membersInDept.Count;
-
-                // Tamamlanan görev sayısını hesapla
-                dept.CompletedTasks = membersInDept.Sum(m => m.CompletedTasksCount);
-
-                // Ortalama performans puanını hesapla
-                dept.Performance = membersInDept.Any()
-                    ? membersInDept.Average(m => m.PerformanceScore)
-                    : 0;
-            }
-
-            var updateResult = await _teams.ReplaceOneAsync(t => t.Id == teamId, team);
-            if (updateResult.ModifiedCount == 0)
-                throw new Exception("Departmanlar güncellenirken bir hata oluştu");
-
-            return team;
-        }
-        catch (Exception ex)
-        {
-            throw new Exception($"Departmanlar güncellenirken bir hata oluştu: {ex.Message}");
-        }
-    }
-
-    public async Task UpdateUserStatusesAsync(MemberMetricsUpdateDto updateData)
-    {
-        if (string.IsNullOrEmpty(updateData.TeamId))
-        {
-            throw new ArgumentException("TeamId is required");
-        }
-
-        var team = await GetTeamById(updateData.TeamId);
-        if (team == null)
-        {
-            throw new KeyNotFoundException("Team not found");
-        }
-
-        // Update metrics for all members in the team
-        var update = Builders<Team>.Update.Combine(
-            Builders<Team>.Update.Set("Members.$[].Metrics.PerformanceScore", updateData.PerformanceScore),
-            Builders<Team>.Update.Set("Members.$[].Metrics.CompletedTasks", updateData.CompletedTasks),
-            Builders<Team>.Update.Set("Members.$[].Metrics.OverdueTasks", updateData.OverdueTasks),
-            Builders<Team>.Update.Set("Members.$[].Metrics.TotalTasks", updateData.TotalTasks),
-            Builders<Team>.Update.Set("Members.$[].PerformanceScore", updateData.PerformanceScore),
-            Builders<Team>.Update.Set("Members.$[].CompletedTasksCount", updateData.CompletedTasks)
-        );
-
-        var result = await _teams.UpdateOneAsync(
-            Builders<Team>.Filter.Eq(t => t.Id, updateData.TeamId),
-            update
-        );
-
-        if (result.ModifiedCount == 0)
-        {
-            throw new Exception("Failed to update member statuses");
-        }
-    }
-
-    public Task UpdateMemberStatusesAsync(MemberMetricsUpdateDto updateData)
-    {
-        throw new NotImplementedException();
-    }
-
-    /// <summary>
-    /// Takım üyesini günceller
-    /// </summary>
-    public async Task<TeamMember> UpdateMemberAsync(string id, TeamMemberUpdateDto updateDto)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(id) || updateDto == null)
-            {
-                _logger.LogWarning("UpdateMemberAsync çağrıldı ancak id boş veya updateDto null.");
-                return null;
-            }
-
-            // Üye hangi takımda olduğunu bul
-            var team = await GetTeamByMemberId(id);
-            if (team == null)
-            {
-                return null;
-            }
-
-            // Üyeyi güncelle
-            var memberIndex = team.Members.FindIndex(m => m.Id == id);
-            if (memberIndex == -1)
-            {
-                return null;
-            }
-
-            var member = team.Members[memberIndex];
-
-            // Güncelleme işlemi
-            if (!string.IsNullOrEmpty(updateDto.Email))
-                member.Email = updateDto.Email;
-            if (!string.IsNullOrEmpty(updateDto.FullName))
-                member.FullName = updateDto.FullName;
-            if (!string.IsNullOrEmpty(updateDto.Department))
-                member.Department = updateDto.Department;
-            if (!string.IsNullOrEmpty(updateDto.Title))
-                member.Title = updateDto.Title;
-            if (!string.IsNullOrEmpty(updateDto.Position))
-                member.Position = updateDto.Position;
-            if (!string.IsNullOrEmpty(updateDto.Phone))
-                member.Phone = updateDto.Phone;
-            if (!string.IsNullOrEmpty(updateDto.ProfileImage))
-                member.ProfileImage = updateDto.ProfileImage;
-            if (!string.IsNullOrEmpty(updateDto.Status))
-                member.Status = updateDto.Status;
-            if (!string.IsNullOrEmpty(updateDto.OnlineStatus))
-                member.OnlineStatus = updateDto.OnlineStatus;
-            if (updateDto.Expertise != null && updateDto.Expertise.Count > 0)
-            {
-                member.Expertise ??= new List<string>();
-                // Expertise listesindeki tüm uzmanlıkları ekle
-                foreach (var expertise in updateDto.Expertise)
-                {
-                    if (!string.IsNullOrEmpty(expertise) && !member.Expertise.Contains(expertise))
-                        member.Expertise.Add(expertise);
-                }
-            }
-
-            team.Members[memberIndex] = member;
-
-            // Güncellemeyi kaydet
-            var filter = Builders<Team>.Filter.Eq(t => t.Id, team.Id);
-            var update = Builders<Team>.Update.Set(t => t.Members, team.Members);
-            await _teams.UpdateOneAsync(filter, update);
-
-            return member;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "UpdateMemberAsync metodu sırasında hata oluştu");
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Takımdan üye çıkarır
-    /// </summary>
-    public Task<Team> GetByInviteLinkAsync(string inviteLink)
+    public async Task<Team> GetByInviteLinkAsync(string inviteLink)
     {
         try
         {
@@ -1444,7 +1418,7 @@ public class TeamService : ITeamService
 
             // Davet bağlantısından kodu çıkar
             var inviteCode = inviteLink.Split('/').Last();
-            return GetTeamByInviteCodeAsync(inviteCode);
+            return await GetTeamByInviteCodeAsync(inviteCode);
         }
         catch (Exception ex)
         {

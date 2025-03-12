@@ -38,6 +38,7 @@ interface TaskState {
 // Cache süreleri
 const ACTIVE_TASKS_CACHE_DURATION = 5 * 60 * 1000; // 5 dakika
 const COMPLETED_TASKS_CACHE_DURATION = 30 * 60 * 1000; // 30 dakika
+const USER_TASKS_CACHE_DURATION = 15 * 60 * 1000; // 15 dakika
 
 const initialState: TaskState = {
     items: [],
@@ -48,6 +49,11 @@ const initialState: TaskState = {
     taskHistory: [],
     lastHistoryFetch: null,
     lastUserTasksFetch: {}
+};
+
+// Cache kontrolü için yardımcı fonksiyon
+const isCacheValid = (lastFetch: number, duration: number) => {
+    return Date.now() - lastFetch < duration;
 };
 
 export const fetchTasks = createAsyncThunk(
@@ -101,45 +107,15 @@ export const createTask = createAsyncThunk(
     'tasks/createTask',
     async (task: Omit<Task, 'id'>, { dispatch, rejectWithValue }) => {
         try {
-            // Create a clean task object with exact property names matching API
-            const taskToCreate = {
-                Title: task.title.trim(),
-                Description: task.description.trim(),
-                DueDate: new Date(task.dueDate).toISOString(),
-                Priority: task.priority,
-                Status: task.status,
-                Category: task.category,
-                TeamId: task.teamId,
-                IsLocked: false,
-                AssignedUsers: task.assignedUsers?.map(user => ({
-                    Id: user._id,
-                    Username: user.username,
-                    Email: user.email,
-                    FullName: user.fullName,
-                    Department: user.department,
-                    Title: user.title,
-                    Position: user.position,
-                    ProfileImage: user.profileImage
-                })) || [],
-                AssignedUserIds: task.assignedUsers?.map(user => user._id).filter(Boolean) || [],
-                SubTasks: task.subTasks?.map(st => ({
-                    Title: st.title,
-                    Completed: st.completed || false
-                })) || [],
-                Dependencies: task.dependencies || [],
-                Attachments: task.attachments || [],
-                CreatedAt: new Date().toISOString(),
-                UpdatedAt: new Date().toISOString()
-            };
-
-            const response = await axiosInstance.post('/Tasks', taskToCreate);
+            // AssignedUserIds'i AssignedUsers'dan doldur
+            if (task.assignedUsers && task.assignedUsers.length > 0) {
+                task.assignedUserIds = task.assignedUsers.map(user => user.id).filter(Boolean) as string[];
+            }
             
-            // Refresh the tasks list after creation
+            const response = await axiosInstance.post('/Tasks', task);
             dispatch(fetchMemberActiveTasks());
             return response.data;
         } catch (error: any) {
-            console.error('Task creation error:', error);
-            console.error('Error response:', error.response?.data);
             return rejectWithValue(error.response?.data?.message || 'Görev oluşturulurken bir hata oluştu');
         }
     }
@@ -149,43 +125,25 @@ export const updateTask = createAsyncThunk(
     'tasks/updateTask',
     async (task: Task, { dispatch, rejectWithValue }) => {
         try {
+            // Ensure all required fields are present before sending
             if (!task.id) {
                 return rejectWithValue('Task ID is required for updates');
             }
 
-            // Create properly cased task object for API
-            const taskToUpdate = {
-                Id: task.id,
-                Title: task.title.trim(),
-                Description: task.description.trim(),
-                DueDate: new Date(task.dueDate).toISOString(),
-                Priority: task.priority,
-                Status: task.status,
-                Category: task.category,
-                TeamId: task.teamId,
-                IsLocked: false,
-                AssignedUsers: task.assignedUsers?.map(user => ({
-                    Id: user._id,
-                    Username: user.username,
-                    Email: user.email,
-                    FullName: user.fullName,
-                    Department: user.department,
-                    Title: user.title,
-                    Position: user.position,
-                    ProfileImage: user.profileImage
-                })) || [],
-                AssignedUserIds: task.assignedUsers?.map(user => user._id).filter(Boolean) || [],
-                SubTasks: task.subTasks?.map(st => ({
-                    Id: st.id,
-                    Title: st.title,
-                    Completed: st.completed
-                })) || [],
-                Dependencies: task.dependencies || [],
-                Attachments: task.attachments || [],
-                UpdatedAt: new Date().toISOString()
-            };
+            // AssignedUserIds'i AssignedUsers'dan güncelle
+            if (task.assignedUsers && task.assignedUsers.length > 0) {
+                task.assignedUserIds = task.assignedUsers.map(user => user.id).filter(Boolean) as string[];
+            }
 
-            const response = await axiosInstance.put(`/Tasks/${task.id}`, taskToUpdate);
+            const response = await axiosInstance.put(`/Tasks/${task.id}`, {
+                ...task,
+                // Ensure subtasks have all required fields
+                subTasks: task.subTasks.map(st => ({
+                    id: st.id,
+                    title: st.title,
+                    completed: st.completed
+                }))
+            });
 
             if (response.status === 200) {
                 dispatch(fetchMemberActiveTasks());
@@ -230,7 +188,6 @@ export const updateTaskStatus = createAsyncThunk(
         }
     }
 );
-
 export const fileUpload = createAsyncThunk(
     'tasks/fileUpload',
     async ({ taskId, file }: { taskId: string; file: File }, { dispatch, rejectWithValue }) => {
@@ -301,7 +258,7 @@ export const fileUpload = createAsyncThunk(
   );
   
 
-export const downloadFile = createAsyncThunk(
+  export const downloadFile = createAsyncThunk(
     'tasks/downloadFile',
     async (
       { taskId, attachmentId, fileName }: { taskId: string; attachmentId: string; fileName: string },
