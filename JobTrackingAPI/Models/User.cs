@@ -98,5 +98,24 @@ namespace JobTrackingAPI.Models
 
         [BsonElement("taskHistory")]
         public List<string> TaskHistory { get; set; } = new List<string>();
+
+        [BsonElement("subscriptionPlan")]
+        public string SubscriptionPlan { get; set; } = "basic"; // default olarak basic plan
+
+        [BsonElement("subscriptionId")]
+        public string SubscriptionId { get; set; }
+
+        [BsonElement("subscriptionStatus")]
+        public string SubscriptionStatus { get; set; } = "active";
+
+        [BsonElement("subscriptionEndDate")]
+        public DateTime? SubscriptionEndDate { get; set; }
+
+        // New subscription properties
+        [BsonElement("subscriptionDate")]
+        public DateTime? SubscriptionDate { get; set; }
+
+        [BsonElement("subscriptionExpiryDate")]
+        public DateTime? SubscriptionExpiryDate { get; set; }
     }
 }

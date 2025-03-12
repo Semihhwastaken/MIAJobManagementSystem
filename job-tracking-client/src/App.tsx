@@ -26,6 +26,11 @@ import { fetchTasks } from './redux/features/tasksSlice';
 import { AppDispatch } from './redux/store';
 import FeedbackButton from './components/Feedback/FeedbackButton';
 import AdminDashboard from './pages/Admin/AdminDashboard';
+import { StripeProvider } from './context/StripeContext';
+import Subscription from './pages/Subscription/Subscription';
+import SubscriptionSuccess from './pages/Subscription/SubscriptionSuccess';
+import SubscriptionCancel from './pages/Subscription/SubscriptionCancel';
+import SubscriptionPlans from './pages/Subscription/SubscriptionPlans';
 
 const AppContent: React.FC = () => {
   const { isDarkMode } = useTheme();
@@ -301,6 +306,46 @@ const AppContent: React.FC = () => {
                     )
                   }
                 />
+                <Route
+                  path="/subscription"
+                  element={
+                    isAuthenticated ? (
+                      <Subscription />
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/subscription/plans"
+                  element={
+                    isAuthenticated ? (
+                      <SubscriptionPlans />
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/subscription/success"
+                  element={
+                    isAuthenticated ? (
+                      <SubscriptionSuccess />
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/subscription/cancel"
+                  element={
+                    isAuthenticated ? (
+                      <SubscriptionCancel />
+                    ) : (
+                      <Navigate to="/auth" replace />
+                    )
+                  }
+                />
               </Routes>
             </Layout>
           </Router>
@@ -344,15 +389,17 @@ const App: React.FC = () => {
   return (
     <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID">
       <ThemeProvider>
-        <SnackbarProvider 
-          maxSnack={3} 
-          anchorOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
-        >
-          <AppContent />
-        </SnackbarProvider>
+        <StripeProvider>
+          <SnackbarProvider 
+            maxSnack={3} 
+            anchorOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+          >
+            <AppContent />
+          </SnackbarProvider>
+        </StripeProvider>
       </ThemeProvider>
     </GoogleOAuthProvider>
   );

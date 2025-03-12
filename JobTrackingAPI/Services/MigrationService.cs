@@ -42,6 +42,7 @@ namespace JobTrackingAPI.Services
             await MigrateTeamMemberAttributesToUsers();
             await SimplifyTeamMembersStructure();
             await MigrateTaskAssignedUsersToIds();
+            await MigrateUserSubscriptions(); // Add this line to call our new migration method
         }
 
         private async Task RemovePasswordField()
@@ -49,11 +50,11 @@ namespace JobTrackingAPI.Services
             try
             {
                 _logger.LogInformation("Veritabanı migrasyonu başlatılıyor: Password alanı kaldırılıyor");
-                
+
                 // MongoDB koleksiyonunda "password" alanını kaldır
                 var update = Builders<User>.Update.Unset("password");
                 var result = await _users.UpdateManyAsync(Builders<User>.Filter.Empty, update);
-                
+
                 _logger.LogInformation($"Veritabanı migrasyonu tamamlandı: {result.ModifiedCount} kullanıcı kaydı güncellendi");
             }
             catch (Exception ex)
@@ -68,49 +69,49 @@ namespace JobTrackingAPI.Services
             try
             {
                 _logger.LogInformation("Kullanıcılara yeni alanlar ekleniyor: ownerTeams, memberTeams ve taskHistory");
-                
+
                 // Mevcut users koleksiyonunu alın
                 var users = await _users.Find(_ => true).ToListAsync();
-                
+
                 // Güncellenecek kullanıcılar için sayaç
                 int updatedUserCount = 0;
-                
+
                 foreach (var user in users)
                 {
                     var updateBuilder = Builders<User>.Update;
                     var updates = new List<UpdateDefinition<User>>();
-                    
+
                     // ownerTeams alanını ekle (eğer yoksa)
                     if (user.OwnerTeams == null)
                     {
                         updates.Add(updateBuilder.Set(u => u.OwnerTeams, new List<string>()));
                     }
-                    
+
                     // memberTeams alanını ekle (eğer yoksa)
                     if (user.MemberTeams == null)
                     {
                         updates.Add(updateBuilder.Set(u => u.MemberTeams, new List<string>()));
                     }
-                    
+
                     // taskHistory alanını ekle (eğer yoksa)
                     if (user.TaskHistory == null)
                     {
                         updates.Add(updateBuilder.Set(u => u.TaskHistory, new List<string>()));
                     }
-                    
+
                     // Eğer güncellenecek alan varsa
                     if (updates.Count > 0)
                     {
                         var combinedUpdate = updateBuilder.Combine(updates);
                         var result = await _users.UpdateOneAsync(u => u.Id == user.Id, combinedUpdate);
-                        
+
                         if (result.ModifiedCount > 0)
                         {
                             updatedUserCount++;
                         }
                     }
                 }
-                
+
                 _logger.LogInformation($"Yeni alanlar eklendi: {updatedUserCount} kullanıcı güncellendi");
             }
             catch (Exception ex)
@@ -125,10 +126,10 @@ namespace JobTrackingAPI.Services
             try
             {
                 _logger.LogInformation("Takım bilgileri kullanıcı listelerine aktarılıyor");
-                
+
                 // Tüm takımları al
                 var teams = await _teams.Find(_ => true).ToListAsync();
-                
+
                 foreach (var team in teams)
                 {
                     // Admin/owner rolündeki kullanıcıları bul
@@ -136,20 +137,20 @@ namespace JobTrackingAPI.Services
                         .Where(m => m.Role.ToLower() == "admin" || m.Role.ToLower() == "owner")
                         .Select(m => m.Id)
                         .ToList();
-                    
+
                     // Üye rolündeki kullanıcıları bul
                     var memberIds = team.Members
                         .Where(m => m.Role.ToLower() == "member")
                         .Select(m => m.Id)
                         .ToList();
-                    
+
                     // Adminlerin ownerTeams listesine ekle
                     foreach (var ownerId in ownerIds)
                     {
                         var ownerUpdate = Builders<User>.Update.AddToSet(u => u.OwnerTeams, team.Id);
                         await _users.UpdateOneAsync(u => u.Id == ownerId, ownerUpdate);
                     }
-                    
+
                     // Üyelerin memberTeams listesine ekle
                     foreach (var memberId in memberIds)
                     {
@@ -157,7 +158,7 @@ namespace JobTrackingAPI.Services
                         await _users.UpdateOneAsync(u => u.Id == memberId, memberUpdate);
                     }
                 }
-                
+
                 _logger.LogInformation($"Takım bilgileri kullanıcı listelerine aktarıldı: {teams.Count} takım işlendi");
             }
             catch (Exception ex)
@@ -172,14 +173,14 @@ namespace JobTrackingAPI.Services
             try
             {
                 _logger.LogInformation("Tamamlanan ve süresi geçen görevler kullanıcıların taskHistory alanına aktarılıyor");
-                
+
                 // Tamamlanan veya süresi geçen görevleri al
                 var completedOrOverdueTasks = await _tasks.Find(
-                    t => t.Status == "completed" || t.Status == "overdue" || 
+                    t => t.Status == "completed" || t.Status == "overdue" ||
                          (t.DueDate < DateTime.UtcNow && t.Status != "completed")).ToListAsync();
-                
+
                 int updatedTaskCount = 0;
-                
+
                 foreach (var task in completedOrOverdueTasks)
                 {
                     if (task.AssignedUsers != null && task.AssignedUsers.Count > 0)
@@ -188,7 +189,7 @@ namespace JobTrackingAPI.Services
                         {
                             var taskHistoryUpdate = Builders<User>.Update.AddToSet(u => u.TaskHistory, task.Id);
                             var result = await _users.UpdateOneAsync(u => u.Id == assignedUser.Id, taskHistoryUpdate);
-                            
+
                             if (result.ModifiedCount > 0)
                             {
                                 updatedTaskCount++;
@@ -196,7 +197,7 @@ namespace JobTrackingAPI.Services
                         }
                     }
                 }
-                
+
                 _logger.LogInformation($"Görev geçmişi güncellendi: {updatedTaskCount} kullanıcı kaydı güncellendi");
             }
             catch (Exception ex)
@@ -211,11 +212,11 @@ namespace JobTrackingAPI.Services
             try
             {
                 _logger.LogInformation("Takım üyelerinin AssignedJobs bilgileri kullanıcılara aktarılıyor");
-                
+
                 // Tüm takımları al
                 var teams = await _teams.Find(_ => true).ToListAsync();
                 int updatedUserCount = 0;
-                
+
                 foreach (var team in teams)
                 {
                     foreach (var member in team.Members)
@@ -224,7 +225,7 @@ namespace JobTrackingAPI.Services
                         if (member.AssignedJobs != null && member.AssignedJobs.Any())
                         {
                             _logger.LogInformation($"Kullanıcı {member.Id} için {member.AssignedJobs.Count} görev aktarılıyor");
-                            
+
                             // Her görevi Users koleksiyonundaki kullanıcının assignedJobs listesine ekle
                             foreach (var taskId in member.AssignedJobs)
                             {
@@ -234,7 +235,7 @@ namespace JobTrackingAPI.Services
                                 {
                                     var update = Builders<User>.Update.AddToSet(u => u.AssignedJobs, taskId);
                                     var result = await _users.UpdateOneAsync(u => u.Id == member.Id, update);
-                                    
+
                                     if (result.ModifiedCount > 0)
                                     {
                                         updatedUserCount++;
@@ -248,7 +249,7 @@ namespace JobTrackingAPI.Services
                         }
                     }
                 }
-                
+
                 _logger.LogInformation($"Takım üyelerinin AssignedJobs bilgileri aktarıldı: {updatedUserCount} kullanıcı güncellendi");
             }
             catch (Exception ex)
@@ -263,23 +264,23 @@ namespace JobTrackingAPI.Services
             try
             {
                 _logger.LogInformation("Takım üyelerinin ek bilgileri kullanıcılara aktarılıyor");
-                
+
                 // Tüm takımları al
                 var teams = await _teams.Find(_ => true).ToListAsync();
                 int updatedUserCount = 0;
-                
+
                 foreach (var team in teams)
                 {
                     foreach (var member in team.Members)
                     {
                         // Kullanıcıyı bul
                         var user = await _users.Find(u => u.Id == member.Id).FirstOrDefaultAsync();
-                        
+
                         if (user != null)
                         {
                             var updateBuilder = Builders<User>.Update;
                             var updates = new List<UpdateDefinition<User>>();
-                            
+
                             // Uzmanlık alanlarını güncelle (Team'deki üyenin uzmanlık alanları varsa)
                             if (member.Expertise != null && member.Expertise.Any())
                             {
@@ -292,72 +293,72 @@ namespace JobTrackingAPI.Services
                                     }
                                 }
                             }
-                            
+
                             // Telefon bilgisini güncelle
                             if (!string.IsNullOrEmpty(member.Phone) && string.IsNullOrEmpty(user.Phone))
                             {
                                 updates.Add(updateBuilder.Set(u => u.Phone, member.Phone));
                             }
-                            
+
                             // Profil resmini güncelle
                             if (!string.IsNullOrEmpty(member.ProfileImage) && string.IsNullOrEmpty(user.ProfileImage))
                             {
                                 updates.Add(updateBuilder.Set(u => u.ProfileImage, member.ProfileImage));
                             }
-                            
+
                             // Kullanıcı durumunu güncelle
                             if (!string.IsNullOrEmpty(member.Status) && user.UserStatus == "active")
                             {
                                 updates.Add(updateBuilder.Set(u => u.UserStatus, member.Status));
                             }
-                            
+
                             // Metrikleri güncelle
                             if (member.Metrics != null)
                             {
                                 updates.Add(updateBuilder.Set(u => u.Metrics, member.Metrics));
                             }
-                            
+
                             // Çevrimiçi durumunu güncelle
                             if (!string.IsNullOrEmpty(member.OnlineStatus))
                             {
                                 updates.Add(updateBuilder.Set(u => u.OnlineStatus, member.OnlineStatus));
                             }
-                            
+
                             // Performans puanını güncelle
                             if (member.PerformanceScore > 0)
                             {
                                 updates.Add(updateBuilder.Set(u => u.PerformanceScore, member.PerformanceScore));
                             }
-                            
+
                             // Tamamlanmış görev sayısını güncelle
                             if (member.CompletedTasksCount > 0)
                             {
                                 updates.Add(updateBuilder.Set(u => u.CompletedTasksCount, member.CompletedTasksCount));
                             }
-                            
+
                             // Kullanılabilirlik programını güncelle
                             if (member.AvailabilitySchedule != null)
                             {
                                 updates.Add(updateBuilder.Set(u => u.AvailabilitySchedule, member.AvailabilitySchedule));
                             }
-                            
+
                             // Unvan ve pozisyon bilgilerini güncelle
                             if (!string.IsNullOrEmpty(member.Title) && string.IsNullOrEmpty(user.Title))
                             {
                                 updates.Add(updateBuilder.Set(u => u.Title, member.Title));
                             }
-                            
+
                             if (!string.IsNullOrEmpty(member.Position) && string.IsNullOrEmpty(user.Position))
                             {
                                 updates.Add(updateBuilder.Set(u => u.Position, member.Position));
                             }
-                            
+
                             // Güncelleme varsa uygula
                             if (updates.Count > 0)
                             {
                                 var combinedUpdate = updateBuilder.Combine(updates);
                                 var result = await _users.UpdateOneAsync(u => u.Id == member.Id, combinedUpdate);
-                                
+
                                 if (result.ModifiedCount > 0)
                                 {
                                     updatedUserCount++;
@@ -367,7 +368,7 @@ namespace JobTrackingAPI.Services
                         }
                     }
                 }
-                
+
                 _logger.LogInformation($"Takım üyelerinin ek bilgileri aktarıldı: {updatedUserCount} kullanıcı güncellendi");
             }
             catch (Exception ex)
@@ -376,17 +377,17 @@ namespace JobTrackingAPI.Services
                 throw;
             }
         }
-        
+
         private async Task SimplifyTeamMembersStructure()
         {
             try
             {
                 _logger.LogInformation("Takım üyeleri yapısı sadeleştiriliyor (sadece ID, Metrics ve JoinedAt bilgileri korunuyor)");
-                
+
                 // MongoDB Collection Builder kullanarak koleksiyonu al
                 var database = new MongoClient(_settings.Value.ConnectionString).GetDatabase(_settings.Value.DatabaseName);
                 var teamsCollection = database.GetCollection<BsonDocument>("Teams");
-                
+
                 // Aggregation pipeline oluştur - $project operatörü ile sadece istenen alanları seç
                 var pipeline = new BsonDocument[]
                 {
@@ -426,22 +427,22 @@ namespace JobTrackingAPI.Services
                         }
                     })
                 };
-                
+
                 // Aggregation pipeline'ı uygula
                 var teams = await teamsCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
                 _logger.LogInformation($"Toplam {teams.Count} takım işlendi");
-                
+
                 // Her takım için güncelleme yap
                 int updatedTeamCount = 0;
                 foreach (var team in teams)
                 {
                     var teamId = team["_id"].AsObjectId;
                     var members = team["Members"].AsBsonArray;
-                    
+
                     // Takımı güncelle - sadece Members alanını güncelle
                     var filter = Builders<BsonDocument>.Filter.Eq("_id", teamId);
                     var update = Builders<BsonDocument>.Update.Set("Members", members);
-                    
+
                     var result = await teamsCollection.UpdateOneAsync(filter, update);
                     if (result.ModifiedCount > 0)
                     {
@@ -449,20 +450,20 @@ namespace JobTrackingAPI.Services
                         _logger.LogInformation($"Takım {teamId} üyeleri sadeleştirildi");
                     }
                 }
-                
+
                 _logger.LogInformation($"Takım üyeleri yapısı sadeleştirildi: {updatedTeamCount} takım güncellendi");
-                
+
                 // MemberIds alanını ekle (eski metoddan kalan)
                 var allTeams = await _teams.Find(_ => true).ToListAsync();
                 foreach (var team in allTeams)
                 {
                     // Mevcut üyelerin ID'lerini bir liste olarak al
                     var memberIds = team.Members.Select(m => m.Id).ToList();
-                    
+
                     // Üye ID'lerini MemberIds listesine kaydet
                     var update = Builders<Team>.Update
                         .Set(t => t.MemberIds, memberIds);
-                    
+
                     await _teams.UpdateOneAsync(t => t.Id == team.Id, update);
                 }
             }
@@ -478,30 +479,30 @@ namespace JobTrackingAPI.Services
             try
             {
                 _logger.LogInformation("Görevlerin AssignedUsers bilgisi AssignedUserIds alanına aktarılıyor");
-                
+
                 // Tüm görevleri al
                 var tasks = await _tasks.Find(_ => true).ToListAsync();
                 int updatedTaskCount = 0;
-                
+
                 foreach (var task in tasks)
                 {
                     // AssignedUsers listesi varsa ve AssignedUserIds listesi yoksa veya boşsa
-                    if (task.AssignedUsers != null && task.AssignedUsers.Any() && 
+                    if (task.AssignedUsers != null && task.AssignedUsers.Any() &&
                         (task.AssignedUserIds == null || !task.AssignedUserIds.Any()))
                     {
                         var userIds = task.AssignedUsers.Select(au => au.Id).ToList();
-                        
+
                         // AssignedUserIds listesini güncelle
                         var update = Builders<TaskItem>.Update.Set(t => t.AssignedUserIds, userIds);
                         var result = await _tasks.UpdateOneAsync(t => t.Id == task.Id, update);
-                        
+
                         if (result.ModifiedCount > 0)
                         {
                             updatedTaskCount++;
                         }
                     }
                 }
-                
+
                 _logger.LogInformation($"Görevlerin AssignedUsers bilgisi AssignedUserIds alanına aktarıldı: {updatedTaskCount} görev güncellendi");
             }
             catch (Exception ex)
@@ -510,5 +511,111 @@ namespace JobTrackingAPI.Services
                 throw;
             }
         }
+
+        private async Task MigrateUserSubscriptions()
+        {
+            try
+            {
+                _logger.LogInformation("Kullanıcı abonelik bilgileri güncelleniyor");
+
+                // Tüm kullanıcıları al
+                var users = await _users.Find(_ => true).ToListAsync();
+                int updatedUserCount = 0;
+
+                foreach (var user in users)
+                {
+                    var updateBuilder = Builders<User>.Update;
+                    var updates = new List<UpdateDefinition<User>>();
+
+                    // SubscriptionPlan alanını ekle (eğer yoksa veya null ise)
+                    if (string.IsNullOrEmpty(user.SubscriptionPlan))
+                    {
+                        updates.Add(updateBuilder.Set(u => u.SubscriptionPlan, "basic"));
+                    }
+
+                    // SubscriptionStatus alanını kontrol et ve doğru değere göre ayarla
+                    if (string.IsNullOrEmpty(user.SubscriptionStatus))
+                    {
+                        // SubscriptionId ve SubscriptionExpiryDate kontrol edilerek doğru durum belirlenir
+                        string status = "active";
+
+                        // Eğer subscription ID boş ise ve temel plan ise, durumu "canceled" olarak ayarla
+                        if (string.IsNullOrEmpty(user.SubscriptionId) &&
+                           (user.SubscriptionPlan == "pro" || user.SubscriptionPlan == "enterprise"))
+                        {
+                            status = "canceled";
+                        }
+                        // Veya süresi dolmuşsa "canceled" olarak ayarla
+                        else if (user.SubscriptionExpiryDate.HasValue && user.SubscriptionExpiryDate.Value < DateTime.UtcNow)
+                        {
+                            status = "canceled";
+                        }
+
+                        updates.Add(updateBuilder.Set(u => u.SubscriptionStatus, status));
+                    }
+
+                    // SubscriptionId alanını ekle (eğer yoksa veya null ise)
+                    if (user.SubscriptionId == null)
+                    {
+                        updates.Add(updateBuilder.Set(u => u.SubscriptionId, string.Empty));
+                    }
+
+                    // SubscriptionDate alanını ekle (eğer yoksa)
+                    if (user.SubscriptionDate == null)
+                    {
+                        updates.Add(updateBuilder.Set(u => u.SubscriptionDate, DateTime.UtcNow));
+                    }
+
+                    // SubscriptionExpiryDate alanını ekle (eğer yoksa)
+                    if (user.SubscriptionExpiryDate == null)
+                    {
+                        // Plan türüne göre farklı süre belirle
+                        DateTime expiryDate = user.SubscriptionPlan switch
+                        {
+                            "pro" => DateTime.UtcNow.AddMonths(1),
+                            "enterprise" => DateTime.UtcNow.AddYears(1),
+                            _ => DateTime.UtcNow.AddYears(10) // Basic plan için uzun süre
+                        };
+                        updates.Add(updateBuilder.Set(u => u.SubscriptionExpiryDate, expiryDate));
+                    }
+
+                    // SubscriptionEndDate alanını ekle (eğer modelde varsa ve null ise)
+                    var userType = typeof(User);
+                    var subscriptionEndDateProperty = userType.GetProperty("SubscriptionEndDate");
+                    if (subscriptionEndDateProperty != null && user.SubscriptionEndDate == null)
+                    {
+                        // Süresi dolan abonelikler için SubscriptionEndDate'i şu anki zaman olarak ayarla
+                        if (string.IsNullOrEmpty(user.SubscriptionId) &&
+                           (user.SubscriptionPlan == "pro" || user.SubscriptionPlan == "enterprise"))
+                        {
+                            updates.Add(updateBuilder.Set("SubscriptionEndDate", DateTime.UtcNow));
+                        }
+                        else
+                        {
+                            updates.Add(updateBuilder.Set("SubscriptionEndDate", user.SubscriptionExpiryDate ?? DateTime.UtcNow.AddYears(10)));
+                        }
+                    }
+
+                    // Güncelleme varsa uygula
+                    if (updates.Count > 0)
+                    {
+                        var combinedUpdate = updateBuilder.Combine(updates);
+                        var result = await _users.UpdateOneAsync(u => u.Id == user.Id, combinedUpdate);
+
+                        if (result.ModifiedCount > 0)
+                        {
+                            updatedUserCount++;
+                        }
+                    }
+                }
+
+                _logger.LogInformation($"Kullanıcı abonelik bilgileri güncellendi: {updatedUserCount} kullanıcı güncellenmiştir");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Kullanıcı abonelik bilgileri güncellenirken hata oluştu");
+                throw;
+            }
+        }
     }
-} 
+}

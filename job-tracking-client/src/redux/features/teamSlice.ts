@@ -3,6 +3,7 @@ import { createSlice, createAsyncThunk, createAction, isPending, isRejected } fr
 import { TeamState, TeamMember, Team } from '../../types/team';
 import axiosInstance from '../../services/axiosInstance';
 import { RESET_STATE } from './actionTypes';
+import { RootState } from '../store';
 
 interface MemberMetricsUpdateDto {
     teamId: string;
@@ -256,25 +257,45 @@ export const joinTeamWithInviteCode = createAsyncThunk(
     'Team/joinTeamWithInviteCode',
     async (inviteCode: string, { rejectWithValue, dispatch }) => {
         try {
-            // Backend API formatı: [HttpPost("join-with-code/{inviteCode}")]
+            // İstek zaten yapılıyor mu kontrol et
+            const requestKey = `joinTeamWithInviteCode_${inviteCode}`;
+            if (pendingRequests[requestKey]) {
+                console.log('Bu davet kodu ile zaten bir katılma işlemi sürüyor');
+                return { alreadyPending: true }; // İşlem zaten devam ediyor, fazladan çağrı engellendi
+            }
+            
+            // İsteğin yapıldığını işaretle
+            pendingRequests[requestKey] = true;
+            
+            // Backend API'sine istek yap
             const response = await axiosInstance.post(`/Team/join-with-code/${inviteCode}`);
             
-            // Tüm ilgili cacheleri güncelle
-            dispatch(invalidateCache('all')); // 'all' tüm cacheleri temizler: teams, members, departments
+            // İşlem tamamlandı, istek işaretini kaldır
+            pendingRequests[requestKey] = false;
             
-            // Teams sayfasını yeniden yüklemek için gerekli dataları hemen fetch et
-            dispatch(fetchTeams());
+            // Tüm ilgili önbellekleri temizle
+            dispatch(invalidateCache('all')); // 'all' tüm önbellekleri temizler: teams, members, departments
             
-            // Kullanıcı takıma katıldıktan sonra takımla ilgili verileri önbelleğe al
-            const teamId = response.data.teamId;
-            if (teamId) {
-                dispatch(getTeamMembersByTeamId(teamId));
-            }
+            // 300ms bekle, backend'in güncellemesi için zaman tanı
+            setTimeout(() => {
+                // Teams sayfasını yeniden yüklemek için gerekli verileri fetch et
+                dispatch(fetchTeams());
+                
+                // Kullanıcı takıma katıldıktan sonra takımla ilgili verileri güncelle
+                const teamId = response.data.teamId;
+                if (teamId) {
+                    dispatch(getTeamMembersByTeamId(teamId));
+                }
+            }, 300);
             
             return response.data;
         } catch (error: any) {
+            // Hata durumunda istek işaretini kaldır
+            const requestKey = `joinTeamWithInviteCode_${inviteCode}`;
+            pendingRequests[requestKey] = false;
+            
             console.error('Davet koduyla takıma katılma hatası:', error.response?.data);
-            return rejectWithValue(error.response?.data || error.message);
+            return rejectWithValue(error.response?.data?.message || error.message);
         }
     }
 );
@@ -308,17 +329,91 @@ export const assignOwnerRole = createAsyncThunk(
 
 export const removeTeamMember = createAsyncThunk(
     'Team/removeTeamMember',
-    async ({ teamId, memberId }: { teamId: string; memberId: string }, { rejectWithValue, dispatch }) => {
+    async ({ teamId, memberId }: { teamId: string; memberId: string }, { rejectWithValue, dispatch, getState }) => {
         try {
-            const response = await axiosInstance.post(`/Team/${teamId}/remove-member`, { memberId });
+            // İstek tekrarı kontrolü
+            const requestKey = `removeTeamMember_${teamId}_${memberId}`;
+            if (pendingRequests[requestKey]) {
+                return { alreadyPending: true };
+            }
             
-            // Üyeleri yeniden yükle
-            dispatch(invalidateCache('members'));
+            pendingRequests[requestKey] = true;
             
-            return { success: response.data.success, message: response.data.message, teamId, memberId };
+            // Üyeyi önbelleğimizden hemen silelim (UI'da hemen gösterilmesi için)
+            dispatch({
+                type: 'Team/updateTeam',
+                payload: {
+                    teamId,
+                    update: (team: Team) => ({
+                        ...team,
+                        members: team.members.filter(m => m.id !== memberId),
+                        memberIds: team.memberIds?.filter(id => id !== memberId) || []
+                    })
+                }
+            });
+            
+            // API çağrısını yap
+            const response = await axiosInstance.delete(`/Team/${teamId}/members/${memberId}`);
+            
+            pendingRequests[requestKey] = false;
+            
+            // Tüm önbellekleri temizle
+            dispatch(invalidateCache('all'));
+            
+            // Silme işlemi başarılı olduysa, redux state'ini güncelle ve en güncel takım verilerini getir
+            if (response.data?.success) {
+                // Takımı tekrar getir ve state'i güncelle (tutarsızlık olmasını önler)
+                try {
+                    // Takım verilerini tekrar getir
+                    const refreshedTeamsResponse = await axiosInstance.get('/Team');
+                    if (refreshedTeamsResponse.data) {
+                        dispatch(setTeams(refreshedTeamsResponse.data));
+                    }
+                    
+                    // Ayrıca takım üyelerini de güncelle
+                    const refreshedMembersResponse = await axiosInstance.get(`/Team/${teamId}/members`);
+                    if (refreshedMembersResponse.data) {
+                        dispatch({
+                            type: 'Team/setTeamMembers',
+                            payload: {
+                                teamId,
+                                members: refreshedMembersResponse.data
+                            }
+                        });
+                    }
+                } catch (refreshError) {
+                    console.error('Takım verileri yenilenirken hata oluştu:', refreshError);
+                }
+            }
+            
+            return response.data;
         } catch (error: any) {
-            console.error('Takım üyesi çıkarma hatası:', error.response?.data);
-            return rejectWithValue(error.response?.data || error.message);
+            // İstek durumunu sıfırla
+            pendingRequests[`removeTeamMember_${teamId}_${memberId}`] = false;
+            
+            // Hata durumunda, silme işlemini geri al (rollback)
+            const state = getState() as RootState;
+            const team = state.team.teams.find(t => t.id === teamId);
+            
+            if (team) {
+                const originalMembers = team.members;
+                
+                // API çağrısı başarısız olursa, orijinal üyeleri geri yükle
+                dispatch({
+                    type: 'Team/updateTeam',
+                    payload: {
+                        teamId,
+                        update: (team: Team) => ({
+                            ...team,
+                            members: originalMembers
+                        })
+                    }
+                });
+            }
+            
+            return rejectWithValue(
+                error.response?.data?.message || 'Üye çıkarma işlemi sırasında bir hata oluştu'
+            );
         }
     }
 );
@@ -408,9 +503,19 @@ export const fetchTeams = createAsyncThunk(
 
 export const deleteTeam = createAsyncThunk<DeleteTeamResponse, string>(
     'Team/deleteTeam',
-    async (teamId: string, { rejectWithValue, dispatch }) => {
+    async (teamId: string, { rejectWithValue, dispatch, getState }) => {
         try {
-            const response = await axiosInstance.delete(`/Team/${teamId}`);
+            // Get current user ID from auth state
+            const state = getState() as any;
+            const userId = state.auth.user?.id;
+            
+            if (!userId) {
+                return rejectWithValue('User not authenticated');
+            }
+
+            const response = await axiosInstance.delete(`/Team/${teamId}`, {
+                data: { userId }  // Include userId in request body
+            });
             
             // Invalidate teams cache after deletion
             dispatch(invalidateCache('teams'));
@@ -608,6 +713,18 @@ const teamSlice = createSlice({
             const member = state.members.find(m => m.id === memberId);
             if (member) {
                 member.onlineStatus = status;
+            }
+        },
+        // Add setTeams action creator
+        setTeams: (state, action) => {
+            state.teams = action.payload;
+        },
+        // Add setTeamMembers action creator for consistency
+        setTeamMembers: (state, action) => {
+            const { teamId, members } = action.payload;
+            const team = state.teams.find(t => t.id === teamId);
+            if (team) {
+                team.members = members;
             }
         }
     },
@@ -824,7 +941,37 @@ const teamSlice = createSlice({
             .addCase(updateMemberPerformance.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
-            });
+            })
+
+            // Üye silme işlemi
+            .addCase(removeTeamMember.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(removeTeamMember.fulfilled, (state, action) => {
+                state.loading = false;
+                
+                // Takım ID'si ve silinen üye ID'sini al
+                const { teamId, memberId } = action.payload;
+                
+                // Bu ID'ye sahip takımı bul ve üyeyi sil
+                const teamIndex = state.teams.findIndex(t => t.id === teamId);
+                if (teamIndex !== -1) {
+                    // Üyeyi takımdan sil
+                    state.teams[teamIndex].members = state.teams[teamIndex].members.filter(m => m.id !== memberId);
+                }
+                
+                // Genel members listesinden de üyeyi kaldır
+                state.members = state.members.filter(m => m.id !== memberId);
+                
+                // Önbellekleri sıfırla
+                state.lastCacheTimes.teams = 0;
+                state.lastCacheTimes.members = 0;
+            })
+            .addCase(removeTeamMember.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
     }
 });
 
@@ -833,7 +980,9 @@ export const {
     setFilters,
     setSortBy,
     setSortOrder,
-    updateMemberOnlineStatus
+    updateMemberOnlineStatus,
+    setTeams,
+    setTeamMembers
 } = teamSlice.actions;
 
 export default teamSlice.reducer;

@@ -18,7 +18,7 @@ namespace JobTrackingAPI.Services
         Task AddTaskToHistory(string userId, string taskId);
         Task AddToAssignedJobs(string userId, string taskId);
         Task RemoveFromAssignedJobs(string userId, string taskId);
-        
+
         // Yeni eklenen metodlar
         Task<List<User>> GetUsersByIds(List<string> userIds);
         Task AddOwnerTeam(string userId, string teamId);
@@ -30,5 +30,6 @@ namespace JobTrackingAPI.Services
         Task<int> GetActiveUserCount();
         Task<List<User>> GetPaginatedUsers(int page, int pageSize);
         Task<bool> UpdateUserOnlineStatus(string userId, bool isOnline);
+        Task UpdateUserSubscriptionAsync(string userId, string planType, string subscriptionId);
     }
 }

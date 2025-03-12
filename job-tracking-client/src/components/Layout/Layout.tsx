@@ -4,7 +4,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { NotificationCenter } from '../Notifications/NotificationCenter';
 import { resetState } from '../../redux/features/actions';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -17,6 +18,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const dispatch = useDispatch();
   const { isDarkMode, toggleTheme } = useTheme();
   const isAuthPage = location.pathname === '/auth';
+  const user = useSelector((state: RootState) => state.auth.user);
 
   const handleLogout = async () => {
     try {
@@ -137,6 +139,30 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
               {/* Right side buttons */}
               <div className="flex items-center space-x-4">
+                {/* Upgrade Plan Button */}
+                <Link
+                  to="/subscription"
+                  className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    isDarkMode
+                      ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                      : 'bg-indigo-500 text-white hover:bg-indigo-600'
+                  }`}
+                >
+                  <svg
+                    className="w-4 h-4 mr-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 10l7-7m0 0l7 7m-7-7v18"
+                    />
+                  </svg>
+                  <span>{user?.subscriptionPlan === 'basic' ? 'Planı Yükselt' : 'Abonelik'}</span>
+                </Link>
 
                 {/* Notification Center */}
                 <NotificationCenter />
