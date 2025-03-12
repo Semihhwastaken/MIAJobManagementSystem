@@ -29,8 +29,6 @@ const App: React.FC = () => {
             try {
                 const response = await axiosInstance.get('/feedback/public');
                 setPublicFeedbacks(response.data);
-                console.log('Public feedbacks:', response.data);
-                
             } catch (error) {
                 console.error('Error fetching feedbacks:', error);
             }
@@ -121,7 +119,8 @@ const App: React.FC = () => {
         content: item.content,
         avatar: item.userAvatar || getInitials(item.userName),
         rating: item.rating,
-        isInitials: !item.userAvatar
+        isInitials: !item.userAvatar,
+        adminResponse: item.adminResponse // Ekle
     }));
 
     useEffect(() => {
@@ -579,9 +578,19 @@ const App: React.FC = () => {
                                             )}
                                         </div>
                                     </div>
-                                    <p className="text-gray-600 text-lg italic">
-                                        "{formattedTestimonials[currentTestimonial].content}"
-                                    </p>
+                                    {formattedTestimonials[currentTestimonial].content && (
+                                        <p className="text-gray-600 text-lg italic mb-4">
+                                            "{formattedTestimonials[currentTestimonial].content}"
+                                        </p>
+                                    )}
+                                    {formattedTestimonials[currentTestimonial].adminResponse && (
+                                        <div className="mt-4 p-4 bg-indigo-50 rounded-lg">
+                                            <p className="text-sm text-indigo-600 font-medium mb-2">Yanıt:</p>
+                                            <p className="text-gray-700">
+                                                "{formattedTestimonials[currentTestimonial].adminResponse}"
+                                            </p>
+                                        </div>
+                                    )}
                                 </motion.div>
                             )}
                         </AnimatePresence>

@@ -65,7 +65,7 @@ namespace JobTrackingAPI.Services
                         response.StatusCode, content, notification.UserId);
                     
                     // Try sending a test notification to check if the API is accessible
-                    await SendTestNotificationAsync(notification.UserId);
+                    
                     
                     return false;
                 }
@@ -113,104 +113,6 @@ namespace JobTrackingAPI.Services
             }
         }
 
-        /// <summary>
-        /// İş atama bildirimi gönderir
-        /// </summary>
-        /// <param name="userId">Kullanıcı ID'si</param>
-        /// <param name="jobId">İş ID'si</param>
-        /// <param name="jobTitle">İş başlığı</param>
-        /// <returns>İşlem başarılı ise true, değilse false</returns>
-        public async Task<bool> SendJobAssignmentNotificationAsync(string userId, string jobId, string jobTitle)
-        {
-            var title = "Yeni İş Atandı";
-            var message = $"Size \"{jobTitle}\" başlıklı yeni bir iş atandı.";
-            return await SendNotificationAsync(userId, title, message, NotificationType.TaskAssigned, jobId);
-        }
-
-        /// <summary>
-        /// İş durumu değişikliği bildirimi gönderir
-        /// </summary>
-        /// <param name="userId">Kullanıcı ID'si</param>
-        /// <param name="jobId">İş ID'si</param>
-        /// <param name="jobTitle">İş başlığı</param>
-        /// <param name="newStatus">Yeni durum</param>
-        /// <returns>İşlem başarılı ise true, değilse false</returns>
-        public async Task<bool> SendJobStatusChangeNotificationAsync(
-            string userId, 
-            string jobId, 
-            string jobTitle, 
-            string newStatus)
-        {
-            var title = "İş Durumu Değişti";
-            var message = $"\"{jobTitle}\" başlıklı işin durumu \"{newStatus}\" olarak güncellendi.";
-            return await SendNotificationAsync(userId, title, message, NotificationType.TaskUpdated, jobId);
-        }
-
-        /// <summary>
-        /// Yorum bildirimi gönderir
-        /// </summary>
-        /// <param name="userId">Kullanıcı ID'si</param>
-        /// <param name="jobId">İş ID'si</param>
-        /// <param name="jobTitle">İş başlığı</param>
-        /// <param name="commenterName">Yorum yapan kişinin adı</param>
-        /// <returns>İşlem başarılı ise true, değilse false</returns>
-        public async Task<bool> SendCommentNotificationAsync(
-            string userId, 
-            string jobId, 
-            string jobTitle, 
-            string commenterName)
-        {
-            var title = "Yeni Yorum";
-            var message = $"\"{jobTitle}\" başlıklı işe {commenterName} tarafından yeni bir yorum eklendi.";
-            return await SendNotificationAsync(userId, title, message, NotificationType.Comment, jobId);
-        }
-
-        /// <summary>
-        /// Test bildirimi gönderir
-        /// </summary>
-        /// <param name="userId">Kullanıcı ID'si</param>
-        /// <returns>İşlem başarılı ise true, değilse false</returns>
-        public async Task<bool> SendTestNotificationAsync(string userId)
-        {
-            try
-            {
-                _logger.LogInformation("Sending test notification to check API connectivity");
-                
-                var testNotification = new NotificationDto
-                {
-                    UserId = userId,
-                    Title = "Test Bildirimi",
-                    Message = "Bu bir test bildirimidir. API bağlantısını kontrol etmek için gönderilmiştir.",
-                    Type = NotificationType.Message,
-                };
-
-                var json = JsonSerializer.Serialize(testNotification);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                var response = await _httpClient.PostAsync(
-                    $"{_notificationApiBaseUrl}/api/Notifications/test", 
-                    content);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    _logger.LogInformation("Test notification sent successfully");
-                    return true;
-                }
-                else
-                {
-                    var responseContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogWarning("Test notification failed. StatusCode: {StatusCode}, Response: {Response}", 
-                        response.StatusCode, responseContent);
-                    return false;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending test notification");
-                return false;
-            }
-        }
-
         public async Task<bool> SendFeedbackResponseNotificationAsync(string userId, string feedbackContent, string response)
         {
             var notification = new NotificationDto
@@ -220,6 +122,7 @@ namespace JobTrackingAPI.Services
                 Message = $"'{feedbackContent.Substring(0, Math.Min(50, feedbackContent.Length))}...' için yanıt: {response}",
                 Type = NotificationType.FeedbackResponse,
             };
+            _logger.LogInformation("Sending feedback response notification to {UserId}. Content: {Content}, Response: {Response}", userId, feedbackContent, response);
 
             return await SendNotificationAsync(notification);
         }

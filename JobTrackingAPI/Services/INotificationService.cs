@@ -32,57 +32,6 @@ namespace JobTrackingAPI.Services
             NotificationType notificationType, 
             string? relatedJobId = null);
 
-        /// <summary>
-        /// İş atama bildirimi gönderir
-        /// </summary>
-        /// <param name="userId">Kullanıcı ID'si</param>
-        /// <param name="jobId">İş ID'si</param>
-        /// <param name="jobTitle">İş başlığı</param>
-        /// <returns>İşlem başarılı ise true, değilse false</returns>
-        Task<bool> SendJobAssignmentNotificationAsync(string userId, string jobId, string jobTitle);
-
-        /// <summary>
-        /// İş durumu değişikliği bildirimi gönderir
-        /// </summary>
-        /// <param name="userId">Kullanıcı ID'si</param>
-        /// <param name="jobId">İş ID'si</param>
-        /// <param name="jobTitle">İş başlığı</param>
-        /// <param name="newStatus">Yeni durum</param>
-        /// <returns>İşlem başarılı ise true, değilse false</returns>
-        Task<bool> SendJobStatusChangeNotificationAsync(
-            string userId, 
-            string jobId, 
-            string jobTitle, 
-            string newStatus);
-
-        /// <summary>
-        /// Yorum bildirimi gönderir
-        /// </summary>
-        /// <param name="userId">Kullanıcı ID'si</param>
-        /// <param name="jobId">İş ID'si</param>
-        /// <param name="jobTitle">İş başlığı</param>
-        /// <param name="commenterName">Yorum yapan kişinin adı</param>
-        /// <returns>İşlem başarılı ise true, değilse false</returns>
-        Task<bool> SendCommentNotificationAsync(
-            string userId, 
-            string jobId, 
-            string jobTitle, 
-            string commenterName);
-
-        /// <summary>
-        /// Test bildirimi gönderir
-        /// </summary>
-        /// <param name="userId">Kullanıcı ID'si</param>
-        /// <returns>İşlem başarılı ise true, değilse false</returns>
-        Task<bool> SendTestNotificationAsync(string userId);
-
-        /// <summary>
-        /// Geri bildirim yanıt bildirimi gönderir
-        /// </summary>
-        /// <param name="userId">Kullanıcı ID'si</param>
-        /// <param name="feedbackContent">Geri bildirim içeriği</param>
-        /// <param name="response">Admin yanıtı</param>
-        /// <returns>İşlem başarılı ise true, değilse false</returns>
         Task<bool> SendFeedbackResponseNotificationAsync(
             string userId,
             string feedbackContent,

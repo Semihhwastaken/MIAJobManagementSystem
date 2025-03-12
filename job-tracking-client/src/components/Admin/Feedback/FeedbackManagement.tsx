@@ -34,11 +34,10 @@ const FeedbackManagement: React.FC = () => {
   const updateFeedbackStatus = async (id: string, status: FeedbackStatus, response?: string) => {
     try {
       const requestBody = {
-        update: {
-          status: status,
-          adminResponse: response
-        }
+        status: status,
+        response: response?.trim() || null // Change this line
       };
+      console.log("Request body: ", requestBody);
 
       await axiosInstance.put(`/feedback/${id}/status`, requestBody, {
         headers: {
@@ -119,7 +118,7 @@ const FeedbackManagement: React.FC = () => {
                     <button
                       onClick={() => updateFeedbackStatus(
                         feedback.id,
-                        'responded',
+                        2,
                         (document.getElementById(`response-${feedback.id}`) as HTMLTextAreaElement)?.value
                       )}
                       className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
@@ -127,13 +126,13 @@ const FeedbackManagement: React.FC = () => {
                       Yanıtla
                     </button>
                     <button
-                      onClick={() => updateFeedbackStatus(feedback.id, 'read')}
+                      onClick={() => updateFeedbackStatus(feedback.id, 1)}
                       className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
                     >
                       Okundu İşaretle
                     </button>
                     <button
-                      onClick={() => updateFeedbackStatus(feedback.id, 'archived')}
+                      onClick={() => updateFeedbackStatus(feedback.id, 3)}
                       className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
                     >
                       Arşivle

@@ -3,6 +3,7 @@ using JobTrackingAPI.Models;
 using JobTrackingAPI.Services;
 using JobTrackingAPI.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using System.Text.Json.Serialization;
 
 namespace JobTrackingAPI.Controllers
 {
@@ -77,11 +78,12 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
+                _logger.LogInformation("Updating feedback status: {Id}, Status: {Status}, Response: {Response}", id, update.Status.ToString(), update.Response);
                 var feedback = await _feedbackService.UpdateFeedbackStatusAsync(id, update.Status, update.Response);
                 
                 if (feedback == null)
                     return NotFound();
-
+            
                 if (update.Status == FeedbackStatus.Responded && update.Response != null)
                 {
                     await _notificationService.SendFeedbackResponseNotificationAsync(
@@ -137,6 +139,7 @@ namespace JobTrackingAPI.Controllers
 
         public class FeedbackStatusUpdate
         {
+            [JsonConverter(typeof(JsonStringEnumConverter))]
             public FeedbackStatus Status { get; set; }
             public string? Response { get; set; }
         }

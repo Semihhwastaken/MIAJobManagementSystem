@@ -335,7 +335,7 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
-                _logger.LogInformation("Getting all tasks");
+                
 
                 // Kullanıcı kimliğini al
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -482,7 +482,7 @@ namespace JobTrackingAPI.Controllers
         [HttpGet("user/{userId}")]
         public async Task<ActionResult<IEnumerable<TaskItem>>> GetUserTasks(string userId)
         {
-            _logger.LogInformation("Getting all tasks for user: {UserId}", userId);
+           
 
             try
             {

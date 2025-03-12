@@ -87,16 +87,22 @@ namespace JobTrackingAPI.Services
             }
         }
 
-        public async Task<Feedback> UpdateFeedbackStatusAsync(string id, FeedbackStatus status, string? response = null)
+        public async Task<Feedback> UpdateFeedbackStatusAsync(string id, FeedbackStatus status, string? response)
         {
             try
             {
+                _logger.LogInformation("Updating feedback status: {Id}, Status: {Status}, Response: {Response}", id, status, response);
                 var update = Builders<Feedback>.Update
                     .Set(f => f.Status, status)
-                    .Set(f => f.AdminResponse, response)
-                    .Set(f => f.RespondedAt, status == FeedbackStatus.Responded ? DateTime.UtcNow : (DateTime?)null)
                     .Set(f => f.LastUpdated, DateTime.UtcNow)
                     .Set(f => f.IsRead, status == FeedbackStatus.Read || status == FeedbackStatus.Responded || status == FeedbackStatus.Archived);
+
+                if (!string.IsNullOrEmpty(response))
+                {
+                    update = update
+                        .Set(f => f.AdminResponse, response)
+                        .Set(f => f.RespondedAt, DateTime.UtcNow);
+                }
 
                 return await _feedback.FindOneAndUpdateAsync(
                     f => f.Id == id,
