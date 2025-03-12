@@ -55,7 +55,11 @@ export const login = createAsyncThunk(
                 email: user.email,
                 fullName: user.fullName,
                 department: user.department,
-                role: user.role // Include role in stored user data
+                role: user.role, // Include role in stored user data
+                subscriptionPlan: user.subscriptionPlan || '',
+                subscriptionStatus: user.subscriptionStatus || '',
+                subscriptionId: user.subscriptionId || '',
+                subscriptionEndDate: user.subscriptionEndDate || null
             };
             
             localStorage.setItem('token', token);
