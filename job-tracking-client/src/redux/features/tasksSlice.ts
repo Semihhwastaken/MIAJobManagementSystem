@@ -4,6 +4,7 @@ import axiosInstance from '../../services/axiosInstance';
 import { User } from '../../types/task';
 import { fetchMemberActiveTasks } from './teamSlice';
 import { RESET_STATE } from './actionTypes';
+import axios from 'axios';
 
 export interface Task {
     id?: string;
@@ -107,16 +108,69 @@ export const createTask = createAsyncThunk(
     'tasks/createTask',
     async (task: Omit<Task, 'id'>, { dispatch, rejectWithValue }) => {
         try {
-            // AssignedUserIds'i AssignedUsers'dan doldur
+            // Make sure assignedUserIds is properly set from assignedUsers
             if (task.assignedUsers && task.assignedUsers.length > 0) {
-                task.assignedUserIds = task.assignedUsers.map(user => user.id).filter(Boolean) as string[];
+                task.assignedUserIds = task.assignedUsers
+                    .filter(user => user && user.id)  // Filter out any users without valid IDs
+                    .map(user => user.id as string);  // Convert user IDs to an array of strings
+            } else {
+                task.assignedUserIds = [];  // Ensure it's an empty array, not undefined
             }
             
-            const response = await axiosInstance.post('/Tasks', task);
-            dispatch(fetchMemberActiveTasks());
+            // Format the due date properly to ensure UTC ISO format
+            const dueDate = task.dueDate ? new Date(task.dueDate) : new Date();
+            
+            // Make sure all required fields are present with proper defaults
+            const taskToSend = {
+                id: "", // Use empty string instead of undefined for the ID field
+                title: task.title || '',
+                description: task.description || '',
+                status: task.status || 'todo',
+                priority: task.priority || 'medium',
+                category: task.category || 'Bug',
+                teamId: task.teamId || '', // Ensure teamId is not undefined
+                dueDate: dueDate.toISOString(),
+                createdAt: task.createdAt || new Date().toISOString(),
+                updatedAt: task.updatedAt || new Date().toISOString(),
+                subTasks: (task.subTasks || []).map(st => ({
+                    id: st.id || "",  // Also ensure subtask IDs are empty strings if not provided
+                    title: st.title || '',
+                    completed: Boolean(st.completed)
+                })),
+                dependencies: task.dependencies || [],
+                attachments: task.attachments || [],
+                assignedUserIds: task.assignedUserIds || [],
+                assignedUsers: (task.assignedUsers || []).map(user => ({
+                    id: user.id || '',
+                    username: user.username || '',
+                    email: user.email || '',
+                    fullName: user.fullName || '',
+                    department: user.department || '',
+                    title: user.title || '',
+                    position: user.position || '',
+                    profileImage: user.profileImage || ''
+                }))
+            };
+            
+            // Send the prepared taskToSend object to the API using axiosInstance
+            const response = await axiosInstance.post('/Tasks', taskToSend);
             return response.data;
         } catch (error: any) {
-            return rejectWithValue(error.response?.data?.message || 'Görev oluşturulurken bir hata oluştu');
+            // Enhanced error logging to better understand validation issues
+            console.error('Error creating task:', error);
+            
+            if (error.response) {
+                console.log('Error response data:', error.response.data);
+                console.log('Error response status:', error.response.status);
+                console.log('Error response headers:', error.response.headers);
+                
+                // If there are validation errors, log them specifically
+                if (error.response.data.errors) {
+                    console.log('Validation errors:', error.response.data.errors);
+                }
+            }
+            
+            return rejectWithValue(error.response?.data?.title || error.message || 'An error occurred while creating the task');
         }
     }
 );
