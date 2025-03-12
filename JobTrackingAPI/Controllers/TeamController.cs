@@ -28,10 +28,10 @@ namespace JobTrackingAPI.Controllers
         private readonly IMongoCollection<User> _usersCollection;
 
         public TeamController(
-            ITeamService teamService, 
+            ITeamService teamService,
             IUserService userService,
             ITasksService tasksService,
-            IMongoDatabase database, 
+            IMongoDatabase database,
             IMemoryCache memoryCache,
             ILogger<TeamController> logger,
             NotificationService notificationService)
@@ -52,18 +52,18 @@ namespace JobTrackingAPI.Controllers
             try
             {
                 var cacheKey = $"performance_{userId}";
-                
+
                 // Try to get performance from cache
                 if (_cache.TryGetValue(cacheKey, out PerformanceScore? cachedPerformance))
                 {
                     return Ok(cachedPerformance);
                 }
-                
+
                 var performanceScore = await _teamService.GetUserPerformance(userId);
-                
+
                 // Cache performance data for 5 minutes
                 _cache.Set(cacheKey, performanceScore, TimeSpan.FromMinutes(5));
-                
+
                 return Ok(performanceScore);
             }
             catch (Exception ex)
@@ -92,10 +92,10 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 await _teamService.UpdateUserPerformance(userId);
-                
+
                 // Clear the cache
                 _cache.Remove($"performance_{userId}");
-                
+
                 return Ok(new { message = "Performance updated successfully" });
             }
             catch (Exception ex)
@@ -117,9 +117,9 @@ namespace JobTrackingAPI.Controllers
                 {
                     return Unauthorized();
                 }
-                
+
                 var cacheKey = $"teams_{userId}";
-                
+
                 // Check if teams are cached
                 if (_cache.TryGetValue(cacheKey, out List<Team>? cachedTeams))
                 {
@@ -127,10 +127,10 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 var teams = await _teamService.GetTeamsByUserId(userId);
-                
+
                 // Cache teams for 2 minutes
                 _cache.Set(cacheKey, teams, TimeSpan.FromMinutes(2));
-                
+
                 return Ok(teams);
             }
             catch (Exception ex)
@@ -152,9 +152,9 @@ namespace JobTrackingAPI.Controllers
                 {
                     return Unauthorized();
                 }
-                
+
                 var cacheKey = $"myTeams_{userId}";
-                
+
                 // Check if teams are cached
                 if (_cache.TryGetValue(cacheKey, out List<Team>? cachedTeams))
                 {
@@ -162,10 +162,10 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 var teams = await _teamService.GetTeamsByOwnerId(userId);
-                
+
                 // Cache teams for 2 minutes
                 _cache.Set(cacheKey, teams, TimeSpan.FromMinutes(2));
-                
+
                 return Ok(teams);
             }
             catch (Exception ex)
@@ -180,18 +180,18 @@ namespace JobTrackingAPI.Controllers
             try
             {
                 var cacheKey = "all_members";
-                
+
                 // Try to get from cache first
                 if (_cache.TryGetValue(cacheKey, out List<TeamMember>? cachedMembers))
                 {
                     return Ok(cachedMembers);
                 }
-                
+
                 var members = await _teamService.GetAllMembersAsync();
-                
+
                 // Cache for 2 minutes
                 _cache.Set(cacheKey, members, TimeSpan.FromMinutes(2));
-                
+
                 return Ok(members);
             }
             catch (Exception ex)
@@ -206,18 +206,18 @@ namespace JobTrackingAPI.Controllers
             try
             {
                 var cacheKey = "departments";
-                
+
                 // Try to get from cache first
                 if (_cache.TryGetValue(cacheKey, out List<string>? cachedDepartments))
                 {
                     return Ok(cachedDepartments);
                 }
-                
+
                 var departments = await _teamService.GetDepartmentsAsync();
-                
+
                 // Cache for 30 minutes (departments change rarely)
                 _cache.Set(cacheKey, departments, TimeSpan.FromMinutes(30));
-                
+
                 return Ok(departments);
             }
             catch (Exception ex)
@@ -232,18 +232,18 @@ namespace JobTrackingAPI.Controllers
             try
             {
                 var cacheKey = $"members_dept_{department}";
-                
+
                 // Try to get from cache first
                 if (_cache.TryGetValue(cacheKey, out List<TeamMember>? cachedMembers))
                 {
                     return Ok(cachedMembers);
                 }
-                
+
                 var members = await _teamService.GetMembersByDepartmentAsync(department);
-                
+
                 // Cache for 2 minutes
                 _cache.Set(cacheKey, members, TimeSpan.FromMinutes(2));
-                
+
                 return Ok(members);
             }
             catch (Exception ex)
@@ -278,10 +278,10 @@ namespace JobTrackingAPI.Controllers
                 // Kullanıcının yetkisini kontrol et (takım kurucusu veya üyesi olmalı)
                 bool isCreator = team.CreatedById == userId;
                 bool isMember = team.Members != null && team.Members.Any(m => m.Id == userId);
-                
-                _logger.LogInformation("Yetki kontrolü: UserId={UserId}, TeamId={TeamId}, IsCreator={IsCreator}, IsMember={IsMember}", 
+
+                _logger.LogInformation("Yetki kontrolü: UserId={UserId}, TeamId={TeamId}, IsCreator={IsCreator}, IsMember={IsMember}",
                     userId, teamId, isCreator, isMember);
-                
+
                 if (!isCreator && !isMember)
                 {
                     _logger.LogWarning("Takım üyelerine erişim reddedildi: UserId={UserId}, TeamId={TeamId}", userId, teamId);
@@ -295,13 +295,13 @@ namespace JobTrackingAPI.Controllers
                     _logger.LogInformation("Takım üyeleri önbellekten alındı: {TeamId}", teamId);
                     return Ok(cachedMembers);
                 }
-                
+
                 // Takım üyelerini getir
                 var members = await _teamService.GetTeamMembers(teamId);
-                
+
                 // Önbelleğe al
                 _cache.Set(cacheKey, members, TimeSpan.FromMinutes(2));
-                
+
                 _logger.LogInformation("Takım üyeleri başarıyla alındı: {TeamId}, {MemberCount} üye", teamId, members.Count);
                 return Ok(members);
             }
@@ -321,10 +321,10 @@ namespace JobTrackingAPI.Controllers
 
                 if (updatedMember == null)
                     return NotFound($"Member with ID {id} not found");
-                
+
                 // Clear caches related to this member
                 ClearMemberRelatedCaches(id);
-                
+
                 return Ok(updatedMember);
             }
             catch (Exception ex)
@@ -341,10 +341,10 @@ namespace JobTrackingAPI.Controllers
                 var updatedMember = await _teamService.UpdateMemberAsync(id, updateDto);
                 if (updatedMember == null)
                     return NotFound($"Member with ID {id} not found");
-                
+
                 // Clear caches related to this member
                 ClearMemberRelatedCaches(id);
-                
+
                 return Ok(updatedMember);
             }
             catch (Exception ex)
@@ -371,7 +371,7 @@ namespace JobTrackingAPI.Controllers
                 {
                     return NotFound("Kullanıcı bulunamadı.");
                 }
-                
+
                 // Kullanıcının sahip olduğu takım sayısını kontrol et (max 5)
                 if (user.OwnerTeams != null && user.OwnerTeams.Count >= 5)
                 {
@@ -383,16 +383,16 @@ namespace JobTrackingAPI.Controllers
                     Name = request.Name,
                     Description = request.Description,
                     CreatedById = userId,
-                    Departments = new List<DepartmentStats> 
-                    { 
-                        new DepartmentStats 
-                        { 
+                    Departments = new List<DepartmentStats>
+                    {
+                        new DepartmentStats
+                        {
                             Name = request.Department,
                             MemberCount = 1,
                             CompletedTasks = 0,
                             OngoingTasks = 0,
                             Performance = 0
-                        } 
+                        }
                     },
                     Members = new List<TeamMember>
                     {
@@ -418,19 +418,19 @@ namespace JobTrackingAPI.Controllers
                 foreach (var item in createdTeam.Members)
                 {
                     await _notificationService.SendNotificationAsync(
-                        userId:item.Id,
-                        title:"Yeni Takım",
-                        message:$"{user.FullName} adlı kullanıcı tarafından {createdTeam.Name} adlı takıma eklendiniz",
-                        notificationType:NotificationType.TeamStatusCreated,
-                        relatedJobId:createdTeam.Id
+                        userId: item.Id,
+                        title: "Yeni Takım",
+                        message: $"{user.FullName} adlı kullanıcı tarafından {createdTeam.Name} adlı takıma eklendiniz",
+                        notificationType: NotificationType.TeamStatusCreated,
+                        relatedJobId: createdTeam.Id
                     );
                 }
-                
+
                 // Clear user's teams cache
                 _cache.Remove($"teams_{userId}");
                 _cache.Remove($"myTeams_{userId}");
                 _cache.Remove("all_members");
-                
+
                 return Ok(createdTeam);
             }
             catch (Exception ex)
@@ -465,10 +465,10 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 await _teamService.UpdateAsync(teamId, existingTeam);
-                
-                // Clear team related caches
+
+                // Clear caches
                 ClearTeamRelatedCaches(teamId);
-                
+
                 return Ok("Takım başarıyla güncellendi");
             }
             catch (Exception ex)
@@ -479,7 +479,7 @@ namespace JobTrackingAPI.Controllers
 
         [HttpDelete("{teamId}")]
         [Authorize]
-        public async Task<IActionResult> DeleteTeam(string teamId)
+        public async Task<IActionResult> DeleteTeam(string teamId, [FromBody] DeleteTeamRequest request)
         {
             try
             {
@@ -489,33 +489,52 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized(new { message = "Kullanıcı girişi yapılmamış" });
                 }
 
+                // Validate that the authenticated user matches the request userId
+                if (userId != request.UserId)
+                {
+                    return BadRequest(new { message = "Unauthorized deletion attempt" });
+                }
+
+                // Get team data before deletion
+                var team = await _teamService.GetTeamById(teamId);
+                if (team == null)
+                {
+                    return NotFound(new { message = "Takım bulunamadı" });
+                }
+
+                // Store members for notifications before deletion
+                var members = team.Members?.ToList() ?? new List<TeamMember>();
+                var teamName = team.Name;
+
                 var result = await _teamService.DeleteTeamAsync(teamId, userId);
                 if (!result.success)
                 {
                     return BadRequest(new { message = result.message });
                 }
-                var t = await _teamService.GetTeamById(teamId);
-                foreach (var item in t.Members)
+
+                // Send notifications to all members
+                foreach (var member in members)
                 {
                     await _notificationService.SendNotificationAsync(
-                        userId:item.Id,
-                        title:"Takım Silindi",
-                        message:$"{t.Name} adlı takım silindi",
-                        notificationType:NotificationType.TeamStatusDeleted,
-                        relatedJobId:t.Id
+                        userId: member.Id,
+                        title: "Takım Silindi",
+                        message: $"{teamName} adlı takım silindi",
+                        notificationType: NotificationType.TeamStatusDeleted,
+                        relatedJobId: teamId
                     );
                 }
-                
+
                 // Clear team related caches
                 ClearTeamRelatedCaches(teamId);
                 _cache.Remove($"teams_{userId}");
                 _cache.Remove($"myTeams_{userId}");
                 _cache.Remove("all_members");
-                
+
                 return Ok(new { message = result.message });
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error deleting team {TeamId}", teamId);
                 return BadRequest(new { message = ex.Message });
             }
         }
@@ -554,7 +573,7 @@ namespace JobTrackingAPI.Controllers
                 var user = await _userService.GetUserById(userId);
                 if (user == null)
                     return NotFound("Kullanıcı bulunamadı");
-                
+
                 // Takım üyelik sınırını kontrol et
                 if (user.MemberTeams != null && user.MemberTeams.Count >= 10)
                     return BadRequest("En fazla 10 takıma üye olabilirsiniz");
@@ -562,7 +581,7 @@ namespace JobTrackingAPI.Controllers
                 var result = await _teamService.JoinTeamWithInviteCode(inviteCode, userId);
                 if (!result)
                     return BadRequest("Ekibe katılırken bir hata oluştu");
-                
+
                 // Clear caches
                 _cache.Remove($"teams_{userId}");
                 ClearTeamRelatedCaches(team.Id);
@@ -615,35 +634,85 @@ namespace JobTrackingAPI.Controllers
                     return Unauthorized(new { message = "Kullanıcı girişi yapılmamış" });
                 }
 
-                var result = await _teamService.RemoveTeamMemberAsync(teamId, memberId, userId);
-                if (!result.success)
+                // Önce team'i getir ve yetkileri kontrol et
+                var team = await _teamService.GetTeamById(teamId);
+                if (team == null)
                 {
-                    return BadRequest(new { message = result.message });
+                    return NotFound(new { message = "Takım bulunamadı" });
                 }
-                var t = await _teamService.GetTeamById(teamId);
-                foreach (var item in t.Members)
+
+                // İşlemi yapan kullanıcı, takım kurucusu mu kontrol et (bu her zaman en yüksek yetkidir)
+                var isCreator = team.CreatedById == userId;
+
+                // Kullanıcı takımın üyesi mi ve rolü ne kontrol et
+                var requestingMember = team.Members.FirstOrDefault(m => m.Id == userId);
+
+                // Kullanıcı kendi kendini çıkarıyorsa izin ver
+                bool isSelfRemoval = userId == memberId;
+
+                // Rol bilgisi için case-insensitive kontrol (owner, Owner, OWNER hepsi kabul edilir)
+                bool isOwnerOrAdmin = false;
+
+                if (requestingMember != null && requestingMember.Role != null)
                 {
-                    await _notificationService.SendNotificationAsync(
-                    userId:memberId,
-                    title:"Takımdan Çıkarılma",
-                    message:$"{t.Name} adlı takımdan {item.FullName} kişisi çıkarıldı",
-                    notificationType:NotificationType.TeamStatusDeleted,
-                    relatedJobId:t.Id
+                    var role = requestingMember.Role.ToLowerInvariant();
+                    isOwnerOrAdmin = role == "owner" || role == "admin";
+                }
+
+                _logger.LogInformation(
+                    "RemoveTeamMember kontrolleri: UserId={UserId}, MemberId={MemberId}, TeamId={TeamId}, IsCreator={IsCreator}, IsOwnerOrAdmin={IsOwnerOrAdmin}, IsSelfRemoval={IsSelfRemoval}",
+                    userId, memberId, teamId, isCreator, isOwnerOrAdmin, isSelfRemoval
                 );
+
+                // Yetkisi var mı?
+                if (!isCreator && !isOwnerOrAdmin && !isSelfRemoval)
+                {
+                    _logger.LogWarning(
+                        "Yetkisiz üye çıkarma denemesi: UserId={UserId}, Role={Role}, MemberId={MemberId}, TeamId={TeamId}",
+                        userId, requestingMember?.Role, memberId, teamId
+                    );
+                    return StatusCode(403, new { message = "Bu işlem için gerekli izinlere sahip değilsiniz" });
                 }
-                
-                // Clear caches
+
+                // Silinen kişi owner mı? (owner'ı sadece kendisi çıkarabilir)
+                var targetMember = team.Members.FirstOrDefault(m => m.Id == memberId);
+                if (targetMember != null &&
+                    targetMember.Role?.ToLowerInvariant() == "owner" &&
+                    !isSelfRemoval)
+                {
+                    return StatusCode(403, new { message = "Takım sahibi sadece kendisi tarafından takımdan çıkarılabilir" });
+                }
+
+                // Buraya kadar geldiyse yetkisi var demektir, işlemi gerçekleştir
+                var result = await _teamService.RemoveMemberFromTeam(teamId, memberId);
+
+                if (!result)
+                {
+                    return BadRequest(new { message = "Üye takımdan çıkarılırken bir hata oluştu" });
+                }
+
+                // Bildirim gönder
+                await _notificationService.SendNotificationAsync(
+                    userId: memberId,
+                    title: "Takımdan Çıkarılma",
+                    message: $"{team.Name} adlı takımdan çıkarıldınız",
+                    notificationType: NotificationType.TeamStatusDeleted,
+                    relatedJobId: teamId
+                );
+
+                // Cache'leri temizle
                 ClearTeamRelatedCaches(teamId);
                 ClearMemberRelatedCaches(memberId);
 
-                return Ok(new { message = result.message });
+                return Ok(new { success = true, message = "Üye başarıyla takımdan çıkarıldı" });
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Üye çıkarma sırasında hata: TeamId={TeamId}, MemberId={MemberId}", teamId, memberId);
                 return BadRequest(new { message = ex.Message });
             }
         }
-        
+
         [HttpGet("invite-link/{teamId}/get")]
         public async Task<IActionResult> GetInviteLink(string teamId)
         {
@@ -663,7 +732,7 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-        
+
         [HttpPost("invite-link/{teamId}/set")]
         [Authorize]
         public async Task<IActionResult> SetInviteLink(string teamId, [FromBody] SetInviteLinkRequest request)
@@ -697,12 +766,12 @@ namespace JobTrackingAPI.Controllers
 
                 // Davet linkini güncelle
                 var result = await _teamService.SetInviteLinkAsync(teamId, request.InviteLink);
-                
+
                 if (result != null)
                 {
                     return Ok(new { message = "Davet linki başarıyla güncellendi", inviteLink = result });
                 }
-                
+
                 return BadRequest(new { message = "Davet linki güncellenirken bir hata oluştu" });
             }
             catch (Exception ex)
@@ -710,7 +779,7 @@ namespace JobTrackingAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-        
+
         [HttpPost("members/{memberId}/experties")]
         public async Task<IActionResult> AddExperties(string memberId, [FromBody] AddExpertiesRequest request)
         {
@@ -721,7 +790,7 @@ namespace JobTrackingAPI.Controllers
                 {
                     updatedTeam = await _teamService.AddExpertiesAsync(memberId, expertise);
                 }
-                
+
                 if (updatedTeam != null)
                 {
                     // Clear caches
@@ -763,11 +832,11 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 var updatedTeam = await _teamService.UpdateTeamDepartmentsAsync(teamId, request.Departments);
-                
+
                 // Clear caches
                 ClearTeamRelatedCaches(teamId);
                 _cache.Remove("departments");
-                
+
                 return Ok(updatedTeam);
             }
             catch (Exception ex)
@@ -796,7 +865,7 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 await _teamService.UpdateMemberStatusesAsync(updateData);
-                
+
                 return Ok(new { message = "Member statuses updated successfully" });
             }
             catch (Exception ex)
@@ -821,7 +890,7 @@ namespace JobTrackingAPI.Controllers
                 var teamTasks = await _tasksService.GetTasksByTeamsAsync(new List<string> { id }); // Fixed method name from GetTasksByTeamAsync to GetTasksByTeamsAsync
                 if (teamTasks == null || !teamTasks.Any())
                     return Ok(new { message = "No tasks found" });
-                
+
                 var tasksList = teamTasks.ToList(); // Convert to List to avoid multiple enumerations
                 var completedTasks = tasksList.Where(t => t.Status == "completed").ToList();
                 var completionRate = tasksList.Count > 0 ? (completedTasks.Count() * 100.0) / tasksList.Count : 0;
@@ -833,9 +902,9 @@ namespace JobTrackingAPI.Controllers
                     .Average();
 
                 var overdueTasksCount = tasksList.Count(t => t.Status == "overdue");
-                var onTimeCompletions = completedTasks.Count(t => 
-                    t.CompletedDate.HasValue && 
-                    t.DueDate.HasValue && 
+                var onTimeCompletions = completedTasks.Count(t =>
+                    t.CompletedDate.HasValue &&
+                    t.DueDate.HasValue &&
                     t.CompletedDate.Value <= t.DueDate.Value);
 
                 var performanceScore = CalculateTeamPerformanceScore(
@@ -851,8 +920,8 @@ namespace JobTrackingAPI.Controllers
 
                 foreach (var member in teamMembers)
                 {
-                    var userTasks = tasksList.Where(t => 
-                        t.AssignedUserIds != null && 
+                    var userTasks = tasksList.Where(t =>
+                        t.AssignedUserIds != null &&
                         t.AssignedUserIds.Contains(member.Id)).ToList();
 
                     var memberCompletedTasks = userTasks.Count(t => t.Status == "completed");
@@ -913,7 +982,7 @@ namespace JobTrackingAPI.Controllers
             var completionScore = (completedTasks * 100.0) / totalTasks;
             var onTimeScore = completedTasks > 0 ? (onTimeCompletions * 100.0) / completedTasks : 0;
             var overdueScore = 100 - (totalTasks > 0 ? (overdueTasks * 100.0) / totalTasks : 0);
-            
+
             // Duration score - inverse relationship (lower is better)
             // Assuming 5 days is optimal, anything more reduces the score
             var durationScore = averageDuration <= 5 ? 100 : Math.Max(0, 100 - ((averageDuration - 5) * 10));
@@ -933,10 +1002,10 @@ namespace JobTrackingAPI.Controllers
 
             var completedTasks = userTasks.Count(t => t.Status == "completed");
             var overdueTasks = userTasks.Count(t => t.Status == "overdue");
-            var onTimeCompletions = userTasks.Count(t => 
-                t.Status == "completed" && 
-                t.CompletedDate.HasValue && 
-                t.DueDate.HasValue && 
+            var onTimeCompletions = userTasks.Count(t =>
+                t.Status == "completed" &&
+                t.CompletedDate.HasValue &&
+                t.DueDate.HasValue &&
                 t.CompletedDate.Value <= t.DueDate.Value);
 
             var averageDuration = userTasks
@@ -953,24 +1022,24 @@ namespace JobTrackingAPI.Controllers
                 averageDuration
             );
         }
-        
+
         private void ClearTeamRelatedCaches(string? teamId)
         {
             if (string.IsNullOrEmpty(teamId)) return;
-            
+
             _cache.Remove($"team_members_{teamId}");
             _cache.Remove($"team_{teamId}");
             _cache.Remove("all_members");
         }
-        
+
         private void ClearMemberRelatedCaches(string memberId)
         {
             _cache.Remove($"performance_{memberId}");
             _cache.Remove($"teams_{memberId}");
-            
+
             // Clear all-members cache
             _cache.Remove("all_members");
-            
+
             // Clear all department caches as the member might be in any department
             foreach (var dept in JobTrackingAPI.Constants.DepartmentConstants.Departments)
             {

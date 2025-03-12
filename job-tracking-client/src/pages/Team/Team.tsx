@@ -241,25 +241,27 @@ const Team: React.FC = () => {
     };
 
     const handleRemoveMember = async () => {
-        if (!currentTeamId || !currentMemberId) return;
+        if (!memberToRemove) return;
         
         try {
             setRemovingMember(true);
-            // Yeni eklenen redux aksiyonunu kullan
+            // Use the memberToRemove object that contains teamId and memberId
             const result = await dispatch(removeTeamMember({ 
-                teamId: currentTeamId, 
-                memberId: currentMemberId 
+                teamId: memberToRemove.teamId, 
+                memberId: memberToRemove.memberId 
             })).unwrap();
             
             if (result.success) {
                 toast.success(result.message || 'Üye başarıyla çıkarıldı.');
-                setRemoveMemberDialogOpen(false);
+                setShowRemoveMemberModal(false);
                 // Takımları yeniden yükle
                 dispatch(fetchTeams());
             } else {
                 toast.error(result.message || 'Üye çıkarılırken bir hata oluştu.');
             }
             setRemovingMember(false);
+            // Reset member to remove state
+            setMemberToRemove(null);
         } catch (error) {
             console.error('Üye çıkarma hatası:', error);
             toast.error('Üye çıkarılırken bir hata oluştu.');
@@ -441,7 +443,7 @@ const Team: React.FC = () => {
                             </thead>
                             <tbody className={`${isDarkMode ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'}`}>
                                 {filteredAndSortedMembers.map((member) => (
-                                    <tr key={member.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
+                                    <tr key={`${teamId}-${member.id}`} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
                                         {/* TABLE ÜYE */}
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">

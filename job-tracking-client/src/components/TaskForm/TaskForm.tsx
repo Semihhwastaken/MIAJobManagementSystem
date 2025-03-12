@@ -4,7 +4,7 @@ import { Team, TeamMember } from '../../types/team';
 import { fileUpload, Task as TaskType, fetchTasks, createTask, updateTask } from '../../redux/features/tasksSlice';
 import teamService from '../../services/teamService';
 import { Listbox, Transition } from '@headlessui/react';
-import { CheckIcon, ChevronUpDownIcon, XCircleIcon, DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useSnackbar } from 'notistack';
 import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 
@@ -114,10 +114,13 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         status: task.status,
         category: task.category,
         assignedUsers: task.assignedUsers || [],
+        assignedUserIds: task.assignedUserIds || [],
         subTasks: task.subTasks,
         teamId: task.teamId,
         dependencies: task.dependencies,
         attachments: task.attachments,
+        createdAt: task.createdAt || new Date().toISOString(),
+        updatedAt: task.updatedAt || new Date().toISOString(),
         completedDate: task?.status === 'completed' ? new Date() : null,
       });
     }
@@ -140,7 +143,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
           if (selectedUser) {
             setFormData(prevState => ({
               ...prevState,
-              assignedUsers: selectedUser ? [selectedUser] : []
+              assignedUsers: selectedUser ? [selectedUser] : [],
+              assignedUserIds: selectedUser ? [selectedUser.id || ''] : []
             }));
           }
         }
@@ -190,9 +194,10 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         createdAt: task ? task.createdAt : now,
         updatedAt: now,
         dueDate: dueDateUTC.toISOString(),
-        status: formData.status === 'in-progress' ? 'in-progress' : 'todo', // Default to todo for new tasks
-        dependencies: formData.dependencies, // Bağımlılıkları ekle
-        attachments: task?.attachments || [] // Mevcut ekleri koru
+        status: (formData.status === 'in-progress' ? 'in-progress' : 'todo') as TaskStatus,
+        dependencies: formData.dependencies,
+        attachments: task?.attachments || [],
+        assignedUserIds: formData.assignedUsers.map(user => user._id || '')
       };
 
       let taskId = '';
@@ -203,13 +208,13 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         const updatedTask = await dispatch(updateTask({
           ...taskPayload,
           id: task.id
-        })).unwrap();
+        } as TaskType)).unwrap();
         
         taskId = updatedTask.id;
         enqueueSnackbar('Görev başarıyla güncellendi', { variant: 'success' });
       } else {
         // Yeni görev oluştur
-        const createdTask = await dispatch(createTask(taskPayload)).unwrap();
+        const createdTask = await dispatch(createTask(taskPayload as Omit<TaskType, 'id'>)).unwrap();
         taskId = createdTask.id;
         enqueueSnackbar('Görev başarıyla oluşturuldu', { variant: 'success' });
       }
@@ -312,12 +317,15 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
   };
 
   const handleUserToggle = (user: TeamMember) => {
-    const isSelected = formData.assignedUsers.some(u => u.id === user.id);
+    const isSelected = formData.assignedUsers.some(u => u._id === user.id);
     setFormData({
       ...formData,
       assignedUsers: isSelected
-        ? formData.assignedUsers.filter(u => u.id !== user.id)
-        : [...formData.assignedUsers, user]
+        ? formData.assignedUsers.filter(u => u._id !== user.id)
+        : [...formData.assignedUsers, user],
+      assignedUserIds: isSelected
+        ? formData.assignedUserIds.filter(id => id !== user.id)
+        : [...formData.assignedUserIds, user.id || '']
     });
   };
 
@@ -334,7 +342,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
   const handleRemoveUser = (userId: string) => {
     setFormData({
       ...formData,
-      assignedUsers: formData.assignedUsers.filter(user => user.id !== userId)
+      assignedUsers: formData.assignedUsers.filter(user => user._id !== userId),
+      assignedUserIds: formData.assignedUserIds.filter(id => id !== userId)
     });
   };
 
@@ -577,7 +586,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
                     <span>{user.fullName || user.username}</span>
                     <button
                       type="button"
-                      onClick={() => handleRemoveUser(user.id!)}
+                      onClick={() => handleRemoveUser(user._id!)}
                       className="text-gray-500 hover:text-gray-700"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -592,7 +601,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
               <Listbox
                 value={null}
                 onChange={(selectedUser: TeamMember) => {
-                  if (selectedUser && !formData.assignedUsers.some(u => u.id === selectedUser.id)) {
+                  if (selectedUser && !formData.assignedUsers.some(u => u._id === selectedUser.id)) {
                     setFormData({
                       ...formData,
                       assignedUsers: [...formData.assignedUsers, selectedUser]
@@ -622,7 +631,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
                         </div>
                       ) : (
                         users
-                          .filter(user => !formData.assignedUsers.some(u => u.id === user.id))
+                          .filter(user => !formData.assignedUsers.some(u => u._id === user.id))
                           .map(user => (
                             <Listbox.Option
                               key={user.id}
