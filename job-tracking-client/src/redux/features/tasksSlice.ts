@@ -120,9 +120,28 @@ export const createTask = createAsyncThunk(
             // Format the due date properly to ensure UTC ISO format
             const dueDate = task.dueDate ? new Date(task.dueDate) : new Date();
             
+            // Process subtasks to omit id field for new subtasks (don't use empty strings for ids)
+            const processedSubTasks = (task.subTasks || []).map(st => {
+                // If the subtask has a valid MongoDB ObjectId (24 hex chars), keep it
+                // Otherwise, omit the id field so MongoDB will generate it
+                if (st.id && /^[0-9a-fA-F]{24}$/.test(st.id)) {
+                    return {
+                        id: st.id,
+                        title: st.title || '',
+                        completed: Boolean(st.completed)
+                    };
+                } else {
+                    // Return subtask without id field for new subtasks
+                    return {
+                        title: st.title || '',
+                        completed: Boolean(st.completed)
+                    };
+                }
+            });
+            
             // Make sure all required fields are present with proper defaults
             const taskToSend = {
-                id: "", // Use empty string instead of undefined for the ID field
+                Id: '', // Add empty Id field to satisfy the server's validation
                 title: task.title || '',
                 description: task.description || '',
                 status: task.status || 'todo',
@@ -132,11 +151,7 @@ export const createTask = createAsyncThunk(
                 dueDate: dueDate.toISOString(),
                 createdAt: task.createdAt || new Date().toISOString(),
                 updatedAt: task.updatedAt || new Date().toISOString(),
-                subTasks: (task.subTasks || []).map(st => ({
-                    id: st.id || "",  // Also ensure subtask IDs are empty strings if not provided
-                    title: st.title || '',
-                    completed: Boolean(st.completed)
-                })),
+                subTasks: processedSubTasks,
                 dependencies: task.dependencies || [],
                 attachments: task.attachments || [],
                 assignedUserIds: task.assignedUserIds || [],
@@ -189,14 +204,28 @@ export const updateTask = createAsyncThunk(
                 task.assignedUserIds = task.assignedUsers.map(user => user.id).filter(Boolean) as string[];
             }
 
+            // Process subtasks to handle ID field properly for MongoDB
+            const processedSubTasks = (task.subTasks || []).map(st => {
+                // For existing subtasks with valid MongoDB ObjectId
+                if (st.id && /^[0-9a-fA-F]{24}$/.test(st.id)) {
+                    return {
+                        id: st.id,
+                        title: st.title || '',
+                        completed: Boolean(st.completed)
+                    };
+                } 
+                // For new subtasks without ID or with invalid ID
+                else {
+                    return {
+                        title: st.title || '',
+                        completed: Boolean(st.completed)
+                    };
+                }
+            });
+
             const response = await axiosInstance.put(`/Tasks/${task.id}`, {
                 ...task,
-                // Ensure subtasks have all required fields
-                subTasks: task.subTasks.map(st => ({
-                    id: st.id,
-                    title: st.title,
-                    completed: st.completed
-                }))
+                subTasks: processedSubTasks
             });
 
             if (response.status === 200) {
@@ -207,6 +236,13 @@ export const updateTask = createAsyncThunk(
             }
         } catch (error: any) {
             console.error('Task update error:', error);
+            
+            if (error.response) {
+                console.log('Error response data:', error.response.data);
+                console.log('Error response status:', error.response.status);
+                console.log('Error response headers:', error.response.headers);
+            }
+            
             return rejectWithValue(error.response?.data?.message || 'Görev güncellenirken bir hata oluştu');
         }
     }
@@ -309,7 +345,7 @@ export const fileUpload = createAsyncThunk(
         return rejectWithValue(error.response?.data?.message || 'Failed to upload file');
       }
     }
-  );
+);
   
 
   export const downloadFile = createAsyncThunk(

@@ -14,8 +14,8 @@ namespace JobTrackingAPI.Models
         public string Category { get; set; }
         public DateTime DueDate { get; set; }
         public List<UserDto> AssignedUsers { get; set; }
-        public DateTime ChangedOn { get; set; }  // Add this property
-        public string ChangedBy { get; set; }    // Add this property
-        public string ChangeType { get; set; }   // Add this property
+        public DateTime ChangedOn { get; set; }
+        public string ChangedBy { get; set; }
+        public string ChangeType { get; set; }
     }
 }

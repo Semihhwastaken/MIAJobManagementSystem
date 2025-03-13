@@ -8,9 +8,11 @@ namespace JobTrackingAPI.Models
 {
     public class SubTask
     {
+        [BsonId]
         [BsonElement("id")]
+        [BsonRepresentation(BsonType.ObjectId)]
         [JsonPropertyName("id")]
-        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
 
         [BsonElement("title")]
         [JsonPropertyName("title")]
@@ -19,11 +21,11 @@ namespace JobTrackingAPI.Models
         [BsonElement("completed")]
         [JsonPropertyName("completed")]
         public bool Completed { get; set; }
-        
+
         [BsonElement("completedDate")]
         [JsonPropertyName("completedDate")]
         public DateTime? CompletedDate { get; set; }
-        
+
         [BsonElement("assignedUserId")]
         [JsonPropertyName("assignedUserId")]
         public string? AssignedUserId { get; set; }
@@ -91,23 +93,23 @@ namespace JobTrackingAPI.Models
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; } = null!;
-    
+
         [BsonElement("title")]
         [JsonPropertyName("title")]
         public string Title { get; set; } = null!;
-    
+
         [BsonElement("description")]
         [JsonPropertyName("description")]
         public string? Description { get; set; }
-    
+
         [BsonElement("status")]
         [JsonPropertyName("status")]
         public string Status { get; set; } = "pending";
-    
+
         [BsonElement("priority")]
         [JsonPropertyName("priority")]
         public string Priority { get; set; } = "medium";
-    
+
         [BsonElement("category")]
         [JsonPropertyName("category")]
         public string Category { get; set; } = "Personal";
@@ -119,39 +121,39 @@ namespace JobTrackingAPI.Models
         [BsonElement("assignedUsers")]
         [JsonPropertyName("assignedUsers")]
         public List<AssignedUser> AssignedUsers { get; set; } = new List<AssignedUser>();
-        
+
         [BsonElement("assignedUserIds")]
         [JsonPropertyName("assignedUserIds")]
         public List<string> AssignedUserIds { get; set; } = new List<string>();
-    
+
         [BsonElement("dueDate")]
         [JsonPropertyName("dueDate")]
         public DateTime? DueDate { get; set; }
-    
+
         [BsonElement("createdAt")]
         [JsonPropertyName("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    
+
         [BsonElement("createdBy")]
         [JsonPropertyName("createdBy")]
         public CreatedByUser CreatedBy { get; set; } = new CreatedByUser();
-        
+
         [BsonElement("updatedAt")]
         [JsonPropertyName("updatedAt")]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-    
+
         [BsonElement("subTasks")]
         [JsonPropertyName("subTasks")]
         public List<SubTask>? SubTasks { get; set; } = new List<SubTask>();
-    
+
         [BsonElement("attachments")]
         [JsonPropertyName("attachments")]
         public List<TaskAttachment>? Attachments { get; set; } = new List<TaskAttachment>();
-    
+
         [BsonElement("comments")]
         [JsonPropertyName("comments")]
         public List<Comment> Comments { get; set; } = new List<Comment>();
-    
+
         [BsonElement("teamId")]
         [JsonPropertyName("teamId")]
         public string? TeamId { get; set; }
@@ -169,31 +171,31 @@ namespace JobTrackingAPI.Models
 
         [BsonElement("history")]
         public List<TaskHistory> History { get; set; } = new List<TaskHistory>();
-        
+
         // Bu alanlar veritabanında saklanmaz, API yanıtları için kullanılır
         [BsonIgnore]
         [JsonPropertyName("isAssignedToCurrentUser")]
         public bool IsAssignedToCurrentUser { get; set; }
-        
+
         [BsonIgnore]
         [JsonPropertyName("hasManagePermission")]
         public bool HasManagePermission { get; set; }
     }
-    
+
     public class CreatedByUser
     {
         [BsonElement("id")]
         [JsonPropertyName("id")]
         public string Id { get; set; } = string.Empty;
-        
+
         [BsonElement("username")]
         [JsonPropertyName("username")]
         public string Username { get; set; } = string.Empty;
-        
+
         [BsonElement("fullName")]
         [JsonPropertyName("fullName")]
         public string FullName { get; set; } = string.Empty;
-        
+
         [BsonElement("profileImage")]
         [JsonPropertyName("profileImage")]
         public string? ProfileImage { get; set; }

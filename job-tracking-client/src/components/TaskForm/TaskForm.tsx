@@ -193,13 +193,23 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
       const dueDate = new Date(formData.dueDate);
       dueDate.setHours(23, 59, 59, 999);
       
-      // Ensure all subtasks have required fields but don't set IDs
-      const processedSubTasks = formData.subTasks.map(subTask => ({
-        // Keep ID if exists but don't generate new ones - let MongoDB handle it
-        ...(subTask.id ? { id: subTask.id } : {}),
-        title: subTask.title,
-        completed: Boolean(subTask.completed)
-      }));
+      // Process subtasks to properly format them - either keep valid MongoDB IDs or omit id field
+      const processedSubTasks = formData.subTasks.map(subTask => {
+        // If it's a valid MongoDB ObjectId (24 hex chars), keep it
+        if (subTask.id && /^[0-9a-fA-F]{24}$/.test(subTask.id)) {
+          return {
+            id: subTask.id,
+            title: subTask.title,
+            completed: Boolean(subTask.completed)
+          };
+        } else {
+          // Omit the id field for new subtasks - MongoDB will generate it
+          return {
+            title: subTask.title,
+            completed: Boolean(subTask.completed)
+          };
+        }
+      });
 
       // Ensure all assignedUsers have the required fields
       const processedAssignedUsers = formData.assignedUsers.map(user => ({
@@ -294,7 +304,11 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         ...formData,
         subTasks: [
           ...formData.subTasks,
-          { title: newSubTask.trim(), completed: false }
+          { 
+            // Don't include any ID for new subtasks, let MongoDB generate them
+            title: newSubTask.trim(), 
+            completed: false 
+          }
         ]
       });
       setNewSubTask('');
