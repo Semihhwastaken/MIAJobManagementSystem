@@ -21,8 +21,8 @@ namespace NotificationAPI.Services
         private readonly IHubContext<NotificationHub> _hubContext;
         private readonly RabbitMQSettings _rabbitSettings;
         private readonly ILogger<NotificationService> _logger;
-        private IConnection _rabbitConnection;
-        private IModel _channel;
+        private IConnection? _rabbitConnection;
+        private IModel? _channel;
         private bool _isConnected = false;
         private int _retryCount = 0;
         private const int MaxRetryCount = 5;

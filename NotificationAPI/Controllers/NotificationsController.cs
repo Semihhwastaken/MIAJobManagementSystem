@@ -37,11 +37,14 @@ namespace NotificationAPI.Controllers
         {
             var cacheKey = $"notifications-{userId}";
             
-            if (_cache.TryGetValue(cacheKey, out IEnumerable<Notification> cachedNotifications))
+            if (_cache.TryGetValue(cacheKey, out IEnumerable<Notification>? cachedNotifications) && 
+                cachedNotifications != null)
             {
+                _logger.LogInformation("Cache hit for user notifications. UserId: {UserId}", userId);
                 return Ok(cachedNotifications);
             }
 
+            _logger.LogInformation("Cache miss for user notifications. UserId: {UserId}", userId);
             var notifications = await _notificationService.GetUserNotificationsAsync(userId);
             
             var cacheEntryOptions = new MemoryCacheEntryOptions()

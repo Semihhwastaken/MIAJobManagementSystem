@@ -25,8 +25,8 @@ namespace NotificationAPI.Services
         private readonly IHubContext<NotificationHub> _hubContext;
         private readonly ILogger<NotificationBackgroundService> _logger;
         private readonly List<IModel> _consumerChannels;
-        private IConnection _rabbitConnection;
-        private IModel _channel;
+        private IConnection? _rabbitConnection;
+        private IModel? _channel;
         private bool _isConnected = false;
         private int _retryCount = 0;
         private const int MaxRetryCount = 10;
@@ -35,7 +35,7 @@ namespace NotificationAPI.Services
         private readonly IConnectionFactory _connectionFactory;
         private readonly int _workerCount = 4; // Number of concurrent consumers
         private readonly List<IModel> _channels = new();
-        private IConnection _connection;
+        private IConnection? _connection;
 
         /// <summary>
         /// NotificationBackgroundService yapıcı metodu
@@ -110,7 +110,7 @@ namespace NotificationAPI.Services
                             NetworkRecoveryInterval = TimeSpan.FromSeconds(10)
                         };
 
-                        _rabbitConnection = factory.CreateConnection();
+                        _rabbitConnection = await Task.Run(() => factory.CreateConnection());
                         _rabbitConnection.ConnectionShutdown += RabbitMQ_ConnectionShutdown;
                         
                         _channel = _rabbitConnection.CreateModel();
@@ -158,7 +158,7 @@ namespace NotificationAPI.Services
         /// <summary>
         /// RabbitMQ bağlantısı kapandığında tetiklenen olay
         /// </summary>
-        private void RabbitMQ_ConnectionShutdown(object sender, ShutdownEventArgs e)
+        private void RabbitMQ_ConnectionShutdown(object? sender, ShutdownEventArgs e)
         {
             _logger.LogWarning("RabbitMQ bağlantısı kapandı: {Reason}", e.ReplyText);
             _isConnected = false;

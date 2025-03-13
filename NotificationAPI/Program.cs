@@ -3,7 +3,7 @@ using NotificationAPI.Services;
 using NotificationAPI.Hubs;
 using MongoDB.Driver;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using System.Net.Sockets;
+using NotificationAPI.HealthChecks;
 using RabbitMQ.Client;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -24,7 +24,8 @@ builder.Services.Configure<RabbitMQSettings>(
 // MongoDB bağlantısını daha dayanıklı hale getir
 builder.Services.AddSingleton<IMongoClient>(sp =>
 {
-    var settings = builder.Configuration.GetSection("MongoDbSettings").Get<MongoDbSettings>();
+    var settings = builder.Configuration.GetSection("MongoDbSettings").Get<MongoDbSettings>()
+        ?? throw new InvalidOperationException("MongoDbSettings configuration is missing.");
     
     var mongoSettings = MongoClientSettings.FromConnectionString(settings.ConnectionString);
     mongoSettings.ServerSelectionTimeout = TimeSpan.FromSeconds(5);
@@ -38,7 +39,8 @@ builder.Services.AddSingleton<IMongoClient>(sp =>
 builder.Services.AddSingleton<IMongoDatabase>(sp =>
 {
     var mongoClient = sp.GetRequiredService<IMongoClient>();
-    var settings = builder.Configuration.GetSection("MongoDbSettings").Get<MongoDbSettings>();
+    var settings = builder.Configuration.GetSection("MongoDbSettings").Get<MongoDbSettings>()
+        ?? throw new InvalidOperationException("MongoDbSettings configuration is missing.");
     return mongoClient.GetDatabase(settings.DatabaseName);
 });
 
@@ -105,55 +107,8 @@ builder.Services.AddSwaggerGen(c =>
 
 // Sağlık kontrolleri ekle
 builder.Services.AddHealthChecks()
-    .AddCheck("mongodb", () => 
-    {
-        try
-        {
-            var mongoClient = builder.Services.BuildServiceProvider().GetRequiredService<IMongoClient>();
-            mongoClient.GetDatabase("admin").RunCommand<dynamic>(new MongoDB.Bson.BsonDocument("ping", 1));
-            return HealthCheckResult.Healthy("MongoDB bağlantısı sağlıklı");
-        }
-        catch (Exception ex)
-        {
-            return HealthCheckResult.Unhealthy("MongoDB bağlantısı başarısız", ex);
-        }
-    })
-    .AddCheck("rabbitmq", () => 
-    {
-        try
-        {
-            var rabbitSettings = builder.Configuration.GetSection("RabbitMQSettings").Get<RabbitMQSettings>();
-            using var tcpClient = new TcpClient();
-            var connectResult = tcpClient.BeginConnect(rabbitSettings.HostName, rabbitSettings.Port, null, null);
-            var success = connectResult.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(1));
-            
-            if (success)
-            {
-                try
-                {
-                    var factory = new ConnectionFactory
-                    {
-                        HostName = rabbitSettings.HostName,
-                        UserName = rabbitSettings.UserName,
-                        Password = rabbitSettings.Password,
-                        Port = rabbitSettings.Port,
-                        RequestedConnectionTimeout = TimeSpan.FromSeconds(3)
-                    };
-                    using var connection = factory.CreateConnection();
-                    return HealthCheckResult.Healthy("RabbitMQ bağlantısı sağlıklı");
-                }
-                catch (Exception ex)
-                {
-                    return HealthCheckResult.Unhealthy("RabbitMQ kimlik doğrulama başarısız", ex);
-                }
-            }
-            return HealthCheckResult.Unhealthy("RabbitMQ sunucusuna bağlanılamadı");
-        }
-        catch (Exception ex)
-        {
-            return HealthCheckResult.Unhealthy("RabbitMQ bağlantı kontrolü başarısız", ex);
-        }
-    });
+    .AddCheck<MongoDbHealthCheck>("mongodb")
+    .AddCheck<RabbitMQHealthCheck>("rabbitmq");
 
 // Kimlik doğrulamayı ekle
 builder.Services.AddAuthentication(options =>
@@ -171,7 +126,7 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = builder.Configuration["Jwt:Issuer"],
         ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key is not configured")))
     };
 
     options.Events = new JwtBearerEvents
@@ -219,7 +174,7 @@ builder.Services.Configure<MongoClientSettings>(settings =>
 {
     settings.MaxConnectionPoolSize = 1000;
     settings.MinConnectionPoolSize = 10;
-    settings.WaitQueueSize = 1000;
+    settings.MaxConnecting = 20;
 });
 
 // Add Redis for distributed caching
