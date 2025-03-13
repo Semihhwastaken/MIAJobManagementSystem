@@ -103,7 +103,7 @@ namespace JobTrackingAPI.Models
         public string SubscriptionPlan { get; set; } = "basic"; // default olarak basic plan
 
         [BsonElement("subscriptionId")]
-        public string SubscriptionId { get; set; }
+        public string? SubscriptionId { get; set; }
 
         [BsonElement("subscriptionStatus")]
         public string SubscriptionStatus { get; set; } = "active";

@@ -317,6 +317,9 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
+                if (status?.Status == null)
+                    return BadRequest("Status cannot be null");
+
                 var updatedMember = await _teamService.UpdateMemberStatusAsync(id, status.Status);
 
                 if (updatedMember == null)
@@ -380,7 +383,7 @@ namespace JobTrackingAPI.Controllers
 
                 var team = new Team
                 {
-                    Name = request.Name,
+                    Name = request.Name ?? string.Empty,
                     Description = request.Description,
                     CreatedById = userId,
                     Departments = new List<DepartmentStats>
@@ -402,7 +405,7 @@ namespace JobTrackingAPI.Controllers
                             Username = user.Username,
                             Email = user.Email,
                             FullName = user.FullName ?? string.Empty,
-                            Department = request.Department,
+                            Department = request.Department ?? string.Empty,
                             ProfileImage = user.ProfileImage,
                             Title = user.Title,
                             Position = user.Position,
@@ -702,6 +705,11 @@ namespace JobTrackingAPI.Controllers
                     return Forbid("Bu işlemi sadece takım sahibi yapabilir");
                 }
 
+                if (string.IsNullOrEmpty(request.InviteLink))
+                {
+                    return BadRequest(new { message = "Davet linki boş olamaz" });
+                }
+
                 // Davet linkini güncelle
                 var result = await _teamService.SetInviteLinkAsync(teamId, request.InviteLink);
 
@@ -724,9 +732,12 @@ namespace JobTrackingAPI.Controllers
             try
             {
                 Team? updatedTeam = null;
-                foreach (var expertise in request.Experties)
+                if (request.Experties != null)
                 {
-                    updatedTeam = await _teamService.AddExpertiesAsync(memberId, expertise);
+                    foreach (var expertise in request.Experties)
+                    {
+                        updatedTeam = await _teamService.AddExpertiesAsync(memberId, expertise);
+                    }
                 }
 
                 if (updatedTeam != null)
@@ -788,6 +799,11 @@ namespace JobTrackingAPI.Controllers
                 if (!isOwner)
                 {
                     return Forbid("Bu işlemi sadece takım sahibi yapabilir");
+                }
+
+                if (request.Departments == null)
+                {
+                    return BadRequest(new { message = "Departments list cannot be null" });
                 }
 
                 var updatedTeam = await _teamService.UpdateTeamDepartmentsAsync(teamId, request.Departments);

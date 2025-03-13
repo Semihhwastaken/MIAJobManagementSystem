@@ -67,7 +67,7 @@ namespace JobTrackingAPI.Services
             var earlyCompletions = completedTasks.Count(task =>
             {
                 var completedDate = task.CompletedDate ?? DateTime.UtcNow;
-                var dueDate = DateTime.Parse(task.DueDate.ToString());
+                var dueDate = task.DueDate != null ? DateTime.Parse(task.DueDate.ToString()!) : DateTime.UtcNow;
                 return completedDate < dueDate;
             });
 
@@ -81,7 +81,7 @@ namespace JobTrackingAPI.Services
             var onTimeCompletions = completedTasks.Count(task =>
             {
                 var completedDate = task.CompletedDate ?? DateTime.UtcNow;
-                var dueDate = DateTime.Parse(task.DueDate.ToString());
+                var dueDate = task.DueDate != null ? DateTime.Parse(task.DueDate.ToString()!) : DateTime.UtcNow;
                 return completedDate <= dueDate;
             });
 
@@ -184,7 +184,7 @@ namespace JobTrackingAPI.Services
             if (task.Status == "completed" && task.CompletedDate.HasValue)
             {
                 var completedDate = task.CompletedDate.Value;
-                var dueDate = DateTime.Parse(task.DueDate.ToString());
+                var dueDate = task.DueDate != null ? DateTime.Parse(task.DueDate.ToString()!) : DateTime.UtcNow;
                 var timeSpan = dueDate - completedDate;
                 var daysDifference = timeSpan.TotalDays;
 
@@ -197,7 +197,7 @@ namespace JobTrackingAPI.Services
             else if (task.Status == "overdue")
             {
                 var currentDate = DateTime.UtcNow;
-                var dueDate = DateTime.Parse(task.DueDate.ToString());
+                var dueDate = task.DueDate != null ? DateTime.Parse(task.DueDate.ToString()!) : DateTime.UtcNow;
                 var overdueDays = (currentDate - dueDate).TotalDays;
 
                 if (overdueDays <= 0) return 0;

@@ -217,11 +217,11 @@ namespace JobTrackingAPI.Services
             return result.DeletedCount > 0;
         }
 
-        public async Task<string> AddFileToMessageAsync(string messageId, IFormFile file)
+        public Task<string> AddFileToMessageAsync(string messageId, IFormFile file)
         {
             // In a real application, you would upload the file to a storage service
             // and return the URL. For now, we'll just return a placeholder
-            return $"file_{messageId}_{file.FileName}";
+            return Task.FromResult($"file_{messageId}_{file.FileName}");
         }
 
         private static readonly HashSet<string> _onlineUsers = new();

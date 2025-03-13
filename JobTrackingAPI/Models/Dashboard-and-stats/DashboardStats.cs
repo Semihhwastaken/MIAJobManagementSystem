@@ -12,14 +12,14 @@ namespace JobTrackingAPI.Models
         public int PreviousInProgressTasks { get; set; }
         public int PreviousOverdueTasks { get; set; }
         public List<ChartDataPoint>? LineChartData { get; set; }
-        public TeamActivity TeamActivity { get; set; }
-        public List<TopContributor> TopContributors { get; set; }
+        public TeamActivity? TeamActivity { get; set; }
+        public List<TopContributor>? TopContributors { get; set; }
     }
 
     public class ChartDataPoint
     {
         public DateTime Date { get; set; }
-        public string DateString { get; set; } // Frontend için string formatlı tarih ekliyoruz
+        public string? DateString { get; set; } // Frontend için string formatlı tarih ekliyoruz
         public int Completed { get; set; }
         public int NewTasks { get; set; }
     }
@@ -34,11 +34,11 @@ namespace JobTrackingAPI.Models
 
     public class TopContributor
     {
-        public string Id { get; set; }
-        public string Name { get; set; }
-        public string ProfileImage { get; set; }
+        public string? Id { get; set; }
+        public string? Name { get; set; }
+        public string? ProfileImage { get; set; }
         public int TasksCompleted { get; set; }
         public double PerformanceScore { get; set; }
-        public string Role { get; set; }
+        public string? Role { get; set; }
     }
 }

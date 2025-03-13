@@ -153,12 +153,15 @@ namespace JobTrackingAPI.Services
         }
 
         private string GetPriceIdForPlan(string planType)
-        {
+{
+            if (string.IsNullOrEmpty(planType))
+                throw new ArgumentNullException(nameof(planType));
+
             return planType.ToLower() switch
             {
-                "pro" => _settings.ProPlanPriceId,
-                "enterprise" => _settings.EnterprisePlanPriceId,
-                _ => _settings.ProPlanPriceId // Default to Pro plan
+                "pro" => _settings.ProPlanPriceId!,
+                "enterprise" => _settings.EnterprisePlanPriceId!,
+                _ => _settings.ProPlanPriceId! // Default to Pro plan
             };
         }
     }

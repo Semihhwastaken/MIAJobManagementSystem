@@ -152,19 +152,19 @@ public class TeamMember
 
 public class AvailabilitySchedule
 {
-    public WorkingHours WorkingHours { get; set; }
-    public List<string> WorkingDays { get; set; }
+    public WorkingHours? WorkingHours { get; set; }
+    public List<string>? WorkingDays { get; set; }
 }
 
 public class WorkingHours
 {
-    public string Start { get; set; }
-    public string End { get; set; }
+    public string? Start { get; set; }
+    public string? End { get; set; }
 }
 
 public class DepartmentStats
 {
-    public string Name { get; set; }
+    public string? Name { get; set; }
     public int MemberCount { get; set; }
     public int CompletedTasks { get; set; }
     public int OngoingTasks { get; set; }

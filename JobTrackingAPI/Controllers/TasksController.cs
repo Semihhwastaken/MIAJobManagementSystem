@@ -150,11 +150,15 @@ namespace JobTrackingAPI.Controllers
                 // Invalidate caches after creating a new task
                 InvalidateTaskRelatedCaches(createdTask);
 
-                await _activityService.LogTaskActivity(
-                    userId: User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
-                    taskId: createdTask.Id,
-                    description: $"yeni görev oluşturdu: {createdTask.Title}"
-                );
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    await _activityService.LogTaskActivity(
+                        userId: userId,
+                        taskId: createdTask.Id,
+                        description: $"yeni görev oluşturdu: {createdTask.Title}"
+                    );
+                }
 
                 return CreatedAtAction(nameof(GetTask), new { id = createdTask.Id }, createdTask);
             }
@@ -678,11 +682,15 @@ namespace JobTrackingAPI.Controllers
                 // Invalidate task-related caches
                 InvalidateTaskRelatedCaches(task);
 
-                await _activityService.LogTaskActivity(
-                    userId: User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
-                    taskId: id,
-                    description: $"görev durumunu {status} olarak güncelledi"
-                );
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    await _activityService.LogTaskActivity(
+                        userId: userId,
+                        taskId: id,
+                        description: $"görev durumunu {status} olarak güncelledi"
+                    );
+                }
 
                 return Ok(new { message = "Task status updated successfully" });
             }

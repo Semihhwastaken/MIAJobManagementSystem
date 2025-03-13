@@ -5,7 +5,7 @@ namespace JobTrackingAPI.Models
 {
     public class StatusUpdateDto
     {
-        public string Status { get; set; }
+        public string? Status { get; set; }
     }
 
     public class TeamDto

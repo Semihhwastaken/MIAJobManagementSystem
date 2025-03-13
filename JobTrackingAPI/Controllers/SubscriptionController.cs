@@ -34,7 +34,7 @@ namespace JobTrackingAPI.Controllers
             _stripeService = stripeService;
             _userService = userService;
             _logger = logger;
-            _webhookSecret = stripeSettings.Value.WebhookSecret;
+            _webhookSecret = stripeSettings.Value.WebhookSecret ?? throw new ArgumentNullException(nameof(stripeSettings), "Webhook secret is not configured");
         }
 
         [HttpPost("create-checkout-session")]

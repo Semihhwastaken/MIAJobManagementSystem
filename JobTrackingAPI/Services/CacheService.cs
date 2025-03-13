@@ -124,7 +124,9 @@ namespace JobTrackingAPI.Services
                                     var newValue = await factory();
                                     if (newValue != null)
                                     {
-                                        _cache.Set(key.ToString(), newValue, options);  
+#pragma warning disable CS8604 // Possible null reference argument.
+                                        _cache.Set(key.ToString(), newValue, options);
+#pragma warning restore CS8604 // Possible null reference argument.
                                     }
                                 }
                                 catch (Exception ex)
@@ -158,7 +160,9 @@ namespace JobTrackingAPI.Services
                     var value = await factory(key);
                     if (value != null)
                     {
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
                         await GetOrUpdateAsync(key, async () => value, expiration);
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
                     }
                 }
                 catch (Exception ex)
@@ -171,7 +175,7 @@ namespace JobTrackingAPI.Services
         }
 
         // Cache Invalidation için geliştirilmiş metod
-        public async Task InvalidateCachePatternAsync(string pattern)
+        public Task InvalidateCachePatternAsync(string pattern)
         {
             try
             {
@@ -192,6 +196,8 @@ namespace JobTrackingAPI.Services
             {
                 _logger.LogError(ex, $"Error during cache invalidation for pattern {pattern}");
             }
+
+            return Task.CompletedTask;
         }
 
         // User related cache keys
@@ -341,6 +347,7 @@ namespace JobTrackingAPI.Services
             {
                 InvalidateUserCaches(member.Id);
             }
+            if(team.Id == null) return;
             InvalidateTeamCaches(team.Id);
         }
         
@@ -422,11 +429,11 @@ namespace JobTrackingAPI.Services
         public async Task PreloadUserDataAsync(
             string userId, 
             Func<Task<User?>> getUserData,
-            Func<Task<List<TaskItem>>> getActiveTasks,
-            Func<Task<List<TaskItem>>> getCompletedTasks,
-            Func<Task<List<Team>>> getUserTeams,
-            Func<Task<DashboardStats>> getDashboardStats,
-            Func<Task<List<TaskHistory>>> getTaskHistory)
+            Func<Task<List<TaskItem>?>> getActiveTasks,
+            Func<Task<List<TaskItem>?>> getCompletedTasks,
+            Func<Task<List<Team>?>> getUserTeams,
+            Func<Task<DashboardStats?>> getDashboardStats,
+            Func<Task<List<TaskHistory>?>> getTaskHistory)
         {
             try
             {

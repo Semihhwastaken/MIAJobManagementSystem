@@ -7,6 +7,6 @@ namespace JobTrackingAPI.Models.Requests
     public class UpdateTeamDepartmentsRequest
     {
         [Required]
-        public List<DepartmentStats> Departments { get; set; }
+        public List<DepartmentStats>? Departments { get; set; }
     }
 }

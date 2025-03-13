@@ -181,7 +181,7 @@ namespace JobTrackingAPI.Services
             }
         }
 
-        public async Task<List<CalendarEvent>> GetEventsByTeamIdAsync(string teamId, string startDate = null, string endDate = null)
+        public async Task<List<CalendarEvent>> GetEventsByTeamIdAsync(string teamId, string? startDate = null, string? endDate = null)
         {
             try
             {
