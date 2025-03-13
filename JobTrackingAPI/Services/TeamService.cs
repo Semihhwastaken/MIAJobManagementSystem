@@ -152,24 +152,30 @@ public class TeamService : ITeamService
         if (user == null)
             throw new Exception("Kullanıcı bulunamadı");
 
+        // Kullanıcının sahip olduğu takım sayısını kontrol et (max 5)
+        if (user.OwnerTeams?.Count >= 5)
+        {
+            throw new Exception("Bir kullanıcı en fazla 5 takıma sahip olabilir");
+        }
+
         var team = new Team
         {
             Name = request.Name,
             Description = request.Description,
-            CreatedById = user.Id, // Users koleksiyonundaki ID kullanılıyor
+            CreatedById = user.Id,
             Members = new List<TeamMember>
             {
                 new TeamMember
                 {
-                    Id = user.Id, // Users koleksiyonundaki ID kullanılıyor
+                    Id = user.Id,
                     Role = "admin",
                     Username = user.Username,
                     Email = user.Email,
                     FullName = user.FullName,
                     Department = user.Department,
-                    ProfileImage = user.ProfileImage,
                     Title = user.Title,
                     Position = user.Position,
+                    ProfileImage = user.ProfileImage,
                     Phone = user.Phone,
                     PerformanceScore = 50,
                     CompletedTasksCount = 0,
@@ -180,11 +186,20 @@ public class TeamService : ITeamService
             },
             Departments = new List<DepartmentStats> { new DepartmentStats { Name = request.Department } }
         };
+
+        // Takımı oluştur
         await _teams.InsertOneAsync(team);
 
-        // Kullanıcının ownerTeams listesine takım ID'sini ekle
+        // User'ın ownerTeams listesini güncelle
         var userUpdate = Builders<User>.Update.AddToSet(u => u.OwnerTeams, team.Id);
-        await _userService.UpdateUser(userId, userUpdate);
+        var userResult = await _userService.UpdateUser(userId, userUpdate);
+
+        if (!userResult)
+        {
+            // Güncelleme başarısız olduysa takımı sil ve hata fırlat
+            await _teams.DeleteOneAsync(t => t.Id == team.Id);
+            throw new Exception("Kullanıcı takım sahipliği güncellenirken hata oluştu");
+        }
 
         _cacheService.InvalidateTeamCaches(team.Id);
         return team;
@@ -574,6 +589,14 @@ public class TeamService : ITeamService
             team.InviteCode = GenerateInviteCode();
 
             await _teams.InsertOneAsync(team);
+
+            // Takımı oluşturan kullanıcıyı bul ve ownerTeams listesini güncelle
+            var ownerMember = team.Members.FirstOrDefault(m => m.Id == team.CreatedById);
+            if (ownerMember != null)
+            {
+                await _userService.AddOwnerTeam(ownerMember.Id, team.Id);
+            }
+
             _cacheService.InvalidateTeamCaches(team.Id);
             return team;
         }
