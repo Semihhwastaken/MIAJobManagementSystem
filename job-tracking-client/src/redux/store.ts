@@ -5,6 +5,7 @@ import teamReducer from './features/teamSlice';
 import calendarReducer from './features/calendarSlice';
 import authReducer from './features/authSlice';
 import themeReducer from './features/themeSlice';
+import loadingReducer from './features/loadingSlice';
 import { RESET_STATE } from './features/actionTypes';
 
 // Tüm reducer'ları birleştir
@@ -13,7 +14,8 @@ const appReducer = combineReducers({
     team: teamReducer,
     calendar: calendarReducer,
     auth: authReducer,
-    theme: themeReducer
+    theme: themeReducer,
+    loading: loadingReducer
 });
 
 // Root reducer: RESET_STATE action geldiğinde tüm state'i sıfırlar

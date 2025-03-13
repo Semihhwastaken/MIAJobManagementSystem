@@ -83,6 +83,9 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
     serverOptions.ListenAnyIP(port);
 });
 
+// Remove any hardcoded UseUrls() calls
+builder.WebHost.UseUrls();
+
 // SignalR ve diğer servisler
 builder.Services.AddSignalR(options =>
 {

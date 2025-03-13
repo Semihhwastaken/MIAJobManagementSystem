@@ -17,6 +17,7 @@ import {
   clearApiKey,
   isAiAnalysisEnabled
 } from '../../services/aiAnalysisService';
+import LoadingScreen from '../../components/Loading/LoadingScreen';
 
 // Register ChartJS components
 ChartJS.register(
@@ -871,6 +872,11 @@ const Dashboard = () => {
       setIsGeneratingReport(false);
     }
   };
+
+  // Mevcut loading kontrolünü LoadingScreen ile değiştirelim
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
   return (
     <motion.div

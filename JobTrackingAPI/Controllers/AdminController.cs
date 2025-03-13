@@ -237,7 +237,7 @@ namespace JobTrackingAPI.Controllers
         }
 
         // Aktivite ekleme yardımcı metodu
-        public async Task AddSystemActivity(string type, string description, string userId, Dictionary<string, object>? metadata = null)
+        private async Task AddSystemActivity(string type, string description, string userId, Dictionary<string, object>? metadata = null)
         {
             try
             {

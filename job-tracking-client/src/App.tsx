@@ -31,6 +31,8 @@ import Subscription from './pages/Subscription/Subscription';
 import SubscriptionSuccess from './pages/Subscription/SubscriptionSuccess';
 import SubscriptionCancel from './pages/Subscription/SubscriptionCancel';
 import SubscriptionPlans from './pages/Subscription/SubscriptionPlans';
+import LoadingScreen from './components/Loading/LoadingScreen';
+import NotFound from './pages/NotFound/NotFound';
 
 const AppContent: React.FC = () => {
   const { isDarkMode } = useTheme();
@@ -346,6 +348,7 @@ const AppContent: React.FC = () => {
                     )
                   }
                 />
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Layout>
           </Router>
@@ -359,6 +362,7 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   const dispatch = useDispatch();
+  const isLoading = useSelector((state: RootState) => state.loading.isLoading);
 
   useEffect(() => {
     // Initialize auth state from localStorage
@@ -401,6 +405,7 @@ const App: React.FC = () => {
               horizontal: 'right',
             }}
           >
+            {isLoading && <LoadingScreen />}
             <AppContent />
           </SnackbarProvider>
         </StripeProvider>
