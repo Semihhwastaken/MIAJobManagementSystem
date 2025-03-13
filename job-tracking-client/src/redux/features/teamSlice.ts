@@ -304,8 +304,10 @@ export const addExperties = createAsyncThunk(
     'Team/addExperties',
     async ({ memberId, experties }: { memberId: string; experties: string }, { rejectWithValue }) => {
         try {
-            // Yeni API endpoint'ini kullan
-            const response = await axiosInstance.post(`/Team/add-expertise`, { memberId, expertise: experties });
+            const response = await axiosInstance.post(`/Team/members/${memberId}/experties`, { 
+                Experties: [experties] // Note the capital E in Experties to match C# model
+            });
+            
             return response.data;
         } catch (error: any) {
             console.error('Hata:', error.response?.data);
@@ -430,14 +432,17 @@ export const fetchTeams = createAsyncThunk(
 export const deleteTeam = createAsyncThunk<DeleteTeamResponse, string>(
     'Team/deleteTeam',
     async (teamId: string, { rejectWithValue, dispatch }) => {
+        console.log(teamId);
         try {
             const response = await axiosInstance.delete(`/Team/${teamId}`);
             
-            // Invalidate teams cache after deletion
+            // Invalidate teams cache after deletionT
             dispatch(invalidateCache('teams'));
             
             return { teamId, message: response.data.message };
         } catch (error: any) {
+            console.log('Takım silme hatası:', error.response?.data);
+            
             return rejectWithValue(error.response?.data?.message || error.message);
         }
     }

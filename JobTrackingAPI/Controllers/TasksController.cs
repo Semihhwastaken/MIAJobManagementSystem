@@ -69,6 +69,12 @@ namespace JobTrackingAPI.Controllers
                 if (string.IsNullOrEmpty(task.Title))
                     return BadRequest(new { message = "Task title is required" });
 
+                // Ensure the Id is generated if not provided
+                if (string.IsNullOrEmpty(task.Id))
+                {
+                    task.Id = MongoDB.Bson.ObjectId.GenerateNewId().ToString();
+                }
+
                 // Initialize collections if they're null
                 task.Attachments ??= new List<TaskAttachment>();
                 task.Dependencies ??= new List<string>();
@@ -444,8 +450,6 @@ namespace JobTrackingAPI.Controllers
         [HttpGet("user/{userId}/active-tasks")]
         public async Task<ActionResult<IEnumerable<TaskItem>>> GetUserActiveTasks(string userId)
         {
-            _logger.LogInformation("Getting active tasks for user: {UserId}", userId);
-
             try
             {
                 var tasks = await _cacheService.GetOrUpdateAsync(

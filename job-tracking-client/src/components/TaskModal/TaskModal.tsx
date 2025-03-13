@@ -1,5 +1,5 @@
 import { Dialog, Transition } from '@headlessui/react'
-import { Fragment, useState, useEffect } from 'react'
+import { Fragment, useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Task, SubTask } from '../../types/task'
 import { Team, TeamMember } from '../../types/team'
@@ -17,21 +17,24 @@ interface TaskModalProps {
 }
 
 const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
-  const defaultFormData: Task = {
+  const defaultFormData = useMemo(() => ({
     id: '',
     title: '',
     description: '',
     status: 'todo',
     priority: 'low',
-    category: 'general', // Varsayılan kategori eklendi
+    category: 'general',
     dueDate: new Date().toISOString().split('T')[0],
     assignedUsers: [],
+    assignedUserIds: [],
     subTasks: [],
     dependencies: [],
     attachments: [],
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
+    updatedAt: new Date().toISOString(),
+    completedDate: null,  // Set this explicitly to null
+    isLocked: false
+  } as Task), [])
 
   const [formData, setFormData] = useState<Task>(defaultFormData)
   const [subTaskInput, setSubTaskInput] = useState('')
@@ -59,7 +62,7 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
         setFormData(defaultFormData)
       }
     }
-  }, [editTask, isOpen])
+  }, [editTask, isOpen, defaultFormData])
 
   useEffect(() => {
     const fetchTeams = async () => {
@@ -122,9 +125,11 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
     e.preventDefault()
     if (subTaskInput.trim()) {
       const newSubTask: SubTask = {
-        id: Date.now().toString(),
-        title: subTaskInput,
-        completed: false
+        id: `subtask-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        title: subTaskInput.trim(),
+        completed: false,
+        completedDate: null,
+        AssignedUserId: null  // Note the capital A to match the type definition
       }
       setFormData({
         ...formData,
@@ -147,12 +152,17 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
     try {
       if (!formData.id) return;
 
-      // Önce yerel state'i güncelle
+      const now = new Date().toISOString(); // Convert to ISO string
       const newSubTasks = formData.subTasks.map((task, idx) =>
-        idx === index ? { ...task, completed } : task
+        idx === index ? { 
+          ...task, 
+          completed,
+          completedDate: completed ? now : null,
+          AssignedUserId: task.AssignedUserId  // Preserve existing AssignedUserId
+        } : task
       );
 
-      // Hemen UI'ı güncelle
+      // Önce yerel state'i güncelle
       setFormData(prev => ({
         ...prev,
         subTasks: newSubTasks
@@ -162,7 +172,7 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
       const updatedTask = {
         ...formData,
         subTasks: newSubTasks,
-        updatedAt: new Date().toISOString()
+        updatedAt: now
       };
 
       const resultAction = await dispatch(updateTask(updatedTask));
@@ -186,28 +196,6 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
     }
   };
 
-  // Kullanıcı atama/çıkarma
-  const handleUserToggle = (user: any) => {
-    const currentUsers = formData.assignedUsers || []
-    const isAssigned = currentUsers.some(u => u.id === user.id)
-
-    setFormData({
-      ...formData,
-      assignedUsers: isAssigned
-        ? currentUsers.filter(u => u.id !== user.id)
-        : [...currentUsers, user]
-    })
-  }
-
-  // Bağımlı görev seçme
-  const handleDependencyToggle = (taskId: string) => {
-    setSelectedDependencies(prev =>
-      prev.includes(taskId)
-        ? prev.filter(id => id !== taskId)
-        : [...prev, taskId]
-    )
-  }
-
   // Seçili kullanıcıları kaldırma fonksiyonu
   const handleRemoveUser = (userId: string) => {
     setFormData({
@@ -227,7 +215,9 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
         subTasks: formData.subTasks.map(task => ({
           id: task.id,
           title: task.title,
-          completed: task.completed
+          completed: task.completed,
+          completedDate: task.completedDate ? task.completedDate : null, // Ensure proper date handling
+          AssignedUserId: task.AssignedUserId  // Make sure to include AssignedUserId
         })),
         assignedUsers: formData.assignedUsers.map(user => ({
           id: user.id,
@@ -266,6 +256,8 @@ const TaskModal = ({ isOpen, onClose, editTask }: TaskModalProps) => {
           createdAt: now,
           updatedAt: now
         })).unwrap()
+        console.log('Task created! Data:', taskData);
+        
         toast.success('Görev başarıyla oluşturuldu!', {
           duration: 3000,
           position: 'bottom-right'

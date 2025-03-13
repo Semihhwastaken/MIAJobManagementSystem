@@ -274,36 +274,51 @@ const Team: React.FC = () => {
         setShowCommentModal(true);
     };
 
+    const handleAddExpertiseClick = (id: string, currentExpertise: string[] = []) => {
+        setSelectedMemberId(id);
+        // Join existing expertise with commas
+        setNewExpertise(currentExpertise.join(', '));
+        setShowExpertiesModal(true);
+    };
+
     const handleAddExpertise = async () => {
-        if (!expertise || !currentMemberId) {
+        if (!newExpertise || !selectedMemberId) {
             toast.error('Lütfen bir uzmanlık alanı girin.');
             return;
         }
         
         try {
             setAddingExpertise(true);
-            // Yeni eklenen redux aksiyonunu kullan
-            await dispatch(addExperties({ 
-                memberId: currentMemberId, 
-                experties: expertise 
+            // Split by comma, clean up, and remove duplicates
+            const expertiseArray = [...new Set(
+                newExpertise
+                    .split(',')
+                    .map(exp => exp.trim())
+                    .filter(exp => exp)
+            )];
+            
+            const result = await dispatch(addExperties({ 
+                memberId: selectedMemberId,
+                experties: expertiseArray.join(',') // Send as comma-separated string
             })).unwrap();
             
-            toast.success('Uzmanlık alanı başarıyla eklendi.');
-            setAddExpertiseDialogOpen(false);
-            setExpertise('');
-            // Üyeleri yeniden yükle
-            dispatch(fetchTeamMembers());
-            setAddingExpertise(false);
-        } catch (error) {
+            if (result) {
+                toast.success('Uzmanlık alanları başarıyla güncellendi.');
+                setShowExpertiesModal(false);
+                setNewExpertise('');
+                
+                // Refresh the data
+                dispatch(fetchTeams());
+                dispatch(fetchMemberActiveTasks());
+            } else {
+                toast.error('Uzmanlık alanları güncellenemedi.');
+            }
+        } catch (error: any) {
             console.error('Uzmanlık alanı ekleme hatası:', error);
-            toast.error('Uzmanlık alanı eklenirken bir hata oluştu.');
+            toast.error(error.message || 'Uzmanlık alanları güncellenirken bir hata oluştu.');
+        } finally {
             setAddingExpertise(false);
         }
-    };
-
-    const handleAddExpertiseClick = (id: string) => {
-        setSelectedMemberId(id);
-        setShowExpertiesModal(true);
     };
 
     const handleOpenTaskForm = (member: TeamMember, teamId: string, teamName: string) => {
@@ -517,24 +532,46 @@ const Team: React.FC = () => {
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex flex-wrap gap-1">
                                                 {member.expertise === null || member.expertise.length === 0 ? (
-                                                    <span 
-                                                    className={`group px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition-all duration-200 ease-in-out cursor-pointer 
-                                                        ${isDarkMode 
-                                                          ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
-                                                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
-                                                          onClick={() => handleAddExpertiseClick(member.id)}>
-                                                            Uzmanlık Yok 
-                                                            <IoIosAddCircleOutline
-                                                                className="w-5 h-5 ml-1 transition-transform duration-200 ease-in-out group-hover:scale-110"
-                                                                
-                                                            />
+                                                    currentUser?.id === member.id ? (
+                                                        <span 
+                                                        className={`group px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition-all duration-200 ease-in-out cursor-pointer 
+                                                            ${isDarkMode 
+                                                              ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                                                              : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                                                              onClick={() => handleAddExpertiseClick(member.id, [])}>
+                                                                Uzmanlık Ekle 
+                                                                <IoIosAddCircleOutline
+                                                                    className="w-5 h-5 ml-1 transition-transform duration-200 ease-in-out group-hover:scale-110"
+                                                                />
                                                         </span>
+                                                    ) : (
+                                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                                            ${isDarkMode 
+                                                              ? 'bg-gray-700 text-gray-300' 
+                                                              : 'bg-gray-200 text-gray-600'}`}>
+                                                            Uzmanlık Yok
+                                                        </span>
+                                                    )
                                                 ) : (
-                                                    member.expertise.map((expertise, index) => (
-                                                        <span key={index} className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
-                                                            {expertise}
-                                                        </span>
-                                                    ))
+                                                    <>
+                                                        {member.expertise.map((expertise, index) => (
+                                                            <span key={index} className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
+                                                                {expertise}
+                                                            </span>
+                                                        ))}
+                                                        {currentUser?.id === member.id && (
+                                                            <span 
+                                                            className={`group px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition-all duration-200 ease-in-out cursor-pointer 
+                                                                ${isDarkMode 
+                                                                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                                                                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                                                                  onClick={() => handleAddExpertiseClick(member.id, member.expertise)}>
+                                                                <IoIosAddCircleOutline
+                                                                    className="w-5 h-5 transition-transform duration-200 ease-in-out group-hover:scale-110"
+                                                                />
+                                                            </span>
+                                                        )}
+                                                    </>
                                                 )}
                                                     
                                             </div>
@@ -671,55 +708,95 @@ const Team: React.FC = () => {
             {/* Create Team Modal */}
             {showCreateTeamModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className={`bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md ${isDarkMode ? 'dark' : ''}`}>
-                        <h2 className="text-2xl font-bold mb-4 dark:text-white">Yeni Ekip Oluştur</h2>
-                        <div className="mb-4">
-                            <label htmlFor="teamName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Ekip Adı
-                            </label>
-                            <input
-                                type="text"
-                                id="teamName"
-                                value={teamName}
-                                onChange={(e) => setTeamName(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                placeholder="Ekip adını girin"
-                            />
+                    <div className={`relative transform transition-all ${
+                        isDarkMode ? 'bg-gray-800' : 'bg-white'
+                    } rounded-xl shadow-2xl p-8 w-full max-w-md`}>
+                        {/* Modal Header */}
+                        <div className="mb-6">
+                            <h2 className={`text-2xl font-bold ${
+                                isDarkMode ? 'text-gray-100' : 'text-gray-800'
+                            }`}>Yeni Ekip Oluştur</h2>
+                            <p className={`mt-2 text-sm ${
+                                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                            }`}>Yeni bir ekip oluşturmak için aşağıdaki bilgileri doldurun.</p>
                         </div>
-                        <div className="mb-4">
-                            <label htmlFor="teamDescription" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Ekip Açıklaması
-                            </label>
-                            <textarea
-                                id="teamDescription"
-                                value={teamDescription}
-                                onChange={(e) => setTeamDescription(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                placeholder="Ekip açıklamasını girin (opsiyonel)"
-                                rows={3}
-                            />
+
+                        {/* Form Fields */}
+                        <div className="space-y-6">
+                            <div>
+                                <label htmlFor="teamName" className={`block text-sm font-medium mb-2 ${
+                                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                }`}>
+                                    Ekip Adı
+                                </label>
+                                <input
+                                    type="text"
+                                    id="teamName"
+                                    value={teamName}
+                                    onChange={(e) => setTeamName(e.target.value)}
+                                    className={`w-full px-4 py-3 rounded-lg transition-colors duration-200 ease-in-out ${
+                                        isDarkMode 
+                                            ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                                            : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+                                    } border focus:outline-none focus:ring-2 focus:ring-blue-500/40`}
+                                    placeholder="Ekip adını girin"
+                                />
+                            </div>
+
+                            <div>
+                                <label htmlFor="teamDescription" className={`block text-sm font-medium mb-2 ${
+                                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                }`}>
+                                    Ekip Açıklaması
+                                </label>
+                                <textarea
+                                    id="teamDescription"
+                                    value={teamDescription}
+                                    onChange={(e) => setTeamDescription(e.target.value)}
+                                    className={`w-full px-4 py-3 rounded-lg transition-colors duration-200 ease-in-out ${
+                                        isDarkMode 
+                                            ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                                            : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+                                    } border focus:outline-none focus:ring-2 focus:ring-blue-500/40`}
+                                    placeholder="Ekip açıklamasını girin (opsiyonel)"
+                                    rows={3}
+                                />
+                            </div>
+
+                            <div>
+                                <label htmlFor="teamDepartment" className={`block text-sm font-medium mb-2 ${
+                                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                }`}>
+                                    Departman
+                                </label>
+                                <select
+                                    id="teamDepartment"
+                                    value={teamDepartment}
+                                    onChange={(e) => setTeamDepartment(e.target.value)}
+                                    className={`w-full px-4 py-3 rounded-lg transition-colors duration-200 ease-in-out ${
+                                        isDarkMode 
+                                            ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500' 
+                                            : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-blue-500'
+                                    } border focus:outline-none focus:ring-2 focus:ring-blue-500/40`}
+                                >
+                                    <option value="" className={isDarkMode ? 'bg-gray-700' : 'bg-white'}>Departman Seçin</option>
+                                    {DEPARTMENTS.map((dept) => (
+                                        <option key={dept} value={dept} className={isDarkMode ? 'bg-gray-700' : 'bg-white'}>
+                                            {dept}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
-                        <div className="mb-4">
-                            <label htmlFor="teamDepartment" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Departman
-                            </label>
-                            <select
-                                id="teamDepartment"
-                                value={teamDepartment}
-                                onChange={(e) => setTeamDepartment(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            >
-                                <option value="">Departman Seçin</option>
-                                {DEPARTMENTS.map((dept) => (
-                                    <option key={dept} value={dept}>
-                                        {dept}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="flex justify-end space-x-3">
+
+                        {/* Actions */}
+                        <div className="flex justify-end gap-3 mt-8">
                             <button
-                                className="px-4 py-2 text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white"
+                                className={`px-5 py-2.5 rounded-lg transition-colors duration-200 ${
+                                    isDarkMode 
+                                        ? 'text-gray-300 hover:bg-gray-700' 
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                }`}
                                 onClick={() => {
                                     setShowCreateTeamModal(false);
                                     setTeamName('');
@@ -730,21 +807,27 @@ const Team: React.FC = () => {
                                 İptal
                             </button>
                             <button
-                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                className={`px-5 py-2.5 rounded-lg transition-all duration-200 ${
+                                    creatingTeam 
+                                        ? 'bg-blue-400 cursor-not-allowed' 
+                                        : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
+                                } text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
                                 onClick={handleCreateTeam}
+                                disabled={creatingTeam}
                             >
-                                Oluştur
+                                {creatingTeam ? 'Oluşturuluyor...' : 'Oluştur'}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
+
             {/* Uzmanlık Ekleme Modalı */}
             {showExpertiesModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} max-w-md w-full mx-4`}>
                         <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            Uzmanlık Ekle
+                            Uzmanlık Güncelle
                         </h3>
                         <div className="mb-4">
                             <label 
@@ -753,7 +836,7 @@ const Team: React.FC = () => {
                                     isDarkMode ? 'text-gray-300' : 'text-gray-700'
                                 }`}
                             >
-                                Uzmanlık Alanı
+                                Uzmanlık Alanları (virgülle ayırın)
                             </label>
                             <input
                                 type="text"
@@ -767,6 +850,9 @@ const Team: React.FC = () => {
                                 }`}
                                 placeholder="Örn: React, Node.js, MongoDB"
                             />
+                            <p className={`mt-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                Birden fazla uzmanlık alanını virgülle ayırarak girebilirsiniz.
+                            </p>
                         </div>
                         <div className="flex justify-end gap-4">
                             <button
@@ -786,7 +872,7 @@ const Team: React.FC = () => {
                                 onClick={handleAddExpertise}
                                 className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
                             >
-                                Ekle
+                                Güncelle
                             </button>
                         </div>
                     </div>

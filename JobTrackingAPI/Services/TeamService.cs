@@ -183,6 +183,7 @@ public class TeamService : ITeamService
 
         // Kullanıcının ownerTeams listesine takım ID'sini ekle
         var userUpdate = Builders<User>.Update.AddToSet(u => u.OwnerTeams, team.Id);
+        _logger.LogInformation("Kullanıcı {userId} için ownerTeams güncellendi", userId);
         await _userService.UpdateUser(userId, userUpdate);
         if(team.Id != null)
         {
@@ -532,7 +533,7 @@ public class TeamService : ITeamService
     /// <summary>
     /// Takım oluşturur
     /// </summary>
-    public async Task<Team> CreateAsync(Team team)
+    public async Task<Team> CreateAsync(Team team,string userId)
     {
         try
         {
@@ -574,8 +575,11 @@ public class TeamService : ITeamService
 
             team.CreatedAt = DateTime.UtcNow;
             team.InviteCode = GenerateInviteCode();
-
+            
             await _teams.InsertOneAsync(team);
+            var userUpdate = Builders<User>.Update.AddToSet(u => u.OwnerTeams, team.Id);
+            _logger.LogInformation("Kullanıcı {userId} için ownerTeams güncellendi", userId);
+            await _userService.UpdateUser(userId, userUpdate);
             if (team.Id != null)
             {
                 _cacheService.InvalidateTeamCaches(team.Id);

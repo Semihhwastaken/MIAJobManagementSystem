@@ -8,25 +8,35 @@ namespace JobTrackingAPI.Models
 {
     public class SubTask
     {
-        [BsonElement("id")]
-        [JsonPropertyName("id")]
-        public string Id { get; set; } = Guid.NewGuid().ToString();
+        [BsonId]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string Id { get; set; }
 
         [BsonElement("title")]
         [JsonPropertyName("title")]
-        public string Title { get; set; } = string.Empty;
+        [BsonRequired]
+        public string Title { get; set; }
 
         [BsonElement("completed")]
         [JsonPropertyName("completed")]
         public bool Completed { get; set; }
-        
+
         [BsonElement("completedDate")]
         [JsonPropertyName("completedDate")]
         public DateTime? CompletedDate { get; set; }
-        
+
         [BsonElement("assignedUserId")]
         [JsonPropertyName("assignedUserId")]
         public string? AssignedUserId { get; set; }
+
+        public SubTask()
+        {
+            Id = ObjectId.GenerateNewId().ToString();
+            Title = string.Empty;
+            Completed = false;
+            CompletedDate = null;
+            AssignedUserId = null;
+        }
     }
 
     public class TaskAttachment
@@ -90,7 +100,7 @@ namespace JobTrackingAPI.Models
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; } = null!;
+        public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
     
         [BsonElement("title")]
         [JsonPropertyName("title")]

@@ -7,7 +7,7 @@ namespace JobTrackingAPI.Services
 {
     public interface ITeamService
     {
-        Task<Team> CreateTeam(Models.Requests.CreateTeamRequest request, string userId);
+        Task<Team> CreateTeam(CreateTeamRequest request, string userId);
         Task<Team> GetTeamById(string teamId);
         Task<IEnumerable<Team>> GetAllTeams();
         Task<Team> UpdateTeam(string teamId, Team updatedTeam);
@@ -40,7 +40,7 @@ namespace JobTrackingAPI.Services
         Task<List<TeamMember>> GetTeamMembers(string teamId, bool enrich = true);
         Task<TeamMember> UpdateMemberStatusAsync(string id, string status);
         Task<TeamMember> UpdateMemberAsync(string id, TeamMemberUpdateDto updateDto);
-        Task<Team> CreateAsync(Team team);
+        Task<Team> CreateAsync(Team team,string userId);
         Task<bool> UpdateAsync(string id, Team team);
         Task<bool> DeleteAsync(string id);
         Task<string> GenerateInviteLinkAsync(string teamId);
