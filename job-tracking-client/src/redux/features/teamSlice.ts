@@ -431,14 +431,30 @@ export const deleteTeam = createAsyncThunk<DeleteTeamResponse, string>(
     'Team/deleteTeam',
     async (teamId: string, { rejectWithValue, dispatch }) => {
         try {
+            console.log('TeamSlice: Takım silme isteği gönderiliyor:', teamId);
+            
             const response = await axiosInstance.delete(`/Team/${teamId}`);
+            console.log('TeamSlice: Takım silme başarılı yanıt:', response.data);
             
             // Invalidate teams cache after deletion
             dispatch(invalidateCache('teams'));
             
             return { teamId, message: response.data.message };
         } catch (error: any) {
-            return rejectWithValue(error.response?.data?.message || error.message);
+            // Detaylı hata loglaması
+            console.error('TeamSlice: Takım silme hatası:', {
+                teamId,
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                data: error.response?.data,
+                message: error.message
+            });
+            
+            // Gerçek hata mesajını döndür
+            const errorMessage = error.response?.data?.message || error.message;
+            console.error(`TeamSlice: Hata mesajı: ${errorMessage}`);
+            
+            return rejectWithValue(errorMessage);
         }
     }
 );

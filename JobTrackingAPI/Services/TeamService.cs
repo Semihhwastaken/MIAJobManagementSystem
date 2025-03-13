@@ -1376,12 +1376,18 @@ public class TeamService : ITeamService
 
             // Get user to check ownerTeams
             var user = await _userService.GetUserById(userId);
+            // i wanna show all teams that user is owner
+            foreach (var varteam in user.OwnerTeams)
+            {
+                Console.WriteLine(varteam);
+            }
             if (user == null || !user.OwnerTeams.Contains(teamId))
             {
                 return (false, "Bu takımı silme yetkiniz yok");
             }
 
             var team = await GetTeamById(teamId);
+            Console.WriteLine(team.CreatedAt);
             if (team == null)
             {
                 return (false, "Takım bulunamadı");

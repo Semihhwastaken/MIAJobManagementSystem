@@ -484,12 +484,14 @@ namespace JobTrackingAPI.Controllers
             try
             {
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                Console.WriteLine("User ID: " + userId);
                 if (string.IsNullOrEmpty(userId))
                 {
                     return Unauthorized(new { message = "Kullanıcı girişi yapılmamış" });
                 }
 
                 var team = await _teamService.GetTeamById(teamId);
+                Console.WriteLine("Team: " + team.CreatedById + " " + teamId);
                 if (team == null)
                 {
                     return NotFound(new { message = "Takım bulunamadı" });

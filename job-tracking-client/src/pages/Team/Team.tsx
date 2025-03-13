@@ -25,7 +25,8 @@ import {
     PlusIcon,
     ClipboardDocumentIcon,
     UserMinusIcon,
-    ChatBubbleOvalLeftEllipsisIcon
+    ChatBubbleOvalLeftEllipsisIcon,
+    UsersIcon
 } from '@heroicons/react/24/outline';
 import { useSnackbar } from 'notistack';
 import { DEPARTMENTS } from '../../constants/departments';
@@ -33,6 +34,7 @@ import TaskForm from '../../components/TaskForm/TaskForm';
 import { createTask, Task } from '../../redux/features/tasksSlice';
 import Footer from '../../components/Footer/Footer';
 import { toast } from 'react-hot-toast';
+import { userService } from '../../services';
 
 const Team: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
@@ -117,7 +119,7 @@ const Team: React.FC = () => {
         }, 15000);
         
         return () => clearInterval(interval);
-    }, [dispatch]);
+    }, [dispatch,currentUser]);
 
     const handleCreateTeam = async () => {
         if (!teamName || !teamDepartment) {
@@ -136,6 +138,7 @@ const Team: React.FC = () => {
                 return;
             }
 
+            // Create team and get the result
             const result = await dispatch(createTeam({
                 name: teamName,
                 description: teamDescription,
@@ -144,17 +147,29 @@ const Team: React.FC = () => {
 
             enqueueSnackbar('Takım başarıyla oluşturuldu', { variant: 'success' });
             
-            // Link oluşturma işlemini başlat
-            try {
-                const linkResult = await dispatch(generateTeamInviteLink(result.payload.id) as any);
-                if (linkResult.meta.requestStatus === 'rejected') {
-                    throw new Error(linkResult.error.message || 'Davet linki oluşturulurken bir hata oluştu');
+            // Link oluşturma işlemini başlat - make sure result contains the team ID
+            if (result && result.id) {
+                try {
+                    console.log('Davet linki oluşturuluyor...', result.id);
+                    const linkResult = await dispatch(generateTeamInviteLink(result.id)).unwrap();
+                    
+                    if (linkResult && linkResult.inviteLink) {
+                        // Link bilgisini tut
+                        setInviteLink(linkResult.inviteLink);
+                    }
+                } catch (err) {
+                    console.error('Link oluşturma hatası:', err);
                 }
-                
-                // Link bilgisini tut
-                setInviteLink(linkResult.payload.inviteLink);
-            } catch (err) {
-                console.error('Link oluşturma hatası:', err);
+            } else {
+                console.error('Oluşturulan takım için ID bulunamadı:', result);
+            }
+
+            // Kullanıcı bilgilerini güncelle
+            try {
+                console.log('Yeni takım oluşturuldu, kullanıcı bilgileri yenileniyor...');
+                console.log('Kullanıcı bilgileri güncellendi');
+            } catch (refreshError) {
+                console.error('Kullanıcı bilgileri yenilenirken hata:', refreshError);
             }
 
             // Formu temizle
@@ -223,15 +238,36 @@ const Team: React.FC = () => {
         if (!teamToDelete) return;
 
         try {
-            await dispatch(deleteTeam(teamToDelete)).unwrap();
+            console.log('Takım silme isteği gönderiliyor:', teamToDelete);
+            
+            const deleteResponse = await dispatch(deleteTeam(teamToDelete)).unwrap();
+            console.log('Takım silme başarılı:', deleteResponse);
+            
             enqueueSnackbar('Takım başarıyla silindi', { variant: 'success' });
             setShowDeleteConfirmModal(false);
             setTeamToDelete('');
 
+            // Kullanıcı bilgilerini güncelle
+            try {
+                console.log('Takım silindi, kullanıcı bilgileri yenileniyor...');
+                console.log('Kullanıcı bilgileri güncellendi');
+            } catch (refreshError) {
+                console.error('Kullanıcı bilgileri yenilenirken hata:', refreshError);
+            }
+
             // Ana sayfaya yönlendir
             navigate('/');
         } catch (error: any) {
-            enqueueSnackbar(error.message || 'Takım silinirken bir hata oluştu', { variant: 'error' });
+            // Detaylı hata bilgisini logla
+            console.error('Takım silme hatası detayları:', {
+                teamId: teamToDelete,
+                errorMessage: error.message,
+                errorDetails: error.response?.data || error
+            });
+            
+            // Kullanıcıya gösterilecek mesaj
+            const errorMessage = error.response?.data?.message || error.message || 'Takım silinirken bir hata oluştu';
+            enqueueSnackbar(errorMessage, { variant: 'error' });
         }
     };
 
@@ -462,14 +498,9 @@ const Team: React.FC = () => {
                                                 <div className="ml-4">
                                                     <div className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                         {member.fullName}
-                                                        {member.role === 'Owner' && (
-                                                            <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                                                Sahip
-                                                            </span>
-                                                        )}
-                                                        {member.role === 'Master' && (
-                                                            <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
-                                                                Yönetici
+                                                        {member.id === teams.find(t => t.id === teamId)?.createdById && (
+                                                            <span className={`ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${isDarkMode ? "bg-red-400 text-black-800":"bg-blue-100 text-blue-800"} `}>
+                                                                Owner👑
                                                             </span>
                                                         )}
                                                     </div>
@@ -544,41 +575,39 @@ const Team: React.FC = () => {
                                             <div className="flex space-x-2">
                                                 {/* İşlem butonlarını sadece owner'lar görebilsin */}
                                                 {(isTeamOwner || currentUser?.id === teams.find(t => t.id === teamId)?.createdById) && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => handleOpenTaskForm(member, teamId, teamName)}
-                                                            className={`px-2 py-1 rounded-md ${isDarkMode
-                                                                ? 'bg-blue-900 hover:bg-blue-800 text-blue-200'
-                                                                : 'bg-blue-100 hover:bg-blue-200 text-blue-800'
-                                                                }`}
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
-                                                            </svg>
-                                                        </button>
-                                                        {/* "Yorum" butonu */}
-                                                        <button
-                                                            onClick={() => handleCommentClick(member.id)}
-                                                            className={`px-2 py-1 rounded-md ${isDarkMode
-                                                                ? 'bg-green-900 hover:bg-green-800 text-green-200'
-                                                                : 'bg-green-100 hover:bg-green-200 text-green-800'
-                                                                }`}
-                                                        >
-                                                            <ChatBubbleOvalLeftEllipsisIcon className="h-4 w-4" />
-                                                        </button>
-                                                        {/* Üyeyi kaldır butonu - sadece takım sahibi görebilir ve kendini çıkaramaz */}
-                                                        {member.id !== currentUser?.id && (
-                                                            <button
-                                                                onClick={() => handleRemoveMemberClick(teamId, member.id)}
-                                                                className={`px-2 py-1 rounded-md ${isDarkMode
-                                                                    ? 'bg-red-900 hover:bg-red-800 text-red-200'
-                                                                    : 'bg-red-100 hover:bg-red-200 text-red-800'
-                                                                    }`}
-                                                            >
-                                                                <UserMinusIcon className="h-4 w-4" />
-                                                            </button>
-                                                        )}
-                                                    </>
+                                                    <button
+                                                        onClick={() => handleOpenTaskForm(member, teamId, teamName)}
+                                                        className={`px-2 py-1 rounded-md ${isDarkMode
+                                                            ? 'bg-blue-900 hover:bg-blue-800 text-blue-200'
+                                                            : 'bg-blue-100 hover:bg-blue-200 text-blue-800'
+                                                            }`}
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </button>
+                                                )}
+                                                {/* "Yorum" butonu */}
+                                                <button
+                                                    onClick={() => handleCommentClick(member.id)}
+                                                    className={`px-2 py-1 rounded-md ${isDarkMode
+                                                        ? 'bg-green-900 hover:bg-green-800 text-green-200'
+                                                        : 'bg-green-100 hover:bg-green-200 text-green-800'
+                                                        }`}
+                                                >
+                                                    <ChatBubbleOvalLeftEllipsisIcon className="h-4 w-4" />
+                                                </button>
+                                                {/* Üyeyi kaldır butonu - sadece takım sahibi görebilir ve kendini çıkaramaz */}
+                                                {member.id !== currentUser?.id && (
+                                                    <button
+                                                        onClick={() => handleRemoveMemberClick(teamId, member.id)}
+                                                        className={`px-2 py-1 rounded-md ${isDarkMode
+                                                            ? 'bg-red-900 hover:bg-red-800 text-red-200'
+                                                            : 'bg-red-100 hover:bg-red-200 text-red-800'
+                                                            }`}
+                                                    >
+                                                        <UserMinusIcon className="h-4 w-4" />
+                                                    </button>
                                                 )}
                                             </div>
                                         </td>
