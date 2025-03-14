@@ -63,7 +63,7 @@ export const fetchTasks = createAsyncThunk(
         const state = getState() as { tasks: TaskState };
         const now = Date.now();
 
-        // Cache kontrolü
+        // Cache kontrolü - cache force-refresh için lastFetch null/undefined ise her zaman fetch yap
         if (state.tasks.lastFetch && (now - state.tasks.lastFetch < ACTIVE_TASKS_CACHE_DURATION)) {
             return state.tasks.items;
         }
@@ -169,6 +169,10 @@ export const createTask = createAsyncThunk(
             
             // Send the prepared taskToSend object to the API using axiosInstance
             const response = await axiosInstance.post('/Tasks', taskToSend);
+            
+            // Görev eklendikten sonra hemen member tasks'i güncelle (ekipte görünmesi için)
+            dispatch(fetchMemberActiveTasks());
+            
             return response.data;
         } catch (error: any) {
             // Enhanced error logging to better understand validation issues
@@ -250,12 +254,32 @@ export const updateTask = createAsyncThunk(
 
 export const deleteTask = createAsyncThunk(
     'tasks/deleteTask',
-    async (taskId: string, { dispatch, rejectWithValue }) => {
+    async (taskId: string, { dispatch, rejectWithValue, getState }) => {
         try {
+            // Silmeden önce state'deki görev için yerel bir kopyayı sakla
+            const state = getState() as { tasks: TaskState };
+            const taskToDelete = state.tasks.items.find(task => task.id === taskId);
+
+            if (!taskToDelete) {
+                throw new Error('Silinecek görev bulunamadı');
+            }
+
+            // API'ye silme isteği gönder
             await axiosInstance.delete(`/Tasks/${taskId}`);
+            
+            // Görev silindikten sonra diğer verilerle ilgili state'leri güncelle
             dispatch(fetchMemberActiveTasks());
+            
+            // Tüm ekip üyeleri ve atanmış kullanıcılar için görev bilgilerini güncellemek önemli
+            if (taskToDelete.teamId) {
+                // Takım bilgilerini güncelle (görev sahibi takım bilgilerinde gözükmemeli)
+                // İlgili diğer dispatch'ler buraya eklenebilir
+            }
+            
+            // Silinen görev ID'sini döndür
             return taskId;
         } catch (error: any) {
+            console.error('Görev silme hatası:', error);
             return rejectWithValue(error.response?.data?.message || 'Failed to delete task');
         }
     }
@@ -278,6 +302,7 @@ export const updateTaskStatus = createAsyncThunk(
         }
     }
 );
+
 export const fileUpload = createAsyncThunk(
     'tasks/fileUpload',
     async ({ taskId, file }: { taskId: string; file: File }, { dispatch, rejectWithValue }) => {
@@ -347,260 +372,326 @@ export const fileUpload = createAsyncThunk(
     }
 );
   
-
-  export const downloadFile = createAsyncThunk(
-    'tasks/downloadFile',
-    async (
-      { taskId, attachmentId, fileName }: { taskId: string; attachmentId: string; fileName: string },
-      { rejectWithValue }
-    ) => {
-      try {
-        // 1. Şifrelenmiş dosyayı blob olarak indiriyoruz.
-        const response = await axiosInstance.get(
-          `/Tasks/download/${attachmentId}/${fileName}`,
-          { responseType: 'blob' }
-        );
-        
-        // Remove debug console logs
-        // 2. Blob'u ArrayBuffer'a dönüştürüyoruz.
-        const blobArrayBuffer = await response.data.arrayBuffer();
-        
-        // Kontrol: Dosya boyutunun IV (12 byte) ve şifreli veriyi kapsadığından emin olun.
-        if (blobArrayBuffer.byteLength <= 12) {
-          throw new Error('İndirilen dosya boyutu beklenenden küçük.');
-        }
-  
-        // 3. İlk 12 byte'ı IV olarak alıyoruz.
-        const iv = new Uint8Array(blobArrayBuffer.slice(0, 12));
-        
-        // 4. Geri kalan kısmı şifreli içerik olarak alıyoruz.
-        const encryptedContent = blobArrayBuffer.slice(12);
-        
-        // 5. Daha önce upload sırasında localStorage'a kaydedilen JWK formatındaki anahtarı alıyoruz.
-        const storedKey = localStorage.getItem(`encryptionKey_${taskId}`);
-        if (!storedKey) {
-          throw new Error('Bu task için şifreleme anahtarı bulunamadı.');
-        }
-        const jwkKey = JSON.parse(storedKey);
-        
-        // 6. AES-GCM için anahtarı import ediyoruz.
-        const key = await window.crypto.subtle.importKey(
-          "jwk",
-          jwkKey,
-          { name: "AES-GCM" },
-          true,
-          ["decrypt"]
-        );
-  
-        // 7. Şifrelenmiş veriyi deşifre ediyoruz.
-        const decryptedBuffer = await window.crypto.subtle.decrypt(
-          { name: "AES-GCM", iv },
-          key,
-          encryptedContent
-        );
-        
-        // 8. Deşifre edilmiş veriden yeni bir Blob oluşturup indirme linki oluşturuyoruz.
-        const decryptedBlob = new Blob([new Uint8Array(decryptedBuffer)], { type: response.data.type });
-        const url = window.URL.createObjectURL(decryptedBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', fileName.replace(/\.enc$/, ''));
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-        
-        return { success: true };
-      } catch (error: any) {
-        console.error('Download error detail:', error);
-        return rejectWithValue(error.response?.data?.message || 'Dosya indirilirken bir hata oluştu');
-      }
+export const downloadFile = createAsyncThunk(
+'tasks/downloadFile',
+async (
+  { taskId, attachmentId, fileName }: { taskId: string; attachmentId: string; fileName: string },
+  { rejectWithValue }
+) => {
+  try {
+    // 1. Şifrelenmiş dosyayı blob olarak indiriyoruz.
+    const response = await axiosInstance.get(
+      `/Tasks/download/${attachmentId}/${fileName}`,
+      { responseType: 'blob' }
+    );
+    
+    // 2. Blob'u ArrayBuffer'a dönüştürüyoruz.
+    const blobArrayBuffer = await response.data.arrayBuffer();
+    
+    // Kontrol: Dosya boyutunun IV (12 byte) ve şifreli veriyi kapsadığından emin olun.
+    if (blobArrayBuffer.byteLength <= 12) {
+      throw new Error('İndirilen dosya boyutu beklenenden küçük.');
     }
-  );
+
+    // 3. İlk 12 byte'ı IV olarak alıyoruz.
+    const iv = new Uint8Array(blobArrayBuffer.slice(0, 12));
+    
+    // 4. Geri kalan kısmı şifreli içerik olarak alıyoruz.
+    const encryptedContent = blobArrayBuffer.slice(12);
+    
+    // 5. Daha önce upload sırasında localStorage'a kaydedilen JWK formatındaki anahtarı alıyoruz.
+    const storedKey = localStorage.getItem(`encryptionKey_${taskId}`);
+    if (!storedKey) {
+      throw new Error('Bu task için şifreleme anahtarı bulunamadı.');
+    }
+    const jwkKey = JSON.parse(storedKey);
+    
+    // 6. AES-GCM için anahtarı import ediyoruz.
+    const key = await window.crypto.subtle.importKey(
+      "jwk",
+      jwkKey,
+      { name: "AES-GCM" },
+      true,
+      ["decrypt"]
+    );
+
+    // 7. Şifrelenmiş veriyi deşifre ediyoruz.
+    const decryptedBuffer = await window.crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      key,
+      encryptedContent
+    );
+    
+    // 8. Deşifre edilmiş veriden yeni bir Blob oluşturup indirme linki oluşturuyoruz.
+    const decryptedBlob = new Blob([new Uint8Array(decryptedBuffer)], { type: response.data.type });
+    const url = window.URL.createObjectURL(decryptedBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName.replace(/\.enc$/, ''));
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Download error detail:', error);
+    return rejectWithValue(error.response?.data?.message || 'Dosya indirilirken bir hata oluştu');
+  }
+}
+);
   
 export const completeTask = createAsyncThunk(
-    'tasks/completeTask',
-    async (taskId: string, { dispatch, rejectWithValue }) => {
-        try {
-            const response = await axiosInstance.post(`/Tasks/${taskId}/complete`);
-            if (response.status === 200) {
-                // Fetch member active tasks to update the performance scores
-                dispatch(fetchMemberActiveTasks());
-                return { taskId, status: 'completed' as const };
-            } else {
-                return rejectWithValue(response.data?.message || 'Görev tamamlanırken bir hata oluştu');
-            }
-        } catch (error: any) {
-            if (error.response?.status === 400) {
-                return rejectWithValue(error.response.data?.message || 'Tüm alt görevler tamamlanmadan görev tamamlanamaz');
-            }
-            return rejectWithValue(error.response?.data?.message || 'Görev tamamlanırken bir hata oluştu');
+'tasks/completeTask',
+async (taskId: string, { dispatch, rejectWithValue }) => {
+    try {
+        const response = await axiosInstance.post(`/Tasks/${taskId}/complete`);
+        if (response.status === 200) {
+            // Fetch member active tasks to update the performance scores
+            dispatch(fetchMemberActiveTasks());
+            return { taskId, status: 'completed' as const };
+        } else {
+            return rejectWithValue(response.data?.message || 'Görev tamamlanırken bir hata oluştu');
         }
+    } catch (error: any) {
+        if (error.response?.status === 400) {
+            return rejectWithValue(error.response.data?.message || 'Tüm alt görevler tamamlanmadan görev tamamlanamaz');
+        }
+        return rejectWithValue(error.response?.data?.message || 'Görev tamamlanırken bir hata oluştu');
     }
+}
 );
 
 const taskSlice = createSlice({
-    name: 'tasks',
-    initialState,
-    reducers: {
-        clearTaskCache: (state) => {
-            state.lastFetch = null;
-            state.cachedTasks = {};
-        },
-        clearHistoryCache: (state) => {
-            state.lastHistoryFetch = null;
-            state.taskHistory = [];
-        },
-        clearTasksCache: (state) => {
-            state.lastFetch = null;
-            state.cachedTasks = {};
-        },
-        invalidateUserTasksCache: (state, action) => {
-            const userId = action.payload;
-            state.lastUserTasksFetch[userId] = 0;
-        }
+name: 'tasks',
+initialState,
+reducers: {
+    clearTaskCache: (state) => {
+        state.lastFetch = null;
+        state.cachedTasks = {};
     },
-    extraReducers: (builder) => {
-        builder
-            // Global reset state action
-            .addCase(RESET_STATE, () => {
-                return initialState;
-            })
-            .addCase(fetchTasks.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(fetchTasks.fulfilled, (state, action) => {
-                state.loading = false;
-                state.items = action.payload;
-                state.lastFetch = Date.now();
-                
-                // Tekil görevleri cache'le
-                action.payload.forEach((task: Task) => {
-                    if (task.id) {
-                        state.cachedTasks[task.id] = task;
-                    }
-                });
-            })
-            .addCase(fetchTasks.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.payload as string;
-            })
-            .addCase(fetchTaskHistory.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(fetchTaskHistory.fulfilled, (state, action) => {
-                state.loading = false;
-                state.taskHistory = action.payload;
-                state.lastHistoryFetch = Date.now();
-                state.error = null;
-            })
-            .addCase(fetchTaskHistory.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.payload as string;
-            })
-            .addCase(createTask.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(createTask.fulfilled, (state, action) => {
-                state.loading = false;
+    clearHistoryCache: (state) => {
+        state.lastHistoryFetch = null;
+        state.taskHistory = [];
+    },
+    clearTasksCache: (state) => {
+        state.lastFetch = null;
+        state.cachedTasks = {};
+        console.log('Tasks cache cleared');
+    },
+    invalidateUserTasksCache: (state, action) => {
+        const userId = action.payload;
+        state.lastUserTasksFetch[userId] = 0;
+    },
+    // Yerel olarak bir görevi silmek için reducer (UI anında güncelleme amaçlı)
+    removeTaskLocally: (state, action) => {
+        const taskId = action.payload;
+        state.items = state.items.filter(task => task.id !== taskId);
+        if (taskId in state.cachedTasks) {
+            delete state.cachedTasks[taskId];
+        }
+    }
+},
+extraReducers: (builder) => {
+    builder
+        // Global reset state action
+        .addCase(RESET_STATE, () => {
+            return initialState;
+        })
+        .addCase(fetchTasks.pending, (state) => {
+            state.loading = true;
+            state.error = null;
+        })
+        .addCase(fetchTasks.fulfilled, (state, action) => {
+            state.loading = false;
+            state.items = action.payload;
+            state.lastFetch = Date.now();
+            
+            // Tekil görevleri cache'le
+            state.cachedTasks = {};  // Önce cache'i temizle
+            action.payload.forEach((task: Task) => {
+                if (task.id) {
+                    state.cachedTasks[task.id] = task;
+                }
+            });
+        })
+        .addCase(fetchTasks.rejected, (state, action) => {
+            state.loading = false;
+            state.error = action.payload as string;
+        })
+        .addCase(fetchTaskHistory.pending, (state) => {
+            state.loading = true;
+            state.error = null;
+        })
+        .addCase(fetchTaskHistory.fulfilled, (state, action) => {
+            state.loading = false;
+            state.taskHistory = action.payload;
+            state.lastHistoryFetch = Date.now();
+            state.error = null;
+        })
+        .addCase(fetchTaskHistory.rejected, (state, action) => {
+            state.loading = false;
+            state.error = action.payload as string;
+        })
+        .addCase(createTask.pending, (state) => {
+            state.loading = true;
+            state.error = null;
+        })
+        .addCase(createTask.fulfilled, (state, action) => {
+            state.loading = false;
+            
+            // Yeni görevi items'a ekle
+            if (action.payload) {
                 state.items.push(action.payload);
+                
+                // Cache'i güncelle
                 if (action.payload.id) {
                     state.cachedTasks[action.payload.id] = action.payload;
                 }
-            })
-            .addCase(createTask.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.payload as string;
-            })
-            .addCase(updateTask.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(fileUpload.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(fileUpload.fulfilled, (state, action) => {
-                state.loading = false;
-                const taskIndex = state.items.findIndex(task => task.id === action.payload.taskId);
-                if (taskIndex !== -1) {
-                    state.items[taskIndex].attachments.push(action.payload.attachment);
+            }
+            
+            // Cache'in bir sonraki fetchTasks çağrısında yenilenmesi için lastFetch'i sıfırla
+            state.lastFetch = null;
+        })
+        .addCase(createTask.rejected, (state, action) => {
+            state.loading = false;
+            state.error = action.payload as string;
+        })
+        .addCase(updateTask.pending, (state) => {
+            state.loading = true;
+            state.error = null;
+        })
+        .addCase(fileUpload.pending, (state) => {
+            state.loading = true;
+            state.error = null;
+        })
+        .addCase(fileUpload.fulfilled, (state, action) => {
+            state.loading = false;
+            
+            // Dosya yükleme sonrası ilgili task'ı güncelle
+            const taskIndex = state.items.findIndex(task => task.id === action.payload.taskId);
+            if (taskIndex !== -1) {
+                // Attachment'ı güncelle
+                state.items[taskIndex].attachments = [
+                    ...state.items[taskIndex].attachments || [],
+                    action.payload.attachment
+                ];
+                
+                // Cache'i de güncelle
+                if (state.items[taskIndex].id) {
+                    state.cachedTasks[state.items[taskIndex].id!] = state.items[taskIndex];
                 }
-            })
-            .addCase(fileUpload.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.payload as string;
-            })
-            .addCase(updateTask.fulfilled, (state, action) => {
-                state.loading = false;
-                const index = state.items.findIndex(task => task.id === action.payload.id);
-                if (index !== -1) {
-                    state.items[index] = action.payload;
-                    if (action.payload.id) {
-                        state.cachedTasks[action.payload.id] = action.payload;
-                    }
+            }
+            
+            // Cache'in bir sonraki fetchTasks çağrısında yenilenmesi için lastFetch'i sıfırla
+            state.lastFetch = null;
+        })
+        .addCase(fileUpload.rejected, (state, action) => {
+            state.loading = false;
+            state.error = action.payload as string;
+        })
+        .addCase(updateTask.fulfilled, (state, action) => {
+            state.loading = false;
+            
+            // Güncellenen task'ı state'de bul ve güncelle
+            const index = state.items.findIndex(task => task.id === action.payload.id);
+            if (index !== -1) {
+                state.items[index] = action.payload;
+                
+                // Cache'i güncelle
+                if (action.payload.id) {
+                    state.cachedTasks[action.payload.id] = action.payload;
                 }
-            })
-            .addCase(updateTask.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.payload as string;
-            })
-            .addCase(deleteTask.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(deleteTask.fulfilled, (state, action) => {
-                state.loading = false;
-                state.items = state.items.filter(task => task.id !== action.payload);
-                if (action.payload) {
-                    delete state.cachedTasks[action.payload];
+            }
+            
+            // Cache'in bir sonraki fetchTasks çağrısında yenilenmesi için lastFetch'i sıfırla
+            state.lastFetch = null;
+        })
+        .addCase(updateTask.rejected, (state, action) => {
+            state.loading = false;
+            state.error = action.payload as string;
+        })
+        .addCase(deleteTask.pending, (state) => {
+            state.loading = true;
+            state.error = null;
+        })
+        .addCase(deleteTask.fulfilled, (state, action) => {
+            state.loading = false;
+            
+            // Silinen görevi items listesinden çıkar
+            const taskId = action.payload;
+            state.items = state.items.filter(task => task.id !== taskId);
+            
+            // Önbellekten de temizle
+            if (taskId) {
+                delete state.cachedTasks[taskId];
+            }
+            
+            // Cache'in bir sonraki fetchTasks çağrısında yenilenmesi için lastFetch'i sıfırla
+            state.lastFetch = null;
+        })
+        .addCase(deleteTask.rejected, (state, action) => {
+            state.loading = false;
+            state.error = action.payload as string;
+        })
+        .addCase(updateTaskStatus.pending, (state) => {
+            state.loading = true;
+            state.error = null;
+        })
+        .addCase(updateTaskStatus.fulfilled, (state, action) => {
+            state.loading = false;
+            
+            // Durumu güncellenen task'ı bul ve güncelle
+            const taskIndex = state.items.findIndex(t => t.id === action.payload.taskId);
+            if (taskIndex !== -1) {
+                state.items[taskIndex] = {
+                    ...state.items[taskIndex],
+                    status: action.payload.status
+                };
+                
+                // Cache'i güncelle
+                if (state.items[taskIndex].id) {
+                    state.cachedTasks[state.items[taskIndex].id!] = state.items[taskIndex];
                 }
-            })
-            .addCase(deleteTask.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.payload as string;
-            })
-            .addCase(updateTaskStatus.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(updateTaskStatus.fulfilled, (state, action) => {
-                state.loading = false;
-                const taskIndex = state.items.findIndex(t => t.id === action.payload.taskId);
-                if (taskIndex !== -1) {
-                    state.items[taskIndex] = {
-                        ...state.items[taskIndex],
-                        status: action.payload.status
-                    };
+            }
+            
+            // Cache'in bir sonraki fetchTasks çağrısında yenilenmesi için lastFetch'i sıfırla
+            state.lastFetch = null;
+        })
+        .addCase(updateTaskStatus.rejected, (state, action) => {
+            state.loading = false;
+            state.error = action.error.message || 'Failed to update task status';
+        })
+        .addCase(completeTask.pending, (state) => {
+            state.loading = true;
+            state.error = null;
+        })
+        .addCase(completeTask.fulfilled, (state, action) => {
+            state.loading = false;
+            
+            // Tamamlanan görevi güncelle
+            const taskIndex = state.items.findIndex(t => t.id === action.payload.taskId);
+            if (taskIndex !== -1) {
+                state.items[taskIndex] = {
+                    ...state.items[taskIndex],
+                    status: action.payload.status
+                };
+                
+                // Cache'i güncelle
+                if (state.items[taskIndex].id) {
+                    state.cachedTasks[state.items[taskIndex].id!] = state.items[taskIndex];
                 }
-            })
-            .addCase(updateTaskStatus.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.error.message || 'Failed to update task status';
-            })
-            .addCase(completeTask.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(completeTask.fulfilled, (state, action) => {
-                state.loading = false;
-                const taskIndex = state.items.findIndex(t => t.id === action.payload.taskId);
-                if (taskIndex !== -1) {
-                    state.items[taskIndex] = {
-                        ...state.items[taskIndex],
-                        status: action.payload.status
-                    };
-                }
-            })
-            .addCase(completeTask.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.payload as string;
-            });
-    }
+            }
+            
+            // Cache'in bir sonraki fetchTasks çağrısında yenilenmesi için lastFetch'i sıfırla
+            state.lastFetch = null;
+        })
+        .addCase(completeTask.rejected, (state, action) => {
+            state.loading = false;
+            state.error = action.payload as string;
+        });
+}
 });
 
-export const { clearTaskCache, clearHistoryCache, clearTasksCache, invalidateUserTasksCache } = taskSlice.actions;
+export const { clearTaskCache, clearHistoryCache, clearTasksCache, invalidateUserTasksCache, removeTaskLocally } = taskSlice.actions;
 export default taskSlice.reducer;

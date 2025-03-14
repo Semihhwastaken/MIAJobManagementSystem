@@ -4,7 +4,7 @@ import TaskForm from '../../components/TaskForm/TaskForm';
 import TaskHistory from '../../components/TaskHistory/TaskHistory';
 import { Task } from '../../types/task';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchTasks, createTask, updateTask, deleteTask } from '../../redux/features/tasksSlice';
+import { fetchTasks, createTask, updateTask, deleteTask, clearTasksCache } from '../../redux/features/tasksSlice';
 import { RootState, AppDispatch } from '../../redux/store';
 import Footer from '../../components/Footer/Footer';
 import { getTeamMembersByTeamId } from '../../redux/features/teamSlice';
@@ -15,6 +15,41 @@ interface GroupedTask extends Task {
 }
 import { useTheme } from '../../context/ThemeContext';
 
+// Silme onay modalı için yeni component
+const DeleteConfirmationModal: React.FC<{
+  isOpen: boolean;
+  taskTitle: string;
+  onClose: () => void;
+  onConfirm: () => void;
+}> = ({ isOpen, taskTitle, onClose, onConfirm }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 backdrop-blur-md bg-gray-800/30 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-lg shadow-xl w-96" onClick={e => e.stopPropagation()}>
+        <h2 className="text-xl font-semibold mb-4 text-gray-900">Görev Silme Onayı</h2>
+        <p className="text-gray-700 mb-6">
+          "<span className="font-semibold">{taskTitle}</span>" görevini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+        </p>
+        <div className="flex justify-end space-x-3 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200"
+          >
+            İptal
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 text-sm font-medium text-white rounded-md bg-red-600 hover:bg-red-700"
+          >
+            Sil
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Tasks: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { items: tasks, status, error } = useSelector((state: RootState) => state.tasks);
@@ -22,6 +57,10 @@ const Tasks: React.FC = () => {
   const [taskOwnerStatus, setTaskOwnerStatus] = useState<{[key: string]: boolean}>({});
   const [isValidationLoading, setIsValidationLoading] = useState(true);
   const { isDarkMode } = useTheme();
+
+  // Silme onay modalı için state'ler
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<{id: string, title: string} | null>(null);
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -248,7 +287,7 @@ const Tasks: React.FC = () => {
     }
   }, [dispatch, selectedTask]);
 
-  const handleDeleteTask = useCallback(async (taskId: string | undefined, e?: React.MouseEvent) => {
+  const handleDeleteTask = useCallback(async (taskId: string | undefined, taskTitle: string = "", e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -258,18 +297,50 @@ const Tasks: React.FC = () => {
       console.error('Geçersiz görev ID', taskId);
       return;
     }
+    
+    // Delete onay modalını aç
+    setTaskToDelete({ id: taskId, title: taskTitle });
+    setIsDeleteModalOpen(true);
+  }, []);
+
+  // Silme onayı sonrası asıl silme işlemini gerçekleştir
+  const confirmDeleteTask = useCallback(async () => {
+    if (!taskToDelete) return;
+    
     try {
-      await dispatch(deleteTask(taskId));
-      console.log('Görev başarıyla silindi');
+      // Önce UI'dan görevi kaldırmak için yerel bir kopya oluşturalım ve filtreleme yapalım
+      // Bu, silme API çağrısı tamamlanmadan bile UI'yı günceller
+      const taskId = taskToDelete.id;
+      
+      // Silme işlemini gerçekleştir
+      const resultAction = await dispatch(deleteTask(taskId));
+      
+      // Başarılı silme durumunda state güncellemesi
+      if (deleteTask.fulfilled.match(resultAction)) {
+        console.log('Görev başarıyla silindi');
+        
+        // Cache'i temizle ve verileri yeniden yükle
+        setTimeout(() => {
+          dispatch(clearTasksCache());
+          dispatch(fetchTasks());
+        }, 300);
+      } else {
+        console.error('Görev silme işlemi başarısız:', resultAction.error);
+      }
     } catch (error) {
-      console.error('Görev silinirken bir hata oluştu');
-      console.error('Görev silinirken hata oluştu:', error);
+      console.error('Görev silinirken bir hata oluştu:', error);
+    } finally {
+      // Modal'ı kapat
+      setIsDeleteModalOpen(false);
+      setTaskToDelete(null);
     }
-  }, [dispatch]);
+  }, [dispatch, taskToDelete]);
 
   const handleCreateTask = useCallback(async (newTask: Omit<Task, 'id'>) => {
     try {
       await dispatch(createTask(newTask));
+      // Yeni görev oluşturulduktan sonra yeniden yükle
+      dispatch(fetchTasks());
       setIsNewTaskModalOpen(false);
     } catch (error) {
       console.error('Görev oluşturulurken hata oluştu:', error);
@@ -329,7 +400,7 @@ const Tasks: React.FC = () => {
         </div>
       </div>
     );
-  }, []);
+  }, [isDarkMode]);
 
   if (status === 'loading' || isValidationLoading) {
     return (
@@ -365,6 +436,14 @@ const Tasks: React.FC = () => {
         <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>My Tasks</h1>
         <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Track and manage your tasks efficiently</p>
           </div>
+          {/* Yeni görev ekleme butonu */}
+          <button
+            onClick={() => setIsNewTaskModalOpen(true)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            <i className="fas fa-plus mr-2"></i>
+            Add Task
+          </button>
         </div>
 
         {/* Task Management Tools */}
@@ -525,7 +604,7 @@ const Tasks: React.FC = () => {
                               <i className="fas fa-edit"></i>
                             </button>
                             <button
-                              onClick={(e) => handleDeleteTask(task.id, e)}
+                              onClick={(e) => handleDeleteTask(task.id!, task.title, e)}
                               className="text-red-600 hover:text-red-900"
                               title="Görevi Sil"
                             >
@@ -607,7 +686,7 @@ const Tasks: React.FC = () => {
                                 <i className="fas fa-edit"></i>
                               </button>
                               <button
-                                onClick={(e) => handleDeleteTask(linkedTask.id, e)}
+                                onClick={(e) => handleDeleteTask(linkedTask.id, linkedTask.title, e)}
                                 className="text-red-600 hover:text-red-900"
                               >
                                 <i className="fas fa-trash"></i>
@@ -730,6 +809,17 @@ const Tasks: React.FC = () => {
           onClose={() => setIsHistoryModalOpen(false)}
         />
       )}
+
+      {/* Silme onay modalını ekle */}
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        taskTitle={taskToDelete?.title || ""}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setTaskToDelete(null);
+        }}
+        onConfirm={confirmDeleteTask}
+      />
 
       <Footer />
     </div>
