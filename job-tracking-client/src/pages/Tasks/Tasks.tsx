@@ -22,19 +22,33 @@ const DeleteConfirmationModal: React.FC<{
   onClose: () => void;
   onConfirm: () => void;
 }> = ({ isOpen, taskTitle, onClose, onConfirm }) => {
+  const { isDarkMode } = useTheme();
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 backdrop-blur-md bg-gray-800/30 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl w-96" onClick={e => e.stopPropagation()}>
-        <h2 className="text-xl font-semibold mb-4 text-gray-900">Görev Silme Onayı</h2>
-        <p className="text-gray-700 mb-6">
+      <div
+        className={`${
+          isDarkMode ? 'bg-gray-800' : 'bg-white'
+        } p-6 rounded-lg shadow-xl w-96`}
+        onClick={e => e.stopPropagation()}
+      >
+        <h2 className={`text-xl font-semibold mb-4 ${
+          isDarkMode ? 'text-white' : 'text-gray-900'
+        }`}>Görev Silme Onayı</h2>
+        <p className={`${
+          isDarkMode ? 'text-gray-300' : 'text-gray-700'
+        } mb-6`}>
           "<span className="font-semibold">{taskTitle}</span>" görevini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
         </p>
         <div className="flex justify-end space-x-3 mt-6">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200"
+            className={`px-4 py-2 text-sm font-medium rounded-md ${
+              isDarkMode
+                ? 'bg-gray-700 text-gray-200 hover:bg-gray-600'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
           >
             İptal
           </button>

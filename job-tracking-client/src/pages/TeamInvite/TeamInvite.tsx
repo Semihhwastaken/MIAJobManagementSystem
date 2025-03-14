@@ -68,7 +68,7 @@ const TeamInvite: React.FC = () => {
                 setError(true);
                 navigateWithCountdown('/team', message, 'error');
             } else {
-                navigateWithCountdown('/team', (error as { message: string }).message || 'Ekibe katılırken bir hata oluştu', 'error');
+                navigateWithCountdown('/team', (error as { message: string }).message || 'Ekibe katılırken r hata oluştu', 'error');
             }
         } finally {
             setIsJoining(false);

@@ -869,7 +869,7 @@ const Team: React.FC = () => {
                                 {copySuccess ? 'Kopyalandı!' : 'Kopyala'}
                             </button>
                         </div>
-                        <div className="mt-4 bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
+                        <div className={`mt-4 ${isDarkMode ? "bg-gray-100 dark:bg-gray-700":"bg-white-300 dark:bg-white-700"} p-3 rounded-lg`}>
                             <h3 className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                 Bilgi:
                             </h3>
