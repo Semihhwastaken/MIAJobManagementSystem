@@ -788,6 +788,12 @@ const Dashboard = () => {
   // Update the handleDownloadReport function
   const handleDownloadReport = async () => {
     try {
+      // Basic plan kontrolü
+      if (currentUser?.subscriptionPlan?.toLowerCase() === 'basic') {
+        toast.warning('Bu özellik sadece Pro plan kullanıcıları için mevcuttur.');
+        return;
+      }
+
       setIsGeneratingReport(true);
       toast.info("Rapor hazırlanıyor, lütfen bekleyin...");
       
@@ -869,6 +875,51 @@ const Dashboard = () => {
       toast.error("Rapor oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.");
     } finally {
       setIsGeneratingReport(false);
+    }
+  };
+
+  // AI analizi için buton render kısmı
+  const renderAIAnalysisButton = () => {
+    const isBasicPlan = currentUser?.subscriptionPlan?.toLowerCase() === 'basic';
+  
+    return (
+      <label className={`inline-flex items-center cursor-${isBasicPlan ? 'not-allowed' : 'pointer'}`}>
+        <input
+          type="checkbox"
+          checked={includeAIAnalysis}
+          onChange={() => {
+            if (isBasicPlan) {
+              toast.warning('AI analizi özelliği sadece Pro plan kullanıcıları için mevcuttur.');
+              return;
+            }
+            setIncludeAIAnalysis(!includeAIAnalysis);
+          }}
+          disabled={isBasicPlan}
+          className={`form-checkbox h-5 w-5 ${isBasicPlan ? 'opacity-50' : ''}`}
+        />
+        <span className={`ml-2 ${isBasicPlan ? 'opacity-50' : ''}`}>
+          AI Analizi Ekle
+        </span>
+      </label>
+    );
+  };
+
+  const handleTeamJoin = async (teamId: string, userId: string) => {
+    try {
+      const response = await teamService.joinTeam(teamId, userId);
+      if (response.ok) {
+        toast.success('Takıma başarıyla katıldınız!');
+        fetchTeams();
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Takıma katılırken bir hata oluştu');
+      }
+    } catch (error: any) {
+      if (error.message.includes('Basic plan')) {
+        toast.error(error.message);
+      } else {
+        toast.error('Takıma katılırken bir hata oluştu');
+      }
     }
   };
 

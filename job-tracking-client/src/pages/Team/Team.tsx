@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AppDispatch, RootState } from '../../redux/store';
 import UserTaskCommentModal from '../../components/Comments/UserTaskCommentModal';
 import { IoIosAddCircleOutline } from "react-icons/io";
@@ -26,7 +26,6 @@ import {
     ClipboardDocumentIcon,
     UserMinusIcon,
     ChatBubbleOvalLeftEllipsisIcon,
-    UsersIcon
 } from '@heroicons/react/24/outline';
 import { useSnackbar } from 'notistack';
 import { DEPARTMENTS } from '../../constants/departments';
@@ -34,7 +33,6 @@ import TaskForm from '../../components/TaskForm/TaskForm';
 import { createTask, Task } from '../../redux/features/tasksSlice';
 import Footer from '../../components/Footer/Footer';
 import { toast } from 'react-hot-toast';
-import { userService } from '../../services';
 
 const Team: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
@@ -185,8 +183,8 @@ const Team: React.FC = () => {
             
         } catch (error) {
             console.error('Ekip oluşturma hatası:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Ekip oluşturulurken bir hata meydana geldi';
-            enqueueSnackbar(errorMessage, { variant: 'error' });
+            const errorMsg = `Basic plan users can only create 5 teams. You have ${teams.length} teams. Upgrade your plan to create more teams.`;
+            enqueueSnackbar(errorMsg, { variant: 'error' });
             setCreatingTeam(false);
         }
     };
@@ -391,6 +389,26 @@ const Team: React.FC = () => {
             setJoiningTeam(false);
         }
     };
+
+    const handleJoinTeam = async () => {
+        try {
+          const response = await teamService.joinTeam(team.id, currentUser?.id || '');
+          if (!response.ok) {
+            const errorData = await response.json();
+            toast.error(errorData.message || 'Takıma katılırken bir hata oluştu');
+            return;
+          }
+          
+          await fetchTeam();
+          toast.success('Takıma başarıyla katıldınız!');
+        } catch (error: any) {
+          if (error.message.includes('Basic plan')) {
+            toast.error(error.message);
+          } else {
+            toast.error('Takıma katılırken bir hata oluştu');
+          }
+        }
+      };
 
     const renderTeamMembers = (teamMembers: TeamMember[], teamName: string, teamId: string) => {
         const filteredAndSortedMembers = teamMembers
