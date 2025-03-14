@@ -52,7 +52,7 @@ const DeleteConfirmationModal: React.FC<{
 
 const Tasks: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { items: tasks, status, error } = useSelector((state: RootState) => state.tasks);
+  const { items: tasks, loading, error } = useSelector((state: RootState) => state.tasks);
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const [taskOwnerStatus, setTaskOwnerStatus] = useState<{[key: string]: boolean}>({});
   const [isValidationLoading, setIsValidationLoading] = useState(true);
@@ -153,12 +153,13 @@ const Tasks: React.FC = () => {
 
   // Initial tasks fetch
   useEffect(() => {
-    if (!tasks.length) {
-      dispatch(fetchTasks()).catch((error) => {
-        console.error('Error fetching tasks:', error);
-      });
-    }
-  }, [dispatch, tasks.length]);
+    // Önce cache'i temizleyelim, böylece her zaman en güncel verileri alırız
+    dispatch(clearTasksCache());
+    // Her zaman en güncel görevleri getir
+    dispatch(fetchTasks()).catch((error) => {
+      console.error('Error fetching tasks:', error);
+    });
+  }, [dispatch]); // tasks.length'i kaldırdık, böylece sadece component mount olduğunda çalışacak
 
   // Check owner status when tasks or user changes
   useEffect(() => {
@@ -270,9 +271,15 @@ const Tasks: React.FC = () => {
   const handleUpdateTask = useCallback(async (updatedTaskData: Omit<Task, 'id'>) => {
     if (selectedTask?.id) {
       try {
+        const assignedUserIds = (updatedTaskData.assignedUsers || [])
+          .map(user => user.id)
+          .filter((id): id is string => id !== undefined);
+
         const updatedTask = {
           ...updatedTaskData,
-          id: selectedTask.id
+          id: selectedTask.id,
+          assignedUserIds,
+          completedDate: updatedTaskData.completedDate || new Date()
         };
         await dispatch(updateTask(updatedTask));
         setIsEditModalOpen(false);
@@ -336,11 +343,46 @@ const Tasks: React.FC = () => {
     }
   }, [dispatch, taskToDelete]);
 
-  const handleCreateTask = useCallback(async (newTask: Omit<Task, 'id'>) => {
+  const handleCreateTask = useCallback(async (newTaskData: Omit<Task, 'id'>) => {
     try {
-      await dispatch(createTask(newTask));
-      // Yeni görev oluşturulduktan sonra yeniden yükle
-      dispatch(fetchTasks());
+      const assignedUserIds = (newTaskData.assignedUsers || [])
+        .map(user => user.id)
+        .filter((id): id is string => id !== undefined);
+
+      const taskToCreate = {
+        ...newTaskData,
+        assignedUserIds,
+        completedDate: newTaskData.completedDate || new Date()
+      };
+
+      // Create the task in the backend
+      const createdTask = await dispatch(createTask(taskToCreate)).unwrap();
+      
+      if (!createdTask || !createdTask.id) {
+        console.error('Task creation failed: No valid task returned from API');
+        return;
+      }
+      
+      // Log success with created task ID
+      console.log('Task created successfully with ID:', createdTask.id);
+      
+      // Clear all related caches to ensure fresh data
+      dispatch(clearTasksCache());
+      
+      // Force refresh tasks data after a short delay to ensure backend processing is complete
+      setTimeout(() => {
+        dispatch(fetchTasks())
+          .then(() => {
+            console.log('Tasks refreshed after creation');
+            // Force refresh any related user/team task data
+            if (createdTask.teamId) {
+              dispatch(getTeamMembersByTeamId(createdTask.teamId))
+                .catch(err => console.error('Error refreshing team data:', err));
+            }
+          })
+          .catch(err => console.error('Error refreshing tasks:', err));
+      }, 500); // Increased delay to ensure backend processing completes
+      
       setIsNewTaskModalOpen(false);
     } catch (error) {
       console.error('Görev oluşturulurken hata oluştu:', error);
@@ -722,7 +764,12 @@ const Tasks: React.FC = () => {
           onClose={() => setIsEditModalOpen(false)}
           onSave={handleUpdateTask}
           existingTasks={tasks}
-          task={selectedTask}
+          isDarkMode={isDarkMode}
+          task={{
+            ...selectedTask,
+            assignedUserIds: selectedTask.assignedUsers?.map(user => user.id).filter((id): id is string => id !== undefined) || [],
+            completedDate: selectedTask.completedDate || new Date()
+          }}
         />
       )}
 

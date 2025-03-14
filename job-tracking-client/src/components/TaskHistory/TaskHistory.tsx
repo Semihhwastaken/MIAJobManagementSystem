@@ -52,12 +52,19 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
     }, [dispatch, isOpen]);
 
     const historicalTasks = useMemo(() => {
-        return taskHistory.filter(task => {
+        // First filter only completed or overdue tasks
+        const completedOrOverdueTasks = taskHistory.filter(task =>
+            task.status === 'completed' || task.status === 'overdue'
+        );
+    
+        // Then apply status and search filters
+        return completedOrOverdueTasks.filter(task => {
+            // Apply status filters
             if (selectedStatus === 'completed' && task.status !== 'completed') return false;
             if (selectedStatus === 'overdue' && task.status !== 'overdue') return false;
-            if (selectedStatus === 'all' && task.status !== 'completed' && task.status !== 'overdue') return false;
             
-            return searchTerm === '' || 
+            // Apply search filter
+            return searchTerm === '' ||
                    task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                    task.description.toLowerCase().includes(searchTerm.toLowerCase());
         }).sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());

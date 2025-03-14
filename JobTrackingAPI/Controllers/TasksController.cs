@@ -351,8 +351,12 @@ namespace JobTrackingAPI.Controllers
                     return NotFound(new { message = "Kullanıcı bulunamadı" });
                 }
 
-                // Cache anahtarını kullanıcıya özel oluştur
+                // Cache anahtarını kullanıcıya özel oluştur ve kısa bir ömür ver
                 string cacheKey = $"all_tasks_{userId}";
+
+                // Her istek için önbelleği yeniden validasyon yapmak üzere temizle (test için)
+                _cacheService.Remove(cacheKey);
+
                 var tasks = await _cacheService.GetOrUpdateAsync(
                     cacheKey,
                     async () =>
@@ -378,27 +382,8 @@ namespace JobTrackingAPI.Controllers
 
                         return allTasks ?? new List<TaskItem>();
                     },
-                    TimeSpan.FromMinutes(5) // Önbellek süresini kısalttık
+                    TimeSpan.FromSeconds(30) // Önbellek süresini ciddi oranda kısalttık
                 );
-
-                // Her istek için önbellekten gelse bile izinleri doğrula
-                bool isAdmin = user.OwnerTeams.Count > 0;
-                if (tasks != null)
-                {
-                    foreach (var task in tasks)
-                    {
-                        if (task.AssignedUserIds != null && task.AssignedUserIds.Contains(userId))
-                        {
-                            task.IsAssignedToCurrentUser = true;
-                        }
-
-                        // Admin veya görevin ekibinin sahibi ise izinleri ekle
-                        if (isAdmin || (task.TeamId != null && await IsTeamOwner(userId, task.TeamId)))
-                        {
-                            task.HasManagePermission = true;
-                        }
-                    }
-                }
 
                 return Ok(tasks ?? new List<TaskItem>());
             }

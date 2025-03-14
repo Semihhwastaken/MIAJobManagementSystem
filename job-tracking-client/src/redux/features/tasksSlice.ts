@@ -60,19 +60,15 @@ const isCacheValid = (lastFetch: number, duration: number) => {
 export const fetchTasks = createAsyncThunk(
     'tasks/fetchTasks',
     async (_, { getState, rejectWithValue }) => {
-        const state = getState() as { tasks: TaskState };
-        const now = Date.now();
-
-        // Cache kontrolü - cache force-refresh için lastFetch null/undefined ise her zaman fetch yap
-        if (state.tasks.lastFetch && (now - state.tasks.lastFetch < ACTIVE_TASKS_CACHE_DURATION)) {
-            return state.tasks.items;
-        }
-
         try {
+            console.log('Fetching tasks from server (bypassing cache)');
             const response = await axiosInstance.get('/Tasks');
+            
             if (!response.data) {
                 throw new Error('No data received from the server');
             }
+            
+            console.log(`Received ${response.data.length} tasks from server`);
             return response.data;
         } catch (error: any) {
             console.error('Error fetching tasks:', error);
@@ -167,12 +163,31 @@ export const createTask = createAsyncThunk(
                 }))
             };
             
+            console.log('Creating task with payload:', JSON.stringify(taskToSend, null, 2));
+            
             // Send the prepared taskToSend object to the API using axiosInstance
             const response = await axiosInstance.post('/Tasks', taskToSend);
             
-            // Görev eklendikten sonra hemen member tasks'i güncelle (ekipte görünmesi için)
+            if (!response.data || !response.data.id) {
+                console.error('Invalid response from server:', response);
+                return rejectWithValue('Server returned invalid task data');
+            }
+            
+            // Log success details for debugging
+            console.log('Task created successfully with response:', response.data);
+            
+            // Make sure we invalidate all relevant caches after task creation
+            // Immediately force refresh member tasks to update UI
             dispatch(fetchMemberActiveTasks());
             
+            // If the task is assigned to specific users, ensure their data is refreshed
+            if (task.assignedUserIds && task.assignedUserIds.length > 0) {
+                task.assignedUserIds.forEach(userId => {
+                    dispatch(invalidateUserTasksCache(userId));
+                });
+            }
+            
+            // Return the newly created task from the API
             return response.data;
         } catch (error: any) {
             // Enhanced error logging to better understand validation issues
