@@ -367,10 +367,14 @@ export const fileUpload = createAsyncThunk(
         const formData = new FormData();
         formData.append('file', encryptedBlob, file.name + ".enc");
   
-        // 7. (Opsiyonel) Anahtarı dışa aktarın ve güvenli bir yerde saklayın.
-        // Bu örnekte, JWK formatında anahtarı localStorage'a kaydediyoruz.
+        // 7. Anahtarı dışa aktarın ve güvenli bir şekilde saklayın.
+        // JWK formatında anahtarı hem taskId hem de dosya adıyla ilişkilendirerek localStorage'a kaydedelim
         const exportedKey = await window.crypto.subtle.exportKey('jwk', key);
-        localStorage.setItem(`encryptionKey_${taskId}`, JSON.stringify(exportedKey));
+        const keyData = JSON.stringify(exportedKey);
+        
+        // Hem taskId hem de dosya adıyla anahtarı kaydedelim (daha spesifik bir anahtar)
+        localStorage.setItem(`encryptionKey_${taskId}`, keyData);
+        localStorage.setItem(`encryptionKey_${taskId}_${file.name}`, keyData);
   
         // 8. Şifrelenmiş dosyayı backend'e gönderin.
         const response = await axiosInstance.post(`/Tasks/${taskId}/file`, formData, {
@@ -378,6 +382,11 @@ export const fileUpload = createAsyncThunk(
             'Content-Type': 'multipart/form-data'
           }
         });
+        
+        // 9. Eğer sunucu bir attachmentId döndürdüyse, o ID ile de anahtarı ilişkilendir
+        if (response.data && response.data.attachment && response.data.attachment.id) {
+          localStorage.setItem(`encryptionKey_attachment_${response.data.attachment.id}`, keyData);
+        }
   
         dispatch(fetchMemberActiveTasks());
         return response.data;
@@ -414,10 +423,23 @@ async (
     // 4. Geri kalan kısmı şifreli içerik olarak alıyoruz.
     const encryptedContent = blobArrayBuffer.slice(12);
     
-    // 5. Daha önce upload sırasında localStorage'a kaydedilen JWK formatındaki anahtarı alıyoruz.
-    const storedKey = localStorage.getItem(`encryptionKey_${taskId}`);
+    // 5. Farklı yöntemlerle saklanan şifreleme anahtarını bulmaya çalışalım
+    let storedKey = null;
     
-    // Eğer şifreleme anahtarı yoksa, şifrelenmemiş dosyayı indirme seçeneği sunuyoruz
+    // Önce attachmentId ile ilişkilendirilmiş anahtarı arayalım (en spesifik)
+    storedKey = localStorage.getItem(`encryptionKey_attachment_${attachmentId}`);
+    
+    // Bulunamadıysa, taskId ve dosya adı kombinasyonunu deneyelim
+    if (!storedKey) {
+      storedKey = localStorage.getItem(`encryptionKey_${taskId}_${fileName.replace(/\.enc$/, '')}`);
+    }
+    
+    // Yine bulunamadıysa, yalnızca taskId ile ilişkilendirilmiş anahtarı deneyelim (en genel)
+    if (!storedKey) {
+      storedKey = localStorage.getItem(`encryptionKey_${taskId}`);
+    }
+    
+    // Şifreleme anahtarı bulunamadıysa, şifrelenmemiş dosyayı indirme seçeneği sunuyoruz
     if (!storedKey) {
       console.warn("Şifreleme anahtarı bulunamadı. Şifrelenmemiş dosya indirilecek.");
       
@@ -447,25 +469,42 @@ async (
       ["decrypt"]
     );
 
-    // 7. Şifrelenmiş veriyi deşifre ediyoruz.
-    const decryptedBuffer = await window.crypto.subtle.decrypt(
-      { name: "AES-GCM", iv },
-      key,
-      encryptedContent
-    );
-    
-    // 8. Deşifre edilmiş veriden yeni bir Blob oluşturup indirme linki oluşturuyoruz.
-    const decryptedBlob = new Blob([new Uint8Array(decryptedBuffer)], { type: response.data.type });
-    const url = window.URL.createObjectURL(decryptedBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', fileName.replace(/\.enc$/, ''));
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-    
-    return { success: true, encrypted: true };
+    try {
+      // 7. Şifrelenmiş veriyi deşifre ediyoruz.
+      const decryptedBuffer = await window.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        key,
+        encryptedContent
+      );
+      
+      // 8. Deşifre edilmiş veriden yeni bir Blob oluşturup indirme linki oluşturuyoruz.
+      const decryptedBlob = new Blob([new Uint8Array(decryptedBuffer)], { type: response.data.type });
+      const url = window.URL.createObjectURL(decryptedBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName.replace(/\.enc$/, ''));
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true, encrypted: true };
+    } catch (decryptError) {
+      // Şifre çözme başarısız olursa, kullanıcıya şifrelenmemiş dosyayı indirme seçeneği sun
+      console.warn("Şifre çözme başarısız oldu, şifrelenmemiş dosya indirilecek:", decryptError);
+      
+      const blob = new Blob([new Uint8Array(blobArrayBuffer)], { type: response.data.type });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName.replace(/\.enc$/, ''));
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true, encrypted: false };
+    }
   } catch (error: any) {
     console.error('Download error detail:', error);
     return rejectWithValue(error.message || 'Dosya indirilirken bir hata oluştu');
