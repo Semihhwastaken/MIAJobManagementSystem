@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useMemo, useEffect } from 'react';
 import { Modal } from '@mui/material';
 import { useSelector, useDispatch } from 'react-redux';
@@ -53,20 +54,28 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
 
     const historicalTasks = useMemo(() => {
         return taskHistory.filter(task => {
-            if (selectedStatus === 'completed' && task.status !== 'completed') return false;
-            if (selectedStatus === 'overdue' && task.status !== 'overdue') return false;
-            if (selectedStatus === 'all' && task.status !== 'completed' && task.status !== 'overdue') return false;
-            
-            return searchTerm === '' || 
-                   task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                   task.description.toLowerCase().includes(searchTerm.toLowerCase());
-        }).sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+            const matchesSearch = searchTerm === '' || 
+                task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                task.description.toLowerCase().includes(searchTerm.toLowerCase());
+
+            switch (selectedStatus) {
+                case 'completed':
+                    return task.status === 'completed' && matchesSearch;
+                case 'overdue':
+                    return task.status === 'overdue' && matchesSearch;
+                case 'all':
+                default:
+                    return matchesSearch; // Tüm görevleri göster, sadece arama filtresini uygula
+            }
+        }).sort((a, b) => new Date(b.updatedAt || b.dueDate).getTime() - new Date(a.updatedAt || a.dueDate).getTime());
     }, [taskHistory, selectedStatus, searchTerm]);
 
     const stats = useMemo(() => {
-        const completed = taskHistory.filter(t => t.status === 'completed').length;
-        const overdue = taskHistory.filter(t => t.status === 'overdue').length;
-        return { completed, overdue };
+        return {
+            completed: taskHistory.filter(t => t.status === 'completed').length,
+            overdue: taskHistory.filter(t => t.status === 'overdue').length,
+            total: taskHistory.length
+        };
     }, [taskHistory]);
 
     const toggleTaskDetails = (taskId: string) => {
@@ -93,7 +102,18 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
                     </div>
                     
                     {/* Stats Cards */}
-                    <div className="grid grid-cols-2 gap-4 mt-6">
+                    <div className="grid grid-cols-3 gap-4 mt-6">
+                        <div className="bg-white/10 backdrop-blur-md rounded-lg p-4">
+                            <div className="flex items-center">
+                                <div className="p-2 bg-blue-500 rounded-lg">
+                                    <i className="fas fa-tasks text-white"></i>
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-white/80 text-sm">Toplam</p>
+                                    <p className="text-white text-2xl font-bold">{stats.total}</p>
+                                </div>
+                            </div>
+                        </div>
                         <div className="bg-white/10 backdrop-blur-md rounded-lg p-4">
                             <div className="flex items-center">
                                 <div className="p-2 bg-green-500 rounded-lg">

@@ -358,21 +358,41 @@ export const fileUpload = createAsyncThunk(
   
 export const completeTask = createAsyncThunk(
     'tasks/completeTask',
-    async (taskId: string, { dispatch, rejectWithValue }) => {
+    async (taskId: string, { dispatch, getState, rejectWithValue }) => {
         try {
-            const response = await axiosInstance.post(`/Tasks/${taskId}/complete`);
-            if (response.status === 200) {
-                // Fetch member active tasks to update the performance scores
-                dispatch(fetchMemberActiveTasks());
-                return { taskId, status: 'completed' as const };
-            } else {
-                return rejectWithValue(response.data?.message || 'Görev tamamlanırken bir hata oluştu');
+            // Get current task state
+            const state = getState() as { tasks: { items: Task[] } };
+            const task = state.tasks.items.find(t => t.id === taskId);
+
+            // Check if task exists and is not already completed
+            if (!task) {
+                return rejectWithValue('Task not found');
             }
+
+            if (task.status === 'completed') {
+                return rejectWithValue('Task is already completed');
+            }
+
+            // Only proceed if task is not completed
+            const response = await axiosInstance.post(`/Tasks/${taskId}/complete`);
+            
+            if (response.status === 200) {
+                // Update member active tasks in a separate async operation
+                dispatch(fetchMemberActiveTasks());
+                
+                return { 
+                    taskId, 
+                    status: 'completed' as const,
+                    ...response.data 
+                };
+            }
+            
+            return rejectWithValue('Failed to complete task');
         } catch (error: any) {
             if (error.response?.status === 400) {
-                return rejectWithValue(error.response.data?.message || 'Tüm alt görevler tamamlanmadan görev tamamlanamaz');
+                return rejectWithValue(error.response.data?.message || 'All subtasks must be completed before completing the task');
             }
-            return rejectWithValue(error.response?.data?.message || 'Görev tamamlanırken bir hata oluştu');
+            return rejectWithValue(error.response?.data?.message || 'Failed to complete task');
         }
     }
 );

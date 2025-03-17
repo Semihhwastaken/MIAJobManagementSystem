@@ -113,75 +113,73 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
     };
 
     const handleCompleteTask = async () => {
-        // Check if the task is already completed or overdue
-        if (localTask.status === 'completed' || localTask.status === 'overdue') {
-            alert('Bu görev zaten tamamlanmış veya süresi dolmuş durumda.');
+        // Check if the task is already completed or processing
+        if (isSubmitting || localTask.status === 'completed' || localTask.status === 'overdue') {
+            if (localTask.status === 'completed') {
+                alert('Bu görev zaten tamamlanmış durumda.');
+            }
             return;
         }
-
-        // Calculate if all subtasks are completed
+    
+        // Check if task has subtasks and if they're all completed
         const hasSubtasks = localTask.subTasks && localTask.subTasks.length > 0;
         const allSubTasksCompleted = hasSubtasks ? 
             localTask.subTasks.every(st => st.completed) : true;
-
+    
         if (hasSubtasks && !allSubTasksCompleted) {
             alert('Görevi tamamlamak için tüm alt görevleri tamamlamanız gerekmektedir.');
             return;
         }
-
+    
         // Check if all dependent tasks are completed
         if (!areAllDependenciesCompleted()) {
             alert('Bu görevi tamamlayabilmek için önce tüm bağlı görevlerin tamamlanması gerekmektedir.');
             return;
         }
-
+    
         try {
             setIsSubmitting(true);
             
-            // First update the task status
-            await dispatch(updateTaskStatus({ 
-                taskId: localTask.id!, 
-                status: 'completed' 
-            })).unwrap();
-
-            // Then complete the task (this will handle any additional completion logic)
-            await dispatch(completeTask(localTask.id!)).unwrap();
-            
-            // Update performance for each assigned user after task completion
-            if (localTask.assignedUsers && localTask.assignedUsers.length > 0) {
-                for (const user of localTask.assignedUsers) {
-                    if (user.id) {
-                        try {
-                            await dispatch(updateMemberPerformance(user.id)).unwrap();
-                        } catch (error) {
-                            console.error(`Error updating performance for user ${user.id}:`, error);
-                        }
-                    }
-                }
+            // First check if the task is already completed to prevent race conditions
+            const currentTask = allTasks.find(t => t.id === localTask.id);
+            if (currentTask?.status === 'completed') {
+                alert('Bu görev zaten tamamlanmış durumda.');
+                return;
             }
+    
+            // Complete the task
+            const result = await dispatch(completeTask(localTask.id!)).unwrap();
             
-            // Refresh team members to update UI
-            if (localTask.teamId) {
-                try {
-                    await dispatch(getTeamMembersByTeamId(localTask.teamId)).unwrap();
-                } catch (error) {
-                    console.error(`Error refreshing team members data:`, error);
+            if (result) {
+                setLocalTask(prev => ({
+                    ...prev,
+                    status: 'completed'
+                }));
+    
+                // Update performance scores
+                if (localTask.assignedUsers?.length > 0) {
+                    await Promise.all(localTask.assignedUsers
+                        .filter(user => user.id)
+                        .map(user => dispatch(updateMemberPerformance(user.id!))));
                 }
+                
+                // Refresh team data if needed
+                if (localTask.teamId) {
+                    await dispatch(getTeamMembersByTeamId(localTask.teamId));
+                }
+    
+                alert('Görev başarıyla tamamlandı!');
+                onClose();
             }
-            
-            setLocalTask(prev => ({
-                ...prev,
-                status: 'completed'
-            }));
-            alert('Görev başarıyla tamamlandı!');
-            onClose();
         } catch (error: unknown) {
             if (axios.isAxiosError(error)) {
-                alert(error.response?.data?.message || 'Görev tamamlanırken bir hata oluştu');
+                const errorMessage = error.response?.data?.message || 'Görev tamamlanırken bir hata oluştu';
+                console.error('Error completing task:', errorMessage);
+                alert(errorMessage);
             } else {
+                console.error('Error completing task:', error);
                 alert('Görev tamamlanırken bir hata oluştu');
             }
-            console.error('Error completing task:', error);
         } finally {
             setIsSubmitting(false);
         }
