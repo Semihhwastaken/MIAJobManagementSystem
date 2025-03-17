@@ -10,9 +10,11 @@ export interface User {
 }
 
 export interface SubTask {
-    id?: string;
+    id?: string;  // Make ID optional
     title: string;
     completed: boolean;
+    completedDate: string | null; // Changed from Date to string | null
+    AssignedUserId: string | null;
 }
 
 export interface Attachment {
@@ -24,22 +26,23 @@ export interface Attachment {
 }
 
 export interface Task {
-    id?: string;
+    id?: string;  // Make ID optional
     title: string;
     description: string;
-    status: 'todo' | 'in-progress' | 'completed' | 'overdue';
-    priority: 'low' | 'medium' | 'high';
-    category: string;
     dueDate: string;
-    isLocked?: boolean;
-    teamId?: string;
+    priority: 'low' | 'medium' | 'high';
+    status: 'todo' | 'in-progress' | 'completed' | 'overdue';
+    category: string;
     assignedUsers: User[];
+    assignedUserIds: string[];
     subTasks: SubTask[];
-    dependencies: string[]; // Bağımlı olduğu task ID'leri
+    dependencies: string[];
     attachments: Attachment[];
+    teamId?: string;
     createdAt: string;
     updatedAt: string;
-    completedDate?: Date | null;
+    completedDate: string | null;  // Update this line to allow null
+    isLocked: boolean;
 }
 
 export type NewTask = Omit<Task, 'id' | 'createdAt' | 'updatedAt'>;

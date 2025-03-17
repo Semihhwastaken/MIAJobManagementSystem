@@ -30,6 +30,7 @@ namespace JobTrackingAPI.Controllers
         private readonly CacheService _cacheService;
         private readonly ILogger<TasksController> _logger;
         private readonly IUserService _userService;
+        private readonly IActivityService _activityService;
 
         public TasksController(
             ITasksService tasksService,
@@ -39,7 +40,8 @@ namespace JobTrackingAPI.Controllers
             ITeamService teamsService,
             CacheService cacheService,
             ILogger<TasksController> logger,
-            IUserService userService)
+            IUserService userService,
+            IActivityService activityService)
         {
             var database = mongoClient.GetDatabase(settings.Value.DatabaseName);
             _tasksService = tasksService;
@@ -51,6 +53,7 @@ namespace JobTrackingAPI.Controllers
             _cacheService = cacheService;
             _logger = logger;
             _userService = userService;
+            _activityService = activityService;
         }
 
         [HttpPost]
@@ -65,6 +68,12 @@ namespace JobTrackingAPI.Controllers
                     return BadRequest(new { message = "Task data is required" });
                 if (string.IsNullOrEmpty(task.Title))
                     return BadRequest(new { message = "Task title is required" });
+
+                // Ensure the Id is generated if not provided
+                if (string.IsNullOrEmpty(task.Id))
+                {
+                    task.Id = MongoDB.Bson.ObjectId.GenerateNewId().ToString();
+                }
 
                 // Initialize collections if they're null
                 task.Attachments ??= new List<TaskAttachment>();
@@ -146,6 +155,16 @@ namespace JobTrackingAPI.Controllers
 
                 // Invalidate caches after creating a new task
                 InvalidateTaskRelatedCaches(createdTask);
+
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    await _activityService.LogTaskActivity(
+                        userId: userId,
+                        taskId: createdTask.Id,
+                        description: $"yeni görev oluşturdu: {createdTask.Title}"
+                    );
+                }
 
                 return CreatedAtAction(nameof(GetTask), new { id = createdTask.Id }, createdTask);
             }
@@ -335,7 +354,7 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
-                _logger.LogInformation("Getting all tasks");
+                
 
                 // Kullanıcı kimliğini al
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -416,8 +435,6 @@ namespace JobTrackingAPI.Controllers
         [HttpGet("user/{userId}/active-tasks")]
         public async Task<ActionResult<IEnumerable<TaskItem>>> GetUserActiveTasks(string userId)
         {
-            _logger.LogInformation("Getting active tasks for user: {UserId}", userId);
-
             try
             {
                 var tasks = await _cacheService.GetOrUpdateAsync(
@@ -467,7 +484,7 @@ namespace JobTrackingAPI.Controllers
         [HttpGet("user/{userId}")]
         public async Task<ActionResult<IEnumerable<TaskItem>>> GetUserTasks(string userId)
         {
-            _logger.LogInformation("Getting all tasks for user: {UserId}", userId);
+           
 
             try
             {
@@ -653,6 +670,16 @@ namespace JobTrackingAPI.Controllers
 
                 // Invalidate task-related caches
                 InvalidateTaskRelatedCaches(task);
+
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    await _activityService.LogTaskActivity(
+                        userId: userId,
+                        taskId: id,
+                        description: $"görev durumunu {status} olarak güncelledi"
+                    );
+                }
 
                 return Ok(new { message = "Task status updated successfully" });
             }

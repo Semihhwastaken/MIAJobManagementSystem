@@ -1,29 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from '../../services/axiosInstance';
-import { User } from '../../types/task';
+import { Task } from '../../types/task';
 import { fetchMemberActiveTasks } from './teamSlice';
 import { RESET_STATE } from './actionTypes';
-import axios from 'axios';
-
-export interface Task {
-    id?: string;
-    title: string;
-    description: string;
-    dueDate: string;
-    priority: 'low' | 'medium' | 'high';
-    status: 'todo' | 'in-progress' | 'completed' | 'overdue';
-    category: string;
-    assignedUsers: User[];
-    assignedUserIds: string[];
-    subTasks: { id?: string; title: string; completed: boolean }[];
-    dependencies: string[];
-    attachments: { fileName: string; fileUrl: string; fileType: string; uploadDate: string }[];
-    teamId?: string;
-    createdAt: string;
-    updatedAt: string;
-    completedDate: Date;
-}
 
 interface TaskState {
     items: Task[];
@@ -39,7 +19,7 @@ interface TaskState {
 // Cache süreleri
 const ACTIVE_TASKS_CACHE_DURATION = 5 * 60 * 1000; // 5 dakika
 const COMPLETED_TASKS_CACHE_DURATION = 30 * 60 * 1000; // 30 dakika
-const USER_TASKS_CACHE_DURATION = 15 * 60 * 1000; // 15 dakika
+
 
 const initialState: TaskState = {
     items: [],
@@ -50,11 +30,6 @@ const initialState: TaskState = {
     taskHistory: [],
     lastHistoryFetch: null,
     lastUserTasksFetch: {}
-};
-
-// Cache kontrolü için yardımcı fonksiyon
-const isCacheValid = (lastFetch: number, duration: number) => {
-    return Date.now() - lastFetch < duration;
 };
 
 export const fetchTasks = createAsyncThunk(
@@ -102,18 +77,8 @@ export const fetchTaskHistory = createAsyncThunk(
 
 export const createTask = createAsyncThunk(
     'tasks/createTask',
-    async (task: Omit<Task, 'id'>, { dispatch, rejectWithValue }) => {
+    async (task: Omit<Task, 'id'>, { rejectWithValue, dispatch }) => {
         try {
-            // Make sure assignedUserIds is properly set from assignedUsers
-            if (task.assignedUsers && task.assignedUsers.length > 0) {
-                task.assignedUserIds = task.assignedUsers
-                    .filter(user => user && user.id)  // Filter out any users without valid IDs
-                    .map(user => user.id as string);  // Convert user IDs to an array of strings
-            } else {
-                task.assignedUserIds = [];  // Ensure it's an empty array, not undefined
-            }
-            
-            // Format the due date properly to ensure UTC ISO format
             const dueDate = task.dueDate ? new Date(task.dueDate) : new Date();
             
             // Process subtasks to omit id field for new subtasks (don't use empty strings for ids)
@@ -143,7 +108,7 @@ export const createTask = createAsyncThunk(
                 status: task.status || 'todo',
                 priority: task.priority || 'medium',
                 category: task.category || 'Bug',
-                teamId: task.teamId || '', // Ensure teamId is not undefined
+                teamId: task.teamId || '',
                 dueDate: dueDate.toISOString(),
                 createdAt: task.createdAt || new Date().toISOString(),
                 updatedAt: task.updatedAt || new Date().toISOString(),
@@ -151,16 +116,18 @@ export const createTask = createAsyncThunk(
                 dependencies: task.dependencies || [],
                 attachments: task.attachments || [],
                 assignedUserIds: task.assignedUserIds || [],
-                assignedUsers: (task.assignedUsers || []).map(user => ({
-                    id: user.id || '',
-                    username: user.username || '',
-                    email: user.email || '',
+                assignedUsers: task.assignedUsers?.map(user => ({
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
                     fullName: user.fullName || '',
                     department: user.department || '',
                     title: user.title || '',
                     position: user.position || '',
                     profileImage: user.profileImage || ''
-                }))
+                })) || [],
+                completedDate: null,
+                isLocked: false
             };
             
             console.log('Creating task with payload:', JSON.stringify(taskToSend, null, 2));

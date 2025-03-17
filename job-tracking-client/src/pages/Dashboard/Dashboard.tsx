@@ -17,6 +17,7 @@ import {
   clearApiKey,
   isAiAnalysisEnabled
 } from '../../services/aiAnalysisService';
+import LoadingScreen from '../../components/Loading/LoadingScreen';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import teamService from '../../services/teamService';
@@ -887,6 +888,10 @@ const Dashboard = () => {
     }
   };
 
+  // Mevcut loading kontrolünü LoadingScreen ile değiştirelim
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
   // AI analizi için buton render kısmı
   const renderAIAnalysisButton = () => {
     const isBasicPlan = currentUser?.subscriptionPlan?.toLowerCase() === 'basic';

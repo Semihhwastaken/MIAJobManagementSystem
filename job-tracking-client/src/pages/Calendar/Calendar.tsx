@@ -18,7 +18,7 @@ import {
   type CalendarEvent
 } from '../../redux/features/calendarSlice';
 import type { RootState } from '../../redux/store';
-import { Team, TeamMember } from '../../types/team';
+import { Team } from '../../types/team';
 
 type EventFormData = Omit<CalendarEvent, 'id'>;
 

@@ -317,6 +317,9 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
+                if (status?.Status == null)
+                    return BadRequest("Status cannot be null");
+
                 var updatedMember = await _teamService.UpdateMemberStatusAsync(id, status.Status);
 
                 if (updatedMember == null)
@@ -380,7 +383,7 @@ namespace JobTrackingAPI.Controllers
 
                 var team = new Team
                 {
-                    Name = request.Name,
+                    Name = request.Name ?? string.Empty,
                     Description = request.Description,
                     CreatedById = userId,
                     Departments = new List<DepartmentStats>
@@ -402,7 +405,7 @@ namespace JobTrackingAPI.Controllers
                             Username = user.Username,
                             Email = user.Email,
                             FullName = user.FullName ?? string.Empty,
-                            Department = request.Department,
+                            Department = request.Department ?? string.Empty,
                             ProfileImage = user.ProfileImage,
                             Title = user.Title,
                             Position = user.Position,
@@ -414,7 +417,7 @@ namespace JobTrackingAPI.Controllers
                     }
                 };
 
-                var createdTeam = await _teamService.CreateAsync(team);
+                var createdTeam = await _teamService.CreateAsync(team,userId);
                 foreach (var item in createdTeam.Members)
                 {
                     await _notificationService.SendNotificationAsync(
@@ -704,6 +707,11 @@ namespace JobTrackingAPI.Controllers
                     return Forbid("Bu işlemi sadece takım sahibi yapabilir");
                 }
 
+                if (string.IsNullOrEmpty(request.InviteLink))
+                {
+                    return BadRequest(new { message = "Davet linki boş olamaz" });
+                }
+
                 // Davet linkini güncelle
                 var result = await _teamService.SetInviteLinkAsync(teamId, request.InviteLink);
 
@@ -725,24 +733,69 @@ namespace JobTrackingAPI.Controllers
         {
             try
             {
-                Team? updatedTeam = null;
-                foreach (var expertise in request.Experties)
+                var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(currentUserId))
                 {
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
+
+                if (currentUserId != memberId)
+                {
+                    return StatusCode(403, new { message = "You can only modify your own expertise" });
+                }
+
+                if (request?.Experties == null || !request.Experties.Any())
+                {
+                    return BadRequest(new { message = "Uzmanlık alanı zorunludur" });
+                }
+
+                // Clean and process expertise array
+                var expertiseList = request.Experties
+                    .SelectMany(e => e.Split(','))
+                    .Select(e => e.Trim())
+                    .Where(e => !string.IsNullOrWhiteSpace(e))
+                    .Distinct()
+                    .ToList();
+
+                var user = await _userService.GetUserById(memberId);
+                if (user == null)
+                {
+                    return NotFound(new { message = "Kullanıcı bulunamadı" });
+                }
+
+                Team? updatedTeam = null;
+                foreach (var expertise in expertiseList)
+                {
+                    _logger.LogInformation($"Processing expertise: {expertise} for member {memberId}");
                     updatedTeam = await _teamService.AddExpertiesAsync(memberId, expertise);
+                    
+                    if (updatedTeam != null)
+                    {
+                        var member = updatedTeam.Members.FirstOrDefault(m => m.Id == memberId);
+                        if (member != null)
+                        {
+                            // Update user's expertise in Users collection
+                            await _usersCollection.UpdateOneAsync(
+                                Builders<User>.Filter.Eq(u => u.Id, memberId),
+                                Builders<User>.Update.Set(u => u.Expertise, member.Expertise ?? new List<string>())
+                            );
+                        }
+                    }
                 }
 
                 if (updatedTeam != null)
                 {
-                    // Clear caches
                     ClearTeamRelatedCaches(updatedTeam.Id);
                     ClearMemberRelatedCaches(memberId);
                     return Ok(updatedTeam);
                 }
-                return BadRequest("Yetenek eklenirken bir hata oluştu");
+
+                return BadRequest(new { message = "Yetenek eklenirken bir hata oluştu" });
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                _logger.LogError(ex, $"Error adding expertise for member {memberId}");
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -790,6 +843,11 @@ namespace JobTrackingAPI.Controllers
                 if (!isOwner)
                 {
                     return Forbid("Bu işlemi sadece takım sahibi yapabilir");
+                }
+
+                if (request.Departments == null)
+                {
+                    return BadRequest(new { message = "Departments list cannot be null" });
                 }
 
                 var updatedTeam = await _teamService.UpdateTeamDepartmentsAsync(teamId, request.Departments);

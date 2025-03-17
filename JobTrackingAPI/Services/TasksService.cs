@@ -102,7 +102,7 @@ namespace JobTrackingAPI.Services
                     return;
                 }
 
-                var attachment = task.Attachments.FirstOrDefault(a => a.Id == attachmentId);
+                var attachment = task.Attachments?.FirstOrDefault(a => a.Id == attachmentId);
                 if (attachment != null)
                 {
                     // Dosyayı sil
@@ -117,13 +117,13 @@ namespace JobTrackingAPI.Services
                     await _tasks.UpdateOneAsync(t => t.Id == taskId, update);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Hata işleme
             }
         }
 
-        public async Task<List<TaskItem>> GetAssignedTasks(string userId, string status = null)
+        public async Task<List<TaskItem>> GetAssignedTasks(string userId, string? status = null)
         {
             var filter = Builders<TaskItem>.Filter.Where(t => t.AssignedUserIds != null && t.AssignedUserIds.Contains(userId));
 
@@ -231,7 +231,7 @@ namespace JobTrackingAPI.Services
                 {
                     Id = t.Id,
                     Title = t.Title,
-                    Description = t.Description,
+                    Description = t.Description ?? string.Empty,
                     Status = DateTime.UtcNow > (t.DueDate ?? DateTime.MinValue) ? "overdue" : "completed",
                     Priority = t.Priority,
                     Category = t.Category,
@@ -239,7 +239,7 @@ namespace JobTrackingAPI.Services
                     AssignedUsers = t.AssignedUsers?.Select(u => new UserDto { Id = u.Id, FullName = u.FullName ?? string.Empty }).ToList() ?? new List<UserDto>()
                 }).ToList();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 Console.WriteLine($"Kullanıcı görevleri alınırken hata oluştu: {userId}");
                 return new List<TaskHistoryDto>();
@@ -260,7 +260,7 @@ namespace JobTrackingAPI.Services
                 var filter = Builders<TaskItem>.Filter.AnyEq(t => t.AssignedUserIds, userId);
                 return await _tasks.Find(filter).ToListAsync();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 Console.WriteLine($"Kullanıcıya atanmış görevler alınırken hata oluştu: {userId}");
                 return new List<TaskItem>();
@@ -294,7 +294,7 @@ namespace JobTrackingAPI.Services
 
                 return filteredTasks;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 Console.WriteLine($"Departman görevleri alınırken hata oluştu: {department}");
                 return new List<TaskItem>();
@@ -311,7 +311,7 @@ namespace JobTrackingAPI.Services
                 var tasks = await _tasks.Find(filter).ToListAsync();
                 return tasks;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 Console.WriteLine("Takım görevleri alınırken hata oluştu");
                 return new List<TaskItem>();
@@ -371,7 +371,7 @@ namespace JobTrackingAPI.Services
 
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 Console.WriteLine($"Görev atama işlemi başarısız: {taskId}, {userId}");
                 return false;
@@ -416,7 +416,7 @@ namespace JobTrackingAPI.Services
 
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 Console.WriteLine($"Görevden kullanıcı çıkarma işlemi başarısız: {taskId}, {userId}");
                 return false;
@@ -434,7 +434,7 @@ namespace JobTrackingAPI.Services
                     if (creator != null)
                     {
                         task.CreatedBy.Username = creator.Username;
-                        task.CreatedBy.FullName = creator.FullName;
+                        task.CreatedBy.FullName = creator.FullName ?? string.Empty;
                         task.CreatedBy.ProfileImage = creator.ProfileImage;
                     }
                 }
@@ -470,6 +470,41 @@ namespace JobTrackingAPI.Services
             {
                 Console.WriteLine($"Görev verisi zenginleştirilirken hata oluştu: {ex.Message}");
                 return task;
+            }
+        }
+
+        public async Task<int> GetTotalTaskCount()
+        {
+            return (int)await _tasks.CountDocumentsAsync(Builders<TaskItem>.Filter.Empty);
+        }
+
+        public async Task<IEnumerable<TaskItem>> GetTasks(string? teamId = null)
+        {
+            try
+            {
+                // If no teamId provided, return all tasks
+                if (string.IsNullOrEmpty(teamId))
+                {
+                    return await _tasks.Find(_ => true).ToListAsync();
+                }
+
+                // Filter tasks by teamId
+                var filter = Builders<TaskItem>.Filter.Eq(t => t.TeamId, teamId);
+                var tasks = await _tasks.Find(filter).ToListAsync();
+                
+                // Enrich tasks with user data
+                var enrichedTasks = new List<TaskItem>();
+                foreach (var task in tasks)
+                {
+                    enrichedTasks.Add(await EnrichTaskWithUserData(task));
+                }
+
+                return enrichedTasks;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting tasks for team {teamId}: {ex.Message}");
+                return new List<TaskItem>();
             }
         }
     }

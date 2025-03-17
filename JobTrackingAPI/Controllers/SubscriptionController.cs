@@ -24,17 +24,20 @@ namespace JobTrackingAPI.Controllers
         private readonly IUserService _userService;
         private readonly ILogger<SubscriptionController> _logger;
         private readonly string _webhookSecret;
+        private readonly IActivityService _activityService; // Yeni eklenen
 
         public SubscriptionController(
             IStripeService stripeService,
             IUserService userService,
             IOptions<StripeSettings> stripeSettings,
-            ILogger<SubscriptionController> logger)
+            ILogger<SubscriptionController> logger,
+            IActivityService activityService) // Yeni eklenen
         {
             _stripeService = stripeService;
             _userService = userService;
             _logger = logger;
-            _webhookSecret = stripeSettings.Value.WebhookSecret;
+            _webhookSecret = stripeSettings.Value.WebhookSecret ?? throw new ArgumentNullException(nameof(stripeSettings), "Webhook secret is not configured");
+            _activityService = activityService;
         }
 
         [HttpPost("create-checkout-session")]
@@ -240,6 +243,9 @@ namespace JobTrackingAPI.Controllers
                     .Set(u => u.SubscriptionExpiryDate, DateTime.UtcNow);
 
                 await _userService.UpdateUser(userId, update);
+                
+                // Aktivite loglaması eklendi
+                await _activityService.LogUserActivity(userId, "cancelled their subscription");
 
                 _logger.LogInformation("Subscription canceled for user {UserId}", userId);
 
@@ -324,6 +330,10 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 await _userService.UpdateUserSubscriptionAsync(userId, planType, subscriptionId);
+                
+                // Aktivite loglaması eklendi
+                await _activityService.LogUserActivity(userId, $"upgraded to {planType} plan");
+                
                 _logger.LogInformation("Updated subscription for user {UserId} to plan {PlanType}", userId, planType);
             }
             catch (Exception ex)

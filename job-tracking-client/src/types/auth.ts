@@ -29,5 +29,10 @@ export interface AuthResponse {
         phone: string;
         position: string;
         profileImage?: string;
+        role: string;
+        subscriptionPlan: string;
+        subscriptionStatus: string;
+        subscriptionId: string;
+        subscriptionEndDate: string;
     };
 }

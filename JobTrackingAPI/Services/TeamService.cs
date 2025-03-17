@@ -6,7 +6,6 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using JobTrackingAPI.Constants;
 using CreateTeamRequest = JobTrackingAPI.Models.Requests.CreateTeamRequest;
-using MongoDB.Bson;
 using Microsoft.Extensions.Logging;
 
 namespace JobTrackingAPI.Services;
@@ -137,10 +136,10 @@ public class TeamService : ITeamService
         // Add to cache if found
         if (team != null)
         {
-            _teamCache[id] = team;
+            _teamCache[id] = team;            
         }
-
-        return team;
+#pragma warning disable CS8603 
+               return team;      
     }
 
     /// <summary>
@@ -160,7 +159,7 @@ public class TeamService : ITeamService
 
         var team = new Team
         {
-            Name = request.Name,
+            Name = request.Name ?? string.Empty,
             Description = request.Description,
             CreatedById = user.Id,
             Members = new List<TeamMember>
@@ -523,7 +522,7 @@ public class TeamService : ITeamService
 
     public async Task<Team> UpdateTeamDepartments(string teamId, UpdateTeamDepartmentsRequest request)
     {
-        return await UpdateTeamDepartmentsAsync(teamId, request.Departments);
+        return await UpdateTeamDepartmentsAsync(teamId, request.Departments ?? new List<DepartmentStats>());
     }
 
     public async Task<bool> UpdateMemberMetrics(string teamId, string userId, MemberMetricsUpdateDto metrics)
@@ -545,7 +544,7 @@ public class TeamService : ITeamService
     /// <summary>
     /// Takım oluşturur
     /// </summary>
-    public async Task<Team> CreateAsync(Team team)
+    public async Task<Team> CreateAsync(Team team,string userId)
     {
         try
         {
@@ -587,7 +586,7 @@ public class TeamService : ITeamService
 
             team.CreatedAt = DateTime.UtcNow;
             team.InviteCode = GenerateInviteCode();
-
+            
             await _teams.InsertOneAsync(team);
 
             // Takımı oluşturan kullanıcıyı bul ve ownerTeams listesini güncelle
@@ -655,6 +654,9 @@ public class TeamService : ITeamService
                     if (user != null)
                     {
                         // TeamMember objesini zenginleştir
+                        if (team.Id == null)
+                            continue;
+                            
                         var enrichedMember = EnrichTeamMemberWithUserData(member, user, team.Id);
                         result.Add(enrichedMember);
                     }
@@ -705,6 +707,7 @@ public class TeamService : ITeamService
                         if (user != null)
                         {
                             // TeamMember objesini zenginleştir
+                            if (team.Id == null) continue;
                             var enrichedMember = EnrichTeamMemberWithUserData(member, user, team.Id);
                             result.Add(enrichedMember);
                         }
@@ -772,6 +775,7 @@ public class TeamService : ITeamService
                 if (user != null)
                 {
                     // TeamMember objesini zenginleştir
+                    if (teamData.Id == null) continue;
                     var enrichedMember = EnrichTeamMemberWithUserData(member, user, teamData.Id);
                     result.Add(enrichedMember);
                 }
@@ -807,8 +811,8 @@ public class TeamService : ITeamService
             Id = member.Id,
             Username = user.Username,
             Email = user.Email,
-            FullName = user.FullName,
-            Department = user.Department,
+            FullName = user.FullName ?? string.Empty,
+            Department = user.Department ?? string.Empty,
             Title = user.Title,
             Position = user.Position,
             ProfileImage = user.ProfileImage,
@@ -830,10 +834,16 @@ public class TeamService : ITeamService
     /// <summary>
     /// Tüm departmanları getirir
     /// </summary>
-    public async Task<List<string>> GetDepartmentsAsync()
+    public List<string> GetDepartments()
     {
         // Statik departman listesini döndür
         return DepartmentConstants.Departments;
+    }
+
+    public async Task<List<string>> GetDepartmentsAsync()
+    {
+        // Asenkron olarak departman listesini döndür
+        return await Task.FromResult(DepartmentConstants.Departments);
     }
 
     /// <summary>
@@ -851,16 +861,6 @@ public class TeamService : ITeamService
         var random = new Random();
         return new string(Enumerable.Repeat(chars, 8)
             .Select(s => s[random.Next(s.Length)]).ToArray());
-    }
-
-    private async Task UpdateMemberPerformanceScores(TeamMember member)
-    {
-        if (member == null)
-            throw new ArgumentNullException(nameof(member));
-
-        // Performans puanını varsayılan olarak 50 yap (0 yerine)
-        member.PerformanceScore = 50;
-        member.CompletedTasksCount = 0;
     }
 
     public async Task<Team> AddExpertiesAsync(string memberId, string expertise)
@@ -1183,7 +1183,9 @@ public class TeamService : ITeamService
             if (string.IsNullOrEmpty(inviteCode))
             {
                 _logger.LogWarning("GetTeamByInviteCodeAsync çağrıldı ancak inviteCode boş.");
+#pragma warning disable CS8603 // Possible null reference return.
                 return null;
+
             }
 
             var filter = Builders<Team>.Filter.Eq(t => t.InviteCode, inviteCode);
@@ -1193,7 +1195,9 @@ public class TeamService : ITeamService
         catch (Exception ex)
         {
             _logger.LogError(ex, "GetTeamByInviteCodeAsync metodu sırasında hata oluştu");
+#pragma warning disable CS8603 // Possible null reference return.
             return null;
+#pragma warning restore CS8603 // Possible null reference return.
         }
     }
 
@@ -1218,7 +1222,7 @@ public class TeamService : ITeamService
             {
                 return true; // Kullanıcı zaten takımda
             }
-
+            if(team.Id == null) return false;
             return await AddMemberToTeam(team.Id, userId);
         }
         catch (Exception ex)
@@ -1235,21 +1239,27 @@ public class TeamService : ITeamService
             if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(status))
             {
                 _logger.LogWarning("UpdateMemberStatusAsync çağrıldı ancak id veya status boş.");
+#pragma warning disable CS8603 // Possible null reference return.
                 return null;
+#pragma warning restore CS8603 // Possible null reference return.
             }
 
             // Üye hangi takımda olduğunu bul
             var team = await GetTeamByMemberId(id);
             if (team == null)
             {
+#pragma warning disable CS8603 // Possible null reference return.
                 return null;
+#pragma warning restore CS8603 // Possible null reference return.
             }
 
             // Üyeyi güncelle
             var member = team.Members.FirstOrDefault(m => m.Id == id);
             if (member == null)
             {
+#pragma warning disable CS8603 // Possible null reference return.
                 return null;
+#pragma warning restore CS8603 // Possible null reference return.
             }
 
             member.Status = status;
@@ -1263,7 +1273,9 @@ public class TeamService : ITeamService
         catch (Exception ex)
         {
             _logger.LogError(ex, "UpdateMemberStatusAsync metodu sırasında hata oluştu");
+#pragma warning disable CS8603 // Possible null reference return.
             return null;
+#pragma warning restore CS8603 // Possible null reference return.
         }
     }
 
@@ -1274,21 +1286,27 @@ public class TeamService : ITeamService
             if (string.IsNullOrEmpty(id) || updateDto == null)
             {
                 _logger.LogWarning("UpdateMemberAsync çağrıldı ancak id boş veya updateDto null.");
+#pragma warning disable CS8603 // Possible null reference return.
                 return null;
+#pragma warning restore CS8603 // Possible null reference return.
             }
 
             // Üye hangi takımda olduğunu bul
             var team = await GetTeamByMemberId(id);
             if (team == null)
             {
+#pragma warning disable CS8603 // Possible null reference return.
                 return null;
+#pragma warning restore CS8603 // Possible null reference return.
             }
 
             // Üyeyi güncelle
             var memberIndex = team.Members.FindIndex(m => m.Id == id);
             if (memberIndex == -1)
             {
+#pragma warning disable CS8603 // Possible null reference return.
                 return null;
+#pragma warning restore CS8603 // Possible null reference return.
             }
 
             var member = team.Members[memberIndex];
@@ -1335,7 +1353,9 @@ public class TeamService : ITeamService
         catch (Exception ex)
         {
             _logger.LogError(ex, "UpdateMemberAsync metodu sırasında hata oluştu");
+#pragma warning disable CS8603 // Possible null reference return.
             return null;
+#pragma warning restore CS8603 // Possible null reference return.
         }
     }
 
@@ -1442,7 +1462,9 @@ public class TeamService : ITeamService
             if (string.IsNullOrEmpty(inviteLink))
             {
                 _logger.LogWarning("GetByInviteLinkAsync çağrıldı ancak inviteLink boş.");
+#pragma warning disable CS8603 // Possible null reference return.
                 return null;
+#pragma warning restore CS8603 // Possible null reference return.
             }
 
             // Davet bağlantısından kodu çıkar
@@ -1452,7 +1474,14 @@ public class TeamService : ITeamService
         catch (Exception ex)
         {
             _logger.LogError(ex, "GetByInviteLinkAsync metodu sırasında hata oluştu");
+#pragma warning disable CS8603 // Possible null reference return.
             return null;
+#pragma warning restore CS8603 // Possible null reference return.
         }
+    }
+
+    public async Task<int> GetTotalTeamCount()
+    {
+        return (int)await _teams.CountDocumentsAsync(Builders<Team>.Filter.Empty);
     }
 }

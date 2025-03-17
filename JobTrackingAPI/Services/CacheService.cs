@@ -124,8 +124,9 @@ namespace JobTrackingAPI.Services
                                     var newValue = await factory();
                                     if (newValue != null)
                                     {
+#pragma warning disable CS8604 // Possible null reference argument.
                                         _cache.Set(key.ToString(), newValue, options);
-                                        _logger.LogInformation($"Background refresh completed for key {key}");
+#pragma warning restore CS8604 // Possible null reference argument.
                                     }
                                 }
                                 catch (Exception ex)
@@ -137,13 +138,11 @@ namespace JobTrackingAPI.Services
                     });
 
                     _cache.Set(key, result, options);
-                    _logger.LogInformation($"Created and cached item with key {key}");
                 }
             }
             else
             {
-                TrackAccess(key, true);
-                _logger.LogInformation($"Retrieved cached item with key {key}");
+                TrackAccess(key, true);     
             }
             return result;
         }
@@ -161,7 +160,9 @@ namespace JobTrackingAPI.Services
                     var value = await factory(key);
                     if (value != null)
                     {
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
                         await GetOrUpdateAsync(key, async () => value, expiration);
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
                     }
                 }
                 catch (Exception ex)
@@ -174,7 +175,7 @@ namespace JobTrackingAPI.Services
         }
 
         // Cache Invalidation için geliştirilmiş metod
-        public async Task InvalidateCachePatternAsync(string pattern)
+        public Task InvalidateCachePatternAsync(string pattern)
         {
             try
             {
@@ -190,13 +191,13 @@ namespace JobTrackingAPI.Services
                         _keyAccessCount.Remove(key);
                     }
                 }
-
-                _logger.LogInformation($"Invalidated {keysToRemove.Count} cache entries matching pattern: {pattern}");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error during cache invalidation for pattern {pattern}");
             }
+
+            return Task.CompletedTask;
         }
 
         // User related cache keys
@@ -221,7 +222,6 @@ namespace JobTrackingAPI.Services
             _cache.Set(GetUserTasksCacheKey(userId), tasks, options);
             _cache.Set(GetUserTeamsCacheKey(userId), teams, options);
             
-            _logger.LogInformation($"Bulk cached data for user {userId}");
         }
 
         // Performans metrikleri için yeni cache
@@ -259,21 +259,21 @@ namespace JobTrackingAPI.Services
         public void CacheCurrentUserData(User user, TimeSpan? expiration = null)
         {
             _cache.Set(GetUserCacheKey(user.Id), user, expiration ?? USER_INFO_CACHE);
-            _logger.LogInformation($"Cached current user data for user {user.Id}");
+           
         }
         
         // Cache user tasks
         public void CacheUserTasks(string userId, List<TaskItem> tasks, TimeSpan? expiration = null)
         {
             _cache.Set(GetUserTasksCacheKey(userId), tasks, expiration ?? USER_INFO_CACHE);
-            _logger.LogInformation($"Cached tasks for user {userId}");
+           
         }
         
         // Cache user teams
         public void CacheUserTeams(string userId, List<Team> teams, TimeSpan? expiration = null)
         {
             _cache.Set(GetUserTeamsCacheKey(userId), teams, expiration ?? USER_INFO_CACHE);
-            _logger.LogInformation($"Cached teams for user {userId}");
+            
         }
         
         // Get user from cache
@@ -281,10 +281,10 @@ namespace JobTrackingAPI.Services
         {
             if (_cache.TryGetValue(GetUserCacheKey(userId), out User? cachedUser))
             {
-                _logger.LogInformation($"Retrieved cached user data for user {userId}");
+               
                 return cachedUser;
             }
-            _logger.LogInformation($"No cached user data found for user {userId}");
+
             return null;
         }
         
@@ -293,10 +293,8 @@ namespace JobTrackingAPI.Services
         {
             if (_cache.TryGetValue(GetUserTasksCacheKey(userId), out List<TaskItem>? cachedTasks))
             {
-                _logger.LogInformation($"Retrieved cached tasks for user {userId}");
                 return cachedTasks;
-            }
-            _logger.LogInformation($"No cached tasks found for user {userId}");
+            } 
             return null;
         }
         
@@ -304,11 +302,9 @@ namespace JobTrackingAPI.Services
         public List<Team>? GetCachedUserTeams(string userId)
         {
             if (_cache.TryGetValue(GetUserTeamsCacheKey(userId), out List<Team>? cachedTeams))
-            {
-                _logger.LogInformation($"Retrieved cached teams for user {userId}");
+            {   
                 return cachedTeams;
             }
-            _logger.LogInformation($"No cached teams found for user {userId}");
             return null;
         }
         
@@ -327,7 +323,6 @@ namespace JobTrackingAPI.Services
             {
                 _cache.Remove(key);
             }
-            _logger.LogInformation($"Invalidated all caches for user {userId}");
         }
         
         // Invalidate team related caches
@@ -343,7 +338,6 @@ namespace JobTrackingAPI.Services
             {
                 _cache.Remove(key);
             }
-            _logger.LogInformation($"Invalidated all caches for team {teamId}");
         }
         
         // Invalidate all team members' caches when team is updated
@@ -353,8 +347,8 @@ namespace JobTrackingAPI.Services
             {
                 InvalidateUserCaches(member.Id);
             }
+            if(team.Id == null) return;
             InvalidateTeamCaches(team.Id);
-            _logger.LogInformation($"Invalidated cache for all members of team {team.Id}");
         }
         
         // Invalidate task-related caches
@@ -374,7 +368,6 @@ namespace JobTrackingAPI.Services
             {
                 InvalidateTeamCaches(task.TeamId);
             }
-            _logger.LogInformation($"Invalidated cache for task {task.Id}");
         }
         
         // Generic get or create method for any cache item
@@ -436,16 +429,14 @@ namespace JobTrackingAPI.Services
         public async Task PreloadUserDataAsync(
             string userId, 
             Func<Task<User?>> getUserData,
-            Func<Task<List<TaskItem>>> getActiveTasks,
-            Func<Task<List<TaskItem>>> getCompletedTasks,
-            Func<Task<List<Team>>> getUserTeams,
-            Func<Task<DashboardStats>> getDashboardStats,
-            Func<Task<List<TaskHistory>>> getTaskHistory)
+            Func<Task<List<TaskItem>?>> getActiveTasks,
+            Func<Task<List<TaskItem>?>> getCompletedTasks,
+            Func<Task<List<Team>?>> getUserTeams,
+            Func<Task<DashboardStats?>> getDashboardStats,
+            Func<Task<List<TaskHistory>?>> getTaskHistory)
         {
             try
             {
-                _logger.LogInformation($"Starting data preload for user {userId}");
-
                 var tasks = new List<Task>();
 
                 // User data
@@ -486,7 +477,6 @@ namespace JobTrackingAPI.Services
 
                 await Task.WhenAll(tasks);
 
-                _logger.LogInformation($"Completed data preload for user {userId}");
             }
             catch (Exception ex)
             {
@@ -550,9 +540,8 @@ namespace JobTrackingAPI.Services
                 _logger.LogWarning("Attempted to remove cache with null or empty key");
                 return;
             }
-
             _cache.Remove(key);
-            _logger.LogInformation($"Removed cache for key {key}");
+            
         }
     }
 

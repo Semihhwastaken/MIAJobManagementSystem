@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Task, User, SubTask, Attachment } from '../../types/task';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useEffect, useRef } from 'react';
+import {  User, SubTask, Attachment,Task as TaskType } from '../../types/task';
 import { Team, TeamMember } from '../../types/team';
-import { fileUpload, Task as TaskType, fetchTasks, createTask, updateTask } from '../../redux/features/tasksSlice';
+import { fileUpload, fetchTasks, createTask, updateTask } from '../../redux/features/tasksSlice';
 import teamService from '../../services/teamService';
 import { Listbox, Transition } from '@headlessui/react';
-import { CheckIcon, ChevronUpDownIcon, XCircleIcon, DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import {  DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useSnackbar } from 'notistack';
 import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 
 interface TaskFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (task: Omit<TaskType, 'id'>) => void;
   existingTasks?: TaskType[];
   task?: TaskType;
   selectedUser?: TeamMember;
@@ -38,10 +38,19 @@ interface FormData {
   teamId: string | undefined;
   createdAt: string;
   updatedAt: string;
-  completedDate: Date | null;
+  completedDate: string | null; // Changed from Date to string | null
 }
 
-const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTasks = [], task, selectedUser, isDarkMode, teamId, teamName }) => {
+const TaskForm: React.FC<TaskFormProps> = ({ 
+  isOpen, 
+  onClose, 
+  existingTasks = [], 
+  task, 
+  selectedUser, 
+  isDarkMode, 
+  teamId, 
+  teamName 
+}) => {
   const dispatch = useAppDispatch();
   const allTasks = useAppSelector(state => state.tasks.items);
   const { enqueueSnackbar } = useSnackbar();
@@ -68,13 +77,12 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     teamId: task?.teamId || teamId,
     createdAt: task?.createdAt || new Date().toISOString(),
     updatedAt: task?.updatedAt || new Date().toISOString(),
-    completedDate: task?.completedDate || null
+    completedDate: task?.completedDate || null // Will be string | null
   };
-
+  
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [newSubTask, setNewSubTask] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [users, setUsers] = useState<TeamMember[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(teamId || null);
@@ -106,7 +114,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
 
   useEffect(() => {
     if (task) {
-      setFormData({
+      setFormData(prev => ({
+        ...prev,
         title: task.title,
         description: task.description,
         dueDate: formatDateForInput(task.dueDate),
@@ -118,8 +127,11 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         teamId: task.teamId,
         dependencies: task.dependencies,
         attachments: task.attachments,
-        completedDate: task?.status === 'completed' ? new Date() : null,
-      });
+        assignedUserIds: task.assignedUserIds || [],
+        createdAt: task.createdAt,
+        updatedAt: task.updatedAt,
+        completedDate: task.status === 'completed' ? new Date().toISOString() : null
+      }));
     }
   }, [task]);
 
@@ -127,7 +139,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     const fetchTeams = async () => {
       try {
         const myTeams = await teamService.getMyTeams();
-        setTeams(myTeams);
+        
 
         // Find team using task.teamId if task exists, or teamId from props
         const selectedTaskTeamId = task?.teamId || teamId;
@@ -166,7 +178,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     };
 
     fetchTeamMembers();
-  }, [selectedTeam]);
+  }, [selectedTeam,enqueueSnackbar]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -245,7 +257,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
         dependencies: formData.dependencies || [],
         attachments: formData.attachments || [],
         assignedUsers: processedAssignedUsers,
-        assignedUserIds: assignedUserIds
+        assignedUserIds: assignedUserIds,
+        completedDate: null,
+        isLocked: false
       };
 
       console.log('Task payload before dispatch:', taskPayload);
@@ -378,16 +392,6 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
     setFormData({
       ...formData,
       attachments: formData.attachments.filter((_, i) => i !== index)
-    });
-  };
-
-  const handleUserToggle = (user: TeamMember) => {
-    const isSelected = formData.assignedUsers.some(u => u.id === user.id);
-    setFormData({
-      ...formData,
-      assignedUsers: isSelected
-        ? formData.assignedUsers.filter(u => u.id !== user.id)
-        : [...formData.assignedUsers, user]
     });
   };
 
@@ -726,7 +730,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSave, existingTa
                           .map(user => (
                             <Listbox.Option
                               key={user.id}
-                              className={({ active }) =>
+                              className={({ selected }) =>
                                 `relative cursor-default select-none py-2 pl-3 pr-9 ${
                                   isDarkMode
                                     ? active ? 'bg-indigo-900/40 text-indigo-100' : 'text-gray-200'

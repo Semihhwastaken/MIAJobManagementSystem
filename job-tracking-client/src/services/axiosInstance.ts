@@ -36,6 +36,10 @@ if (token) {
             if (token) {
                 config.headers.Authorization = `Bearer ${token}`;
             }
+            
+            // Add stats tracking header to all requests except login
+            config.headers['X-Track-Stats'] = 'true';
+            
             return config;
         },
         (error) => {

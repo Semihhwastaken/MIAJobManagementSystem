@@ -50,7 +50,7 @@ namespace JobTrackingAPI.Services
             string eventDate, 
             string eventTime,
             string creatorName,
-            string meetingLink = null)
+            string? meetingLink = null)
         {
             var email = new MimeMessage();
             email.From.Add(new MailboxAddress("MIA Task Management", _smtpUsername));

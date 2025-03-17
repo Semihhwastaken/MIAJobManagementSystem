@@ -25,6 +25,8 @@ namespace JobTrackingAPI.Controllers
         private readonly TasksService _tasksService;
         private readonly TeamService _teamService;
         private readonly DashboardService _dashboardService;
+        private readonly UserService _userService;
+        private readonly IActivityService _activityService;
 
         public AuthController(
             AuthService authService, 
@@ -33,7 +35,9 @@ namespace JobTrackingAPI.Controllers
             IMongoDatabase database,
             TasksService tasksService, 
             TeamService teamService, 
-            DashboardService dashboardService)
+            DashboardService dashboardService,
+            UserService userService,
+            IActivityService activityService)
         {
             _authService = authService;
             _logger = logger;
@@ -42,6 +46,8 @@ namespace JobTrackingAPI.Controllers
             _tasksService = tasksService;
             _teamService = teamService;
             _dashboardService = dashboardService;
+            _userService = userService;
+            _activityService = activityService;
         }
 
         [HttpPost("register/initiate")]
@@ -71,7 +77,7 @@ namespace JobTrackingAPI.Controllers
                 request.ProfileImage
             );
 
-            if (!success)
+            if (!success || user == null)
             {
                 return BadRequest(new { message });
             }
@@ -149,6 +155,11 @@ namespace JobTrackingAPI.Controllers
                     return BadRequest(new { message = "Kullanıcı verileri yüklenirken bir hata oluştu. Lütfen tekrar deneyin." });
                 }
 
+                // Login başarılı olduğunda IsOnline'ı true yap
+                await _userService.UpdateUserOnlineStatus(user.Id, true);
+
+                await _activityService.LogLoginActivity(user.Id);
+
                 return Ok(new
                 {
                     token,
@@ -159,6 +170,7 @@ namespace JobTrackingAPI.Controllers
                         fullName = user.FullName,
                         username = user.Username,
                         department = user.Department,
+                        role = user.Role, // Add role to the response
                         title = user.Title,
                         position = user.Position,
                         phone = user.Phone,
@@ -229,7 +241,8 @@ namespace JobTrackingAPI.Controllers
                         performanceScore = user.PerformanceScore,
                         completedTasksCount = user.CompletedTasksCount,
                         createdDate = user.CreatedDate,
-                        lastLoginDate = user.LastLoginDate
+                        lastLoginDate = user.LastLoginDate,
+                        role = user.Role
                     } 
                 });
             }
@@ -250,6 +263,9 @@ namespace JobTrackingAPI.Controllers
                 {
                     return Unauthorized(new { message = "Kullanıcı girişi yapılmamış" });
                 }
+
+                // Logout olurken IsOnline'ı false yap
+                await _userService.UpdateUserOnlineStatus(userId, false);
 
                 // Kullanıcıya ait tüm cache verilerini temizle
                 _cacheService.InvalidateUserCaches(userId);

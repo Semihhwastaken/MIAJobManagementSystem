@@ -10,6 +10,7 @@ interface AuthState {
         username: string;
         email: string;
         fullName: string;
+        department:string;
         role: string;
         subscriptionPlan: string;
         subscriptionStatus: string;
@@ -47,10 +48,24 @@ export const login = createAsyncThunk(
             const response = await axios.post('/api/auth/login', credentials);
             const { token, user } = response.data;
             
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(user));
+            // Make sure we store the role along with other user data
+            const userData = {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                fullName: user.fullName,
+                department: user.department,
+                role: user.role, // Include role in stored user data
+                subscriptionPlan: user.subscriptionPlan || '',
+                subscriptionStatus: user.subscriptionStatus || '',
+                subscriptionId: user.subscriptionId || '',
+                subscriptionEndDate: user.subscriptionEndDate || null
+            };
             
-            return { token, user };
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(userData));
+            
+            return { token, user: userData };
         } catch (error: any) {
             return rejectWithValue(error.response?.data?.message || 'Giriş yapılırken bir hata oluştu');
         }
@@ -114,7 +129,13 @@ const authSlice = createSlice({
             .addCase(login.fulfilled, (state, action) => {
                 state.loading = false;
                 state.token = action.payload.token;
-                state.user = action.payload.user;
+                state.user = {
+                    ...action.payload.user,
+                    subscriptionPlan: '',
+                    subscriptionStatus: '',
+                    subscriptionId: '',
+                    subscriptionEndDate: null
+                };
                 state.isAuthenticated = true;
                 state.error = null;
                 state.dataPreloaded = false;

@@ -24,11 +24,15 @@ import { SnackbarProvider } from 'notistack';
 import { RootState } from './redux/store';
 import { fetchTasks } from './redux/features/tasksSlice';
 import { AppDispatch } from './redux/store';
+import FeedbackButton from './components/Feedback/FeedbackButton';
+import AdminDashboard from './pages/Admin/AdminDashboard';
 import { StripeProvider } from './context/StripeContext';
 import Subscription from './pages/Subscription/Subscription';
 import SubscriptionSuccess from './pages/Subscription/SubscriptionSuccess';
 import SubscriptionCancel from './pages/Subscription/SubscriptionCancel';
 import SubscriptionPlans from './pages/Subscription/SubscriptionPlans';
+import LoadingScreen from './components/Loading/LoadingScreen';
+import NotFound from './pages/NotFound/NotFound';
 
 const AppContent: React.FC = () => {
   const { isDarkMode } = useTheme();
@@ -88,6 +92,7 @@ const AppContent: React.FC = () => {
         try {
           const response = await getCurrentUser();
           if (response.user) {
+            console.log('Current user data:', response.user); // Debug log
             dispatch(setUser(response.user));
           }
         } catch (error) {
@@ -288,6 +293,22 @@ const AppContent: React.FC = () => {
                   }
                 />
                 <Route
+                  path="/admin"
+                  element={
+                    isAuthenticated && user?.role === 'Admin' ? (
+                      (() => {
+                        console.log('User role:', user?.role); // Add this debug log
+                        return <AdminDashboard />;
+                      })()
+                    ) : (
+                      (() => {
+                        console.log('Access denied. Auth:', isAuthenticated, 'Role:', user?.role); // Add this debug log
+                        return <Navigate to="/" replace />;
+                      })()
+                    )
+                  }
+                />
+                <Route
                   path="/subscription"
                   element={
                     isAuthenticated ? (
@@ -327,10 +348,12 @@ const AppContent: React.FC = () => {
                     )
                   }
                 />
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Layout>
           </Router>
         </AuthContext.Provider>
+        <FeedbackButton />
       </div>
       <Toaster position="top-right" />
     </MuiThemeProvider>
@@ -339,6 +362,7 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   const dispatch = useDispatch();
+  const isLoading = useSelector((state: RootState) => state.loading.isLoading);
 
   useEffect(() => {
     // Initialize auth state from localStorage
@@ -354,8 +378,14 @@ const App: React.FC = () => {
           username: userData.username,
           email: userData.email,
           fullName: userData.fullName,
-          department: userData.department
+          department: userData.department,
+          role: userData.role,
+          subscriptionId: userData.subscriptionId,
+          subscriptionPlan: userData.subscriptionPlan,
+          subscriptionEndDate: userData.subscriptionEndDate,
+          subscriptionStatus: userData.subscriptionStatus  // Make sure role is included here
         }));
+        console.log('Initialized user data:', userData); // Debug log
       } catch (error) {
         console.error('Error initializing auth state:', error);
         localStorage.removeItem('user');
@@ -375,6 +405,7 @@ const App: React.FC = () => {
               horizontal: 'right',
             }}
           >
+            {isLoading && <LoadingScreen />}
             <AppContent />
           </SnackbarProvider>
         </StripeProvider>
