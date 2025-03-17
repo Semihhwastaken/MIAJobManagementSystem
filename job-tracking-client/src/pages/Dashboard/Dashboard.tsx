@@ -18,6 +18,9 @@ import {
   isAiAnalysisEnabled
 } from '../../services/aiAnalysisService';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
+import teamService from '../../services/teamService';
 
 // Register ChartJS components
 ChartJS.register(
@@ -87,6 +90,7 @@ interface TopContributor {
 
 const Dashboard = () => {
   const { isDarkMode } = useTheme();
+  const currentUser = useSelector((state: RootState) => state.auth.user);
   const [taskStats, setTaskStats] = useState<TaskStats>({
     total: 0,
     completed: 0,
@@ -789,6 +793,17 @@ const Dashboard = () => {
   // Update the handleDownloadReport function
   const handleDownloadReport = async () => {
     try {
+      if (!currentUser) {
+        toast.error('Kullanıcı bilgileri bulunamadı. Lütfen tekrar giriş yapın.');
+        return;
+      }
+      
+      // Basic plan kontrolü
+      if (currentUser?.subscriptionPlan?.toLowerCase() === 'basic') {
+        toast.warning('Bu özellik sadece Pro plan kullanıcıları için mevcuttur.');
+        return;
+      }
+
       setIsGeneratingReport(true);
       toast.info("Rapor hazırlanıyor, lütfen bekleyin...");
       
@@ -877,6 +892,33 @@ const Dashboard = () => {
   if (isLoading) {
     return <LoadingScreen />;
   }
+  // AI analizi için buton render kısmı
+  const renderAIAnalysisButton = () => {
+    const isBasicPlan = currentUser?.subscriptionPlan?.toLowerCase() === 'basic';
+  
+    return (
+      <label className={`inline-flex items-center cursor-${isBasicPlan ? 'not-allowed' : 'pointer'}`}>
+        <input
+          type="checkbox"
+          checked={includeAIAnalysis}
+          onChange={() => {
+            if (isBasicPlan) {
+              toast.warning('AI analizi özelliği sadece Pro plan kullanıcıları için mevcuttur.');
+              return;
+            }
+            setIncludeAIAnalysis(!includeAIAnalysis);
+          }}
+          disabled={isBasicPlan}
+          className={`form-checkbox h-5 w-5 ${isBasicPlan ? 'opacity-50' : ''}`}
+        />
+        <span className={`ml-2 ${isBasicPlan ? 'opacity-50' : ''}`}>
+          AI Analizi Ekle
+        </span>
+      </label>
+    );
+  };
+
+
 
   return (
     <motion.div

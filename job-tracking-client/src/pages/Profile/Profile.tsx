@@ -3,6 +3,7 @@ import axiosInstance from "../../services/axiosInstance";
 import defaultAvatar from '../../assets/images/default-avatar.png';
 import Footer from "../../components/Footer/Footer";
 import axios from "axios";
+import { useTheme } from '@mui/material/styles';
 
 interface UserInfo {
     id: string;
@@ -23,6 +24,8 @@ interface PasswordForm {
 }
 
 const Profile: React.FC = () => {
+    const theme = useTheme();
+    const isDarkMode = theme.palette.mode === 'dark';
     const [isEditing, setIsEditing] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -172,16 +175,28 @@ const Profile: React.FC = () => {
 
     if (isLoading) {
         return <div className="flex justify-center items-center min-h-screen">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600"></div>
+            <div className={`animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 ${
+                isDarkMode ? 'border-purple-400' : 'border-purple-600'
+            }`}></div>
         </div>;
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">
+        <div className={`min-h-screen ${
+            isDarkMode 
+                ? 'bg-gradient-to-br from-gray-900 to-gray-800' 
+                : 'bg-gradient-to-br from-blue-500 to-purple-600'
+        }`}>
             <div className="max-w-7xl mx-auto px-4 py-8">
-                <div className="bg-white rounded-lg shadow-xl p-8">
+                <div className={`rounded-lg shadow-xl p-8 ${
+                    isDarkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-800'
+                }`}>
                     {error && (
-                        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                        <div className={`mb-4 p-4 rounded ${
+                            isDarkMode 
+                                ? 'bg-red-900/30 border border-red-800 text-red-300' 
+                                : 'bg-red-100 border border-red-400 text-red-700'
+                        }`}>
                             {error}
                         </div>
                     )}
@@ -193,32 +208,46 @@ const Profile: React.FC = () => {
                                 <img
                                     src={userInfo.profileImage || defaultAvatar}
                                     alt="Profil Resmi"
-                                    className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
+                                    className={`w-32 h-32 rounded-full object-cover shadow-lg ${
+                                        isDarkMode ? 'border-4 border-gray-700' : 'border-4 border-white'
+                                    }`}
                                 />
                                 <button
                                     onClick={handleImageClick}
-                                    className="absolute bottom-0 right-0 bg-purple-600 text-white p-2 rounded-full shadow-lg hover:bg-purple-700 transition-colors"
+                                    className={`absolute bottom-0 right-0 p-2 rounded-full shadow-lg transition-colors ${
+                                        isDarkMode 
+                                            ? 'bg-purple-700 text-white hover:bg-purple-800' 
+                                            : 'bg-purple-600 text-white hover:bg-purple-700'
+                                    }`}
                                     title="Profil Resmini Değiştir"
                                 >
                                     <i className="fas fa-camera"></i>
                                 </button>
                             </div>
                         </div>
-                        <h1 className="mt-4 text-2xl font-bold text-gray-800">
+                        <h1 className={`mt-4 text-2xl font-bold ${
+                            isDarkMode ? 'text-gray-100' : 'text-gray-800'
+                        }`}>
                             {userInfo.fullName}
                         </h1>
-                        <p className="text-gray-600">{userInfo.title}</p>
+                        <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
+                            {userInfo.title}
+                        </p>
                     </div>
 
                     {/* Personal Information */}
                     <div className="mb-8">
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-semibold text-gray-800">
+                            <h2 className={`text-xl font-semibold ${
+                                isDarkMode ? 'text-gray-100' : 'text-gray-800'
+                            }`}>
                                 Kişisel Bilgiler
                             </h2>
                             <button
                                 onClick={() => setIsEditing(!isEditing)}
-                                className="text-purple-600 hover:text-purple-700 rounded-button whitespace-nowrap"
+                                className={`hover:text-purple-700 rounded-button whitespace-nowrap ${
+                                    isDarkMode ? 'text-purple-400 hover:text-purple-300' : 'text-purple-600'
+                                }`}
                             >
                                 <i className="fas fa-edit mr-2"></i>
                                 {isEditing ? "İptal" : "Düzenle"}
@@ -228,82 +257,124 @@ const Profile: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-4">
                                 <div className="flex flex-col">
-                                    <label className="text-sm text-gray-600">Kullanıcı Adı</label>
+                                    <label className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                        Kullanıcı Adı
+                                    </label>
                                     <input
                                         type="text"
                                         name="username"
                                         value={userInfo.username}
                                         disabled={true}
-                                        className="mt-1 p-2 border rounded-lg bg-gray-100"
+                                        className={`mt-1 p-2 rounded-lg ${
+                                            isDarkMode 
+                                                ? 'bg-gray-700 border-gray-600 text-gray-200' 
+                                                : 'bg-gray-100 border text-gray-700'
+                                        }`}
                                     />
                                 </div>
                                 <div className="flex flex-col">
-                                    <label className="text-sm text-gray-600">Tam Ad</label>
+                                    <label className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                        Tam Ad
+                                    </label>
                                     <input
                                         type="text"
                                         name="fullName"
                                         value={userInfo.fullName}
                                         onChange={handleInputChange}
                                         disabled={!isEditing}
-                                        className="mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                        className={`mt-1 p-2 border rounded-lg focus:ring-2 ${
+                                            isDarkMode 
+                                                ? 'bg-gray-700 border-gray-600 text-gray-200 focus:ring-purple-400' 
+                                                : 'bg-white border-gray-300 text-gray-900 focus:ring-purple-500'
+                                        }`}
                                     />
                                 </div>
                                 <div className="flex flex-col">
-                                    <label className="text-sm text-gray-600">E-posta</label>
+                                    <label className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                        E-posta
+                                    </label>
                                     <input
                                         type="email"
                                         name="email"
                                         value={userInfo.email}
                                         onChange={handleInputChange}
                                         disabled={!isEditing}
-                                        className="mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                        className={`mt-1 p-2 border rounded-lg focus:ring-2 ${
+                                            isDarkMode 
+                                                ? 'bg-gray-700 border-gray-600 text-gray-200 focus:ring-purple-400' 
+                                                : 'bg-white border-gray-300 text-gray-900 focus:ring-purple-500'
+                                        }`}
                                     />
                                 </div>
                                 <div className="flex flex-col">
-                                    <label className="text-sm text-gray-600">Telefon</label>
+                                    <label className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                        Telefon
+                                    </label>
                                     <input
                                         type="tel"
                                         name="phone"
                                         value={userInfo.phone}
                                         onChange={handleInputChange}
                                         disabled={!isEditing}
-                                        className="mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                        className={`mt-1 p-2 border rounded-lg focus:ring-2 ${
+                                            isDarkMode 
+                                                ? 'bg-gray-700 border-gray-600 text-gray-200 focus:ring-purple-400' 
+                                                : 'bg-white border-gray-300 text-gray-900 focus:ring-purple-500'
+                                        }`}
                                     />
                                 </div>
                             </div>
 
                             <div className="space-y-4">
                                 <div className="flex flex-col">
-                                    <label className="text-sm text-gray-600">Departman</label>
+                                    <label className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                        Departman
+                                    </label>
                                     <input
                                         type="text"
                                         name="department"
                                         value={userInfo.department}
                                         onChange={handleInputChange}
                                         disabled={!isEditing}
-                                        className="mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                        className={`mt-1 p-2 border rounded-lg focus:ring-2 ${
+                                            isDarkMode 
+                                                ? 'bg-gray-700 border-gray-600 text-gray-200 focus:ring-purple-400' 
+                                                : 'bg-white border-gray-300 text-gray-900 focus:ring-purple-500'
+                                        }`}
                                     />
                                 </div>
                                 <div className="flex flex-col">
-                                    <label className="text-sm text-gray-600">Pozisyon</label>
+                                    <label className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                        Pozisyon
+                                    </label>
                                     <input
                                         type="text"
                                         name="position"
                                         value={userInfo.position}
                                         onChange={handleInputChange}
                                         disabled={!isEditing}
-                                        className="mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                        className={`mt-1 p-2 border rounded-lg focus:ring-2 ${
+                                            isDarkMode 
+                                                ? 'bg-gray-700 border-gray-600 text-gray-200 focus:ring-purple-400' 
+                                                : 'bg-white border-gray-300 text-gray-900 focus:ring-purple-500'
+                                        }`}
                                     />
                                 </div>
                                 <div className="flex flex-col">
-                                    <label className="text-sm text-gray-600">Ünvan</label>
+                                    <label className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                        Ünvan
+                                    </label>
                                     <input
                                         type="text"
                                         name="title"
                                         value={userInfo.title}
                                         onChange={handleInputChange}
                                         disabled={!isEditing}
-                                        className="mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                        className={`mt-1 p-2 border rounded-lg focus:ring-2 ${
+                                            isDarkMode 
+                                                ? 'bg-gray-700 border-gray-600 text-gray-200 focus:ring-purple-400' 
+                                                : 'bg-white border-gray-300 text-gray-900 focus:ring-purple-500'
+                                        }`}
                                     />
                                 </div>
                             </div>
@@ -313,13 +384,19 @@ const Profile: React.FC = () => {
                             <div className="mt-6 flex justify-end space-x-4">
                                 <button
                                     onClick={() => setIsEditing(false)}
-                                    className="px-4 py-2 text-gray-600 hover:text-gray-700"
+                                    className={`px-4 py-2 ${
+                                        isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-700'
+                                    }`}
                                 >
                                     İptal
                                 </button>
                                 <button
                                     onClick={handleSave}
-                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                                    className={`px-4 py-2 text-white rounded-lg ${
+                                        isDarkMode 
+                                            ? 'bg-purple-700 hover:bg-purple-800' 
+                                            : 'bg-purple-600 hover:bg-purple-700'
+                                    }`}
                                 >
                                     Kaydet
                                 </button>
@@ -328,10 +405,12 @@ const Profile: React.FC = () => {
                     </div>
 
                     {/* Password Change Section */}
-                    <div className="border-t pt-6">
+                    <div className={`border-t pt-6 ${isDarkMode ? 'border-gray-700' : ''}`}>
                         <button
                             onClick={() => setShowPasswordModal(true)}
-                            className="text-purple-600 hover:text-purple-700"
+                            className={`${
+                                isDarkMode ? 'text-purple-400 hover:text-purple-300' : 'text-purple-600 hover:text-purple-700'
+                            }`}
                         >
                             <i className="fas fa-key mr-2"></i>
                             Şifre Değiştir
@@ -343,11 +422,17 @@ const Profile: React.FC = () => {
             {/* Password Change Modal */}
             {showPasswordModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                    <div className="bg-white p-8 rounded-lg w-full max-w-md">
-                        <h3 className="text-xl font-semibold mb-4">Şifre Değiştir</h3>
+                    <div className={`p-8 rounded-lg w-full max-w-md ${
+                        isDarkMode ? 'bg-gray-800' : 'bg-white'
+                    }`}>
+                        <h3 className={`text-xl font-semibold mb-4 ${
+                            isDarkMode ? 'text-gray-100' : 'text-gray-800'
+                        }`}>Şifre Değiştir</h3>
                         <div className="space-y-4">
                             <div className="flex flex-col">
-                                <label className="text-sm text-gray-600">Mevcut Şifre</label>
+                                <label className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                    Mevcut Şifre
+                                </label>
                                 <input
                                     type="password"
                                     value={passwordForm.currentPassword}
@@ -355,11 +440,17 @@ const Profile: React.FC = () => {
                                         ...prev,
                                         currentPassword: e.target.value
                                     }))}
-                                    className="mt-1 p-2 border rounded-lg"
+                                    className={`mt-1 p-2 border rounded-lg ${
+                                        isDarkMode 
+                                            ? 'bg-gray-700 border-gray-600 text-gray-200' 
+                                            : 'bg-white border-gray-300 text-gray-900'
+                                    }`}
                                 />
                             </div>
                             <div className="flex flex-col">
-                                <label className="text-sm text-gray-600">Yeni Şifre</label>
+                                <label className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                    Yeni Şifre
+                                </label>
                                 <input
                                     type="password"
                                     value={passwordForm.newPassword}
@@ -367,11 +458,17 @@ const Profile: React.FC = () => {
                                         ...prev,
                                         newPassword: e.target.value
                                     }))}
-                                    className="mt-1 p-2 border rounded-lg"
+                                    className={`mt-1 p-2 border rounded-lg ${
+                                        isDarkMode 
+                                            ? 'bg-gray-700 border-gray-600 text-gray-200' 
+                                            : 'bg-white border-gray-300 text-gray-900'
+                                    }`}
                                 />
                             </div>
                             <div className="flex flex-col">
-                                <label className="text-sm text-gray-600">Yeni Şifre (Tekrar)</label>
+                                <label className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                    Yeni Şifre (Tekrar)
+                                </label>
                                 <input
                                     type="password"
                                     value={passwordForm.confirmPassword}
@@ -379,20 +476,30 @@ const Profile: React.FC = () => {
                                         ...prev,
                                         confirmPassword: e.target.value
                                     }))}
-                                    className="mt-1 p-2 border rounded-lg"
+                                    className={`mt-1 p-2 border rounded-lg ${
+                                        isDarkMode 
+                                            ? 'bg-gray-700 border-gray-600 text-gray-200' 
+                                            : 'bg-white border-gray-300 text-gray-900'
+                                    }`}
                                 />
                             </div>
                         </div>
                         <div className="mt-6 flex justify-end space-x-4">
                             <button
                                 onClick={() => setShowPasswordModal(false)}
-                                className="px-4 py-2 text-gray-600 hover:text-gray-700"
+                                className={`px-4 py-2 ${
+                                    isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-700'
+                                }`}
                             >
                                 İptal
                             </button>
                             <button
                                 onClick={handlePasswordChange}
-                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                                className={`px-4 py-2 text-white rounded-lg ${
+                                    isDarkMode 
+                                        ? 'bg-purple-700 hover:bg-purple-800' 
+                                        : 'bg-purple-600 hover:bg-purple-700'
+                                }`}
                             >
                                 Değiştir
                             </button>

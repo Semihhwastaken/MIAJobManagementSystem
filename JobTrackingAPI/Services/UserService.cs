@@ -103,8 +103,26 @@ namespace JobTrackingAPI.Services
 
         public async Task AddOwnerTeam(string userId, string teamId)
         {
-            var update = Builders<User>.Update.AddToSet(u => u.OwnerTeams, teamId);
-            await _users.UpdateOneAsync(u => u.Id == userId, update);
+            try
+            {
+                var filter = Builders<User>.Filter.Eq(u => u.Id, userId);
+                var update = Builders<User>.Update.AddToSet(u => u.OwnerTeams, teamId);
+
+                var result = await _users.UpdateOneAsync(filter, update);
+
+                if (result.ModifiedCount == 0)
+                {
+                    _logger.LogWarning($"AddOwnerTeam failed for user {userId} and team {teamId}");
+                    throw new Exception("Kullanıcı takım listesi güncellenemedi");
+                }
+
+                _logger.LogInformation($"Successfully added team {teamId} to user {userId}'s owner teams");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error in AddOwnerTeam for user {userId} and team {teamId}");
+                throw;
+            }
         }
 
         public async Task AddMemberTeam(string userId, string teamId)

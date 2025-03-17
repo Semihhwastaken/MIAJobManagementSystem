@@ -169,10 +169,19 @@ const Subscription: React.FC = () => {
         throw new Error('Ödeme linki alınamadı');
       }
 
-      window.location.href = response.data.paymentUrl;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Bir hata oluştu');
-    } finally {
+      // Başarı sayfasına plan türünü parametre olarak ekle
+      const successUrl = `${window.location.origin}/subscription/success?plan=${planType}`;
+      const paymentUrl = response.data.paymentUrl.replace(
+        /success_url=([^&]+)/,
+        `success_url=${encodeURIComponent(successUrl)}`
+      );
+
+      // Ödeme sayfasına yönlendir
+      window.location.href = paymentUrl;
+      
+    } catch (error) {
+      console.error('Subscription error:', error);
+      setError('Abonelik işlemi sırasında bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
       setIsLoading(false);
     }
   };

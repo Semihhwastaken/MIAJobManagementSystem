@@ -151,24 +151,30 @@ public class TeamService : ITeamService
         if (user == null)
             throw new Exception("Kullanıcı bulunamadı");
 
+        // Kullanıcının sahip olduğu takım sayısını kontrol et (max 5)
+        if (user.OwnerTeams?.Count >= 5)
+        {
+            throw new Exception("Bir kullanıcı en fazla 5 takıma sahip olabilir");
+        }
+
         var team = new Team
         {
             Name = request.Name ?? string.Empty,
             Description = request.Description,
-            CreatedById = user.Id, // Users koleksiyonundaki ID kullanılıyor
+            CreatedById = user.Id,
             Members = new List<TeamMember>
             {
                 new TeamMember
                 {
-                    Id = user.Id, // Users koleksiyonundaki ID kullanılıyor
+                    Id = user.Id,
                     Role = "admin",
                     Username = user.Username,
                     Email = user.Email,
-                    FullName = user.FullName ?? string.Empty,
-                    Department = user.Department ?? string.Empty,
-                    ProfileImage = user.ProfileImage,
+                    FullName = user.FullName,
+                    Department = user.Department,
                     Title = user.Title,
                     Position = user.Position,
+                    ProfileImage = user.ProfileImage,
                     Phone = user.Phone,
                     PerformanceScore = 50,
                     CompletedTasksCount = 0,
@@ -179,17 +185,22 @@ public class TeamService : ITeamService
             },
             Departments = new List<DepartmentStats> { new DepartmentStats { Name = request.Department } }
         };
+
+        // Takımı oluştur
         await _teams.InsertOneAsync(team);
 
-        // Kullanıcının ownerTeams listesine takım ID'sini ekle
+        // User'ın ownerTeams listesini güncelle
         var userUpdate = Builders<User>.Update.AddToSet(u => u.OwnerTeams, team.Id);
-        _logger.LogInformation("Kullanıcı {userId} için ownerTeams güncellendi", userId);
-        await _userService.UpdateUser(userId, userUpdate);
-        if(team.Id != null)
+        var userResult = await _userService.UpdateUser(userId, userUpdate);
+
+        if (!userResult)
         {
-            _cacheService.InvalidateTeamCaches(team.Id);
+            // Güncelleme başarısız olduysa takımı sil ve hata fırlat
+            await _teams.DeleteOneAsync(t => t.Id == team.Id);
+            throw new Exception("Kullanıcı takım sahipliği güncellenirken hata oluştu");
         }
-        
+
+        _cacheService.InvalidateTeamCaches(team.Id);
         return team;
     }
 
@@ -577,13 +588,15 @@ public class TeamService : ITeamService
             team.InviteCode = GenerateInviteCode();
             
             await _teams.InsertOneAsync(team);
-            var userUpdate = Builders<User>.Update.AddToSet(u => u.OwnerTeams, team.Id);
-            _logger.LogInformation("Kullanıcı {userId} için ownerTeams güncellendi", userId);
-            await _userService.UpdateUser(userId, userUpdate);
-            if (team.Id != null)
+
+            // Takımı oluşturan kullanıcıyı bul ve ownerTeams listesini güncelle
+            var ownerMember = team.Members.FirstOrDefault(m => m.Id == team.CreatedById);
+            if (ownerMember != null)
             {
-                _cacheService.InvalidateTeamCaches(team.Id);
+                await _userService.AddOwnerTeam(ownerMember.Id, team.Id);
             }
+
+            _cacheService.InvalidateTeamCaches(team.Id);
             return team;
         }
         catch (Exception ex)
@@ -1406,12 +1419,18 @@ public class TeamService : ITeamService
 
             // Get user to check ownerTeams
             var user = await _userService.GetUserById(userId);
+            // i wanna show all teams that user is owner
+            foreach (var varteam in user.OwnerTeams)
+            {
+                Console.WriteLine(varteam);
+            }
             if (user == null || !user.OwnerTeams.Contains(teamId))
             {
                 return (false, "Bu takımı silme yetkiniz yok");
             }
 
             var team = await GetTeamById(teamId);
+            Console.WriteLine(team.CreatedAt);
             if (team == null)
             {
                 return (false, "Takım bulunamadı");

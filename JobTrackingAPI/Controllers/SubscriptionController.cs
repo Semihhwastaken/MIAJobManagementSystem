@@ -258,6 +258,55 @@ namespace JobTrackingAPI.Controllers
             }
         }
 
+        [HttpPost("ensure-subscription-updated")]
+        [Authorize]
+        public async Task<IActionResult> EnsureSubscriptionUpdated([FromBody] EnsureSubscriptionRequest request)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
+
+                var user = await _userService.GetUserById(userId);
+                if (user == null)
+                {
+                    return NotFound(new { message = "User not found" });
+                }
+
+                // If the user already has an updated subscription, just return success
+                if (!string.IsNullOrEmpty(user.SubscriptionId) && user.SubscriptionPlan == request.PlanType)
+                {
+                    return Ok(new { message = "Subscription already up to date", subscriptionPlan = user.SubscriptionPlan });
+                }
+
+                // Generate a temporary subscription ID if none exists
+                string subscriptionId = user.SubscriptionId;
+                if (string.IsNullOrEmpty(subscriptionId))
+                {
+                    subscriptionId = $"manual_{Guid.NewGuid()}";
+                }
+
+                // Manually update the subscription as a fallback
+                await _userService.UpdateUserSubscriptionAsync(userId, request.PlanType, subscriptionId);
+
+                _logger.LogInformation("Manually updated subscription for user {UserId} to plan {PlanType}", userId, request.PlanType);
+
+                return Ok(new
+                {
+                    message = "Subscription updated successfully",
+                    subscriptionPlan = request.PlanType
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error ensuring subscription update");
+                return StatusCode(500, new { message = "Error updating subscription", error = ex.Message });
+            }
+        }
+
         private async Task HandleCheckoutSessionCompleted(Session session)
         {
             try
@@ -336,5 +385,10 @@ namespace JobTrackingAPI.Controllers
         public string PlanType { get; set; } = "pro";
         public required string SuccessUrl { get; set; }
         public required string CancelUrl { get; set; }
+    }
+
+    public class EnsureSubscriptionRequest
+    {
+        public string PlanType { get; set; } = "pro";
     }
 }

@@ -53,21 +53,22 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
     }, [dispatch, isOpen]);
 
     const historicalTasks = useMemo(() => {
-        return taskHistory.filter(task => {
-            const matchesSearch = searchTerm === '' || 
-                task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                task.description.toLowerCase().includes(searchTerm.toLowerCase());
-
-            switch (selectedStatus) {
-                case 'completed':
-                    return task.status === 'completed' && matchesSearch;
-                case 'overdue':
-                    return task.status === 'overdue' && matchesSearch;
-                case 'all':
-                default:
-                    return matchesSearch; // Tüm görevleri göster, sadece arama filtresini uygula
-            }
-        }).sort((a, b) => new Date(b.updatedAt || b.dueDate).getTime() - new Date(a.updatedAt || a.dueDate).getTime());
+        // First filter only completed or overdue tasks
+        const completedOrOverdueTasks = taskHistory.filter(task =>
+            task.status === 'completed' || task.status === 'overdue'
+        );
+    
+        // Then apply status and search filters
+        return completedOrOverdueTasks.filter(task => {
+            // Apply status filters
+            if (selectedStatus === 'completed' && task.status !== 'completed') return false;
+            if (selectedStatus === 'overdue' && task.status !== 'overdue') return false;
+            
+            // Apply search filter
+            return searchTerm === '' ||
+                   task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   task.description.toLowerCase().includes(searchTerm.toLowerCase());
+        }).sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
     }, [taskHistory, selectedStatus, searchTerm]);
 
     const stats = useMemo(() => {

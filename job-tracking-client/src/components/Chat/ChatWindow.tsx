@@ -16,6 +16,7 @@ import {
     Menu,
     MenuItem,
     Fade,
+    useTheme,
 } from '@mui/material';
 import { 
     Send as SendIcon,
@@ -32,10 +33,12 @@ interface ChatWindowProps {
         name: string;
         profilImage?: string;
     };
-    onClose: () => void; // Add this line
+    onClose: () => void;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedUser, onClose }) => {
+    const theme = useTheme();
+    const isDarkMode = theme.palette.mode === 'dark';
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [isTyping, setIsTyping] = useState(false);
@@ -345,22 +348,24 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
             className="flex flex-col h-full"
             elevation={0}
             sx={{
-                backgroundColor: 'background.default',
+                backgroundColor: isDarkMode ? 'background.default' : '#ffffff',
                 borderRadius: '24px',
                 overflow: 'hidden',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
+                boxShadow: isDarkMode 
+                    ? '0 8px 32px rgba(0, 0, 0, 0.3)' 
+                    : '0 8px 32px rgba(0, 0, 0, 0.05)',
             }}
         >
             {/* Header */}
             <Box 
                 className="p-4"
                 sx={{
-                    background: theme => theme.palette.mode === 'dark' 
+                    background: isDarkMode
                         ? 'linear-gradient(180deg, rgba(30,41,59,0.8) 0%, rgba(30,41,59,0.7) 100%)'
-                        : 'linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.8) 100%)',
+                        : 'linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(248,250,252,0.9) 100%)',
                     backdropFilter: 'blur(12px)',
                     borderBottom: '1px solid',
-                    borderColor: 'divider',
+                    borderColor: isDarkMode ? 'divider' : 'rgba(0,0,0,0.1)',
                 }}
             >
                 <Box className="flex items-center justify-between">
@@ -369,7 +374,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                             sx={{ 
                                 width: 45, 
                                 height: 45,
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                boxShadow: isDarkMode
+                                    ? '0 2px 4px rgba(0,0,0,0.3)'
+                                    : '0 2px 4px rgba(0,0,0,0.1)'
                             }}
                         >
                             {selectedUser.profilImage ? (
@@ -379,7 +386,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                             )}
                         </Avatar>
                         <Box>
-                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                            <Typography 
+                                variant="h6" 
+                                sx={{ 
+                                    fontWeight: 600,
+                                    color: isDarkMode ? 'text.primary' : 'text.primary'
+                                }}
+                            >
                                 {selectedUser.name}
                             </Typography>
                             <Box className="flex items-center gap-2">
@@ -387,7 +400,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                                     <Box className="flex items-center gap-1">
                                         <Box 
                                             className="w-2 h-2 rounded-full bg-green-500"
-                                            sx={{ boxShadow: '0 0 0 2px #fff' }}
+                                            sx={{ 
+                                                boxShadow: isDarkMode
+                                                    ? '0 0 0 2px rgba(30,41,59,0.8)'
+                                                    : '0 0 0 2px #fff'
+                                            }}
                                         />
                                         <Typography variant="caption" color="success.main">
                                             Online
@@ -406,9 +423,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                                             yazıyor...
                                         </Typography>
                                         <span className="flex space-x-1">
-                                            <span className="animate-bounce h-1 w-1 bg-gray-400 rounded-full"/>
-                                            <span className="animate-bounce h-1 w-1 bg-gray-400 rounded-full" style={{ animationDelay: '0.2s' }}/>
-                                            <span className="animate-bounce h-1 w-1 bg-gray-400 rounded-full" style={{ animationDelay: '0.4s' }}/>
+                                            <span className={`animate-bounce h-1 w-1 rounded-full ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'}`}/>
+                                            <span className={`animate-bounce h-1 w-1 rounded-full ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'}`} style={{ animationDelay: '0.2s' }}/>
+                                            <span className={`animate-bounce h-1 w-1 rounded-full ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'}`} style={{ animationDelay: '0.4s' }}/>
                                         </span>
                                     </Box>
                                 )}
@@ -420,7 +437,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                         sx={{
                             color: 'text.secondary',
                             '&:hover': {
-                                backgroundColor: 'action.hover',
+                                backgroundColor: isDarkMode
+                                    ? 'rgba(255,255,255,0.08)'
+                                    : 'rgba(0,0,0,0.04)',
                             }
                         }}
                     >
@@ -436,21 +455,23 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
             <Box 
                 className="flex-1 overflow-y-auto p-6"
                 sx={{
-                    background: theme => theme.palette.mode === 'dark'
+                    background: isDarkMode
                         ? 'linear-gradient(180deg, rgba(15,23,42,0.3) 0%, rgba(15,23,42,0.1) 100%)'
-                        : 'linear-gradient(180deg, rgba(241,245,249,0.3) 0%, rgba(241,245,249,0.1) 100%)',
+                        : 'linear-gradient(180deg, rgba(248,250,252,0.7) 0%, rgba(255,255,255,0.5) 100%)',
                 }}
             >
                 {loading ? (
                     <Box className="flex justify-center items-center h-full">
-                        <CircularProgress size={40} />
+                        <CircularProgress size={40} sx={{ color: isDarkMode ? 'primary.light' : 'primary.main' }} />
                     </Box>
                 ) : error ? (
                     <Alert 
                         severity="error"
                         sx={{ 
                             borderRadius: 2,
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                            boxShadow: isDarkMode
+                                ? '0 2px 8px rgba(0,0,0,0.3)'
+                                : '0 2px 8px rgba(0,0,0,0.1)'
                         }}
                     >
                         {error}
@@ -460,19 +481,20 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                         {Object.entries(groupedMessages).map(([date, messages]) => (
                             <Box key={date}>
                                 <Box className="flex items-center my-4">
-                                    <Box className="flex-grow border-t border-gray-200"></Box>
+                                    <Box className="flex-grow border-t" sx={{ borderColor: 'divider' }}></Box>
                                     <Typography 
                                         variant="caption" 
                                         className="mx-4 px-3 py-1 rounded-full"
                                         sx={{
-                                            backgroundColor: 'background.default',
+                                            backgroundColor: 'background.paper',
                                             border: '1px solid',
                                             borderColor: 'divider',
+                                            color: 'text.secondary'
                                         }}
                                     >
                                         {date}
                                     </Typography>
-                                    <Box className="flex-grow border-t border-gray-200"></Box>
+                                    <Box className="flex-grow border-t" sx={{ borderColor: 'divider' }}></Box>
                                 </Box>
                                 <Box className="space-y-3">
                                     {messages.map((message) => (
@@ -496,25 +518,28 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                                                         color: 'primary.contrastText',
                                                     } : {
                                                         borderBottomLeftRadius: '4px',
-                                                        backgroundColor: theme => theme.palette.mode === 'dark' 
-                                                            ? 'rgba(255,255,255,0.05)' 
+                                                        backgroundColor: isDarkMode
+                                                            ? 'rgba(255,255,255,0.05)'
                                                             : 'rgba(255,255,255,0.9)',
-                                                        boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
+                                                        color: 'text.primary',
+                                                        boxShadow: isDarkMode
+                                                            ? '0 2px 12px rgba(0,0,0,0.2)'
+                                                            : '0 2px 12px rgba(0,0,0,0.05)',
                                                     })
                                                 }}
                                             >
                                                 <Box 
                                                     className="flex items-center justify-between"
-                                                    sx={{ gap: 0.5 }} // Reduced gap
+                                                    sx={{ gap: 0.5 }}
                                                 >
                                                     <Typography 
                                                         sx={{ 
                                                             wordBreak: 'break-word',
                                                             flex: 1,
-                                                            fontFamily: '"Inter", sans-serif', // Modern, clean font
-                                                            fontSize: '0.875rem', // Smaller font size
+                                                            fontFamily: '"Inter", sans-serif',
+                                                            fontSize: '0.875rem',
                                                             lineHeight: 1.5,
-                                                            letterSpacing: '-0.01em', // Slight letter spacing adjustment
+                                                            letterSpacing: '-0.01em',
                                                             fontWeight: 400
                                                         }}
                                                     >
@@ -548,12 +573,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
 
                                                 {message.fileAttachment && (
                                                     <Box 
-                                                        className="mt-2 p-2 rounded cursor-pointer hover:bg-gray-100"
+                                                        className="mt-2 p-2 rounded cursor-pointer"
                                                         sx={{
                                                             backgroundColor: 'rgba(0,0,0,0.1)',
                                                             transition: 'background-color 0.2s',
                                                             '&:hover': {
-                                                                backgroundColor: 'rgba(0,0,0,0.15)',
+                                                                backgroundColor: isDarkMode
+                                                                    ? 'rgba(255,255,255,0.15)'
+                                                                    : 'rgba(0,0,0,0.15)',
                                                             }
                                                         }}
                                                     >
@@ -568,10 +595,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                                                                         maxHeight: '200px',
                                                                         borderRadius: '8px',
                                                                         objectFit: 'cover',
-                                                                        cursor: 'pointer'
+                                                                        cursor: 'pointer',
+                                                                        boxShadow: isDarkMode 
+                                                                            ? '0 2px 6px rgba(0,0,0,0.4)'
+                                                                            : '0 2px 6px rgba(0,0,0,0.15)'
                                                                     }}
                                                                 />
-                                                                <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
+                                                                <Typography variant="caption" sx={{ 
+                                                                    display: 'block', 
+                                                                    mt: 1,
+                                                                    color: isDarkMode
+                                                                        ? 'rgba(255,255,255,0.7)'
+                                                                        : 'inherit'
+                                                                }}>
                                                                     {message.fileAttachment.fileName}
                                                                 </Typography>
                                                             </Box>
@@ -595,8 +631,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                                                     sx={{ 
                                                         opacity: 0.7,
                                                         display: 'block',
-                                                        marginTop: 0.25, // Reduced margin
-                                                        fontSize: '0.7rem', // Smaller time stamp
+                                                        marginTop: 0.25,
+                                                        fontSize: '0.7rem',
                                                         fontFamily: '"Inter", sans-serif',
                                                         letterSpacing: '-0.01em'
                                                     }}
@@ -638,6 +674,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                             maxWidth: '90%',
                             maxHeight: '90%',
                             objectFit: 'contain',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
                         }}
                     />
                 </Box>
@@ -662,7 +699,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                     '& .MuiPaper-root': {
                         borderRadius: 2,
                         minWidth: 120,
-                        boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                        boxShadow: isDarkMode
+                            ? '0 2px 10px rgba(0,0,0,0.3)'
+                            : '0 2px 10px rgba(0,0,0,0.1)',
+                        backgroundColor: 'background.paper',
                     }
                 }}
             >
@@ -671,7 +711,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                     sx={{
                         color: 'error.main',
                         '&:hover': {
-                            backgroundColor: 'error.lighter',
+                            backgroundColor: isDarkMode
+                                ? 'rgba(244,67,54,0.1)'
+                                : 'error.lighter',
                         },
                         fontSize: '0.875rem',
                         py: 1,
@@ -688,7 +730,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                         sx={{
                             color: 'primary.main',
                             '&:hover': {
-                                backgroundColor: 'primary.lighter',
+                                backgroundColor: isDarkMode
+                                    ? 'rgba(25,118,210,0.1)'
+                                    : 'primary.lighter',
                             },
                             fontSize: '0.875rem',
                             py: 1,
@@ -704,22 +748,24 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
             <Box 
                 className="p-4"
                 sx={{
-                    background: theme => theme.palette.mode === 'dark'
+                    background: isDarkMode
                         ? 'linear-gradient(0deg, rgba(30,41,59,0.8) 0%, rgba(30,41,59,0.7) 100%)'
-                        : 'linear-gradient(0deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.8) 100%)',
+                        : 'linear-gradient(0deg, rgba(248,250,252,1) 0%, rgba(255,255,255,0.9) 100%)',
                     backdropFilter: 'blur(12px)',
                     borderTop: '1px solid',
-                    borderColor: 'divider',
+                    borderColor: isDarkMode ? 'divider' : 'rgba(0,0,0,0.1)',
                 }}
             >
                 <Box 
                     className="flex items-center gap-3 p-2"
                     sx={{
-                        backgroundColor: theme => theme.palette.mode === 'dark' 
-                            ? 'rgba(255,255,255,0.05)' 
-                            : 'rgba(255,255,255,0.9)',
+                        backgroundColor: isDarkMode
+                            ? 'rgba(255,255,255,0.05)'
+                            : 'rgba(255,255,255,1)',
                         borderRadius: '16px',
-                        boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
+                        boxShadow: isDarkMode
+                            ? '0 2px 12px rgba(0,0,0,0.2)'
+                            : '0 2px 12px rgba(0,0,0,0.03)',
                     }}
                 >
                     <input
@@ -733,7 +779,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                         sx={{
                             color: 'text.secondary',
                             '&:hover': {
-                                backgroundColor: 'action.hover',
+                                backgroundColor: isDarkMode
+                                    ? 'rgba(255,255,255,0.08)'
+                                    : 'action.hover',
                             }
                         }}
                     >
@@ -750,8 +798,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                             sx: {
                                 padding: '8px 12px',
                                 borderRadius: '12px',
+                                color: 'text.primary',
                                 '&:hover': {
-                                    backgroundColor: 'action.hover',
+                                    backgroundColor: isDarkMode
+                                        ? 'rgba(255,255,255,0.05)'
+                                        : 'action.hover',
+                                },
+                                '& ::placeholder': {
+                                    color: isDarkMode
+                                        ? 'rgba(255,255,255,0.5)'
+                                        : 'rgba(0,0,0,0.4)',
+                                    opacity: 1,
                                 }
                             }
                         }}
@@ -769,6 +826,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                     />
                     <IconButton
                         onClick={handleSendMessage}
+                        disabled={!newMessage.trim() && !selectedFile}
                         sx={{
                             backgroundColor: 'primary.main',
                             color: 'primary.contrastText',
@@ -776,7 +834,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                                 backgroundColor: 'primary.dark',
                             },
                             '&.Mui-disabled': {
-                                backgroundColor: 'action.disabledBackground',
+                                backgroundColor: isDarkMode 
+                                    ? 'rgba(255,255,255,0.12)'
+                                    : 'action.disabledBackground',
+                                color: isDarkMode
+                                    ? 'rgba(255,255,255,0.3)'
+                                    : 'action.disabled',
                             },
                             width: 40,
                             height: 40,
