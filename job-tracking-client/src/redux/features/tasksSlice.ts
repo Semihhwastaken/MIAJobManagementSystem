@@ -77,7 +77,7 @@ export const fetchTaskHistory = createAsyncThunk(
 
 export const createTask = createAsyncThunk(
     'tasks/createTask',
-    async (task: Omit<Task, 'id'>, { rejectWithValue }) => {
+    async (task: Omit<Task, 'id'>, { rejectWithValue, dispatch }) => {
         try {
             const dueDate = task.dueDate ? new Date(task.dueDate) : new Date();
             
@@ -115,7 +115,7 @@ export const createTask = createAsyncThunk(
                 subTasks: processedSubTasks,
                 dependencies: task.dependencies || [],
                 attachments: task.attachments || [],
-                assignedUserIds: assignedUserIds,
+                assignedUserIds: task.assignedUserIds || [],
                 assignedUsers: task.assignedUsers?.map(user => ({
                     id: user.id,
                     username: user.username,
