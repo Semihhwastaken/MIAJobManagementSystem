@@ -10,25 +10,28 @@ const SubscriptionSuccess: React.FC = () => {
   const dispatch = useDispatch();
 
   useEffect(() => {
-    // Fetch updated subscription information
     const fetchSubscriptionStatus = async () => {
       try {
+        // Add a small delay to allow the server to process the webhook from Stripe
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Fetch the latest subscription status
         const response = await axiosInstance.get('/subscription/subscription-status');
         
-        // Update the Redux store with the new subscription info
+        // Update Redux state with the subscription details
         dispatch(updateSubscription({
           subscriptionPlan: response.data.subscriptionPlan,
           subscriptionId: response.data.subscriptionId,
           subscriptionStatus: 'active',
           subscriptionEndDate: response.data.subscriptionExpiryDate
         }));
-
-        // Update the user object in localStorage
+        
+        // Update user information in localStorage
         const userJson = localStorage.getItem('user');
         if (userJson) {
-          const user = JSON.parse(userJson);
+          const userData = JSON.parse(userJson);
           const updatedUser = {
-            ...user,
+            ...userData,
             subscriptionPlan: response.data.subscriptionPlan,
             subscriptionId: response.data.subscriptionId,
             subscriptionStatus: 'active',
@@ -36,6 +39,15 @@ const SubscriptionSuccess: React.FC = () => {
           };
           localStorage.setItem('user', JSON.stringify(updatedUser));
         }
+        
+        // Add manual subscription update call as a fallback
+        // This ensures the subscription is updated even if the webhook fails
+        const urlParams = new URLSearchParams(window.location.search);
+        const planType = urlParams.get('plan') || 'pro';
+        
+        // Call an API endpoint to force update the subscription if needed
+        await axiosInstance.post('/subscription/ensure-subscription-updated', { planType });
+        
       } catch (error) {
         console.error('Error fetching subscription status:', error);
         toast.error('Abonelik bilgileri güncellenirken bir hata oluştu.');
