@@ -416,9 +416,26 @@ async (
     
     // 5. Daha önce upload sırasında localStorage'a kaydedilen JWK formatındaki anahtarı alıyoruz.
     const storedKey = localStorage.getItem(`encryptionKey_${taskId}`);
+    
+    // Eğer şifreleme anahtarı yoksa, şifrelenmemiş dosyayı indirme seçeneği sunuyoruz
     if (!storedKey) {
-      throw new Error('Bu task için şifreleme anahtarı bulunamadı.');
+      console.warn("Şifreleme anahtarı bulunamadı. Şifrelenmemiş dosya indirilecek.");
+      
+      // Kullanıcıya şifrelenmemiş dosyayı indirme seçeneği sunuyoruz
+      const blob = new Blob([new Uint8Array(blobArrayBuffer)], { type: response.data.type });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName.replace(/\.enc$/, ''));
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true, encrypted: false };
     }
+    
+    // Anahtar bulunduysa şifre çözme işlemine devam ediyoruz
     const jwkKey = JSON.parse(storedKey);
     
     // 6. AES-GCM için anahtarı import ediyoruz.
@@ -448,10 +465,10 @@ async (
     link.remove();
     window.URL.revokeObjectURL(url);
     
-    return { success: true };
+    return { success: true, encrypted: true };
   } catch (error: any) {
     console.error('Download error detail:', error);
-    return rejectWithValue(error.response?.data?.message || 'Dosya indirilirken bir hata oluştu');
+    return rejectWithValue(error.message || 'Dosya indirilirken bir hata oluştu');
   }
 }
 );

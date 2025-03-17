@@ -17,6 +17,9 @@ import {
   clearApiKey,
   isAiAnalysisEnabled
 } from '../../services/aiAnalysisService';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
+import teamService from '../../services/teamService';
 
 // Register ChartJS components
 ChartJS.register(
@@ -86,6 +89,7 @@ interface TopContributor {
 
 const Dashboard = () => {
   const { isDarkMode } = useTheme();
+  const currentUser = useSelector((state: RootState) => state.auth.user);
   const [taskStats, setTaskStats] = useState<TaskStats>({
     total: 0,
     completed: 0,
@@ -788,6 +792,11 @@ const Dashboard = () => {
   // Update the handleDownloadReport function
   const handleDownloadReport = async () => {
     try {
+      if (!currentUser) {
+        toast.error('Kullanıcı bilgileri bulunamadı. Lütfen tekrar giriş yapın.');
+        return;
+      }
+      
       // Basic plan kontrolü
       if (currentUser?.subscriptionPlan?.toLowerCase() === 'basic') {
         toast.warning('Bu özellik sadece Pro plan kullanıcıları için mevcuttur.');
@@ -904,24 +913,7 @@ const Dashboard = () => {
     );
   };
 
-  const handleTeamJoin = async (teamId: string, userId: string) => {
-    try {
-      const response = await teamService.joinTeam(teamId, userId);
-      if (response.ok) {
-        toast.success('Takıma başarıyla katıldınız!');
-        fetchTeams();
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || 'Takıma katılırken bir hata oluştu');
-      }
-    } catch (error: any) {
-      if (error.message.includes('Basic plan')) {
-        toast.error(error.message);
-      } else {
-        toast.error('Takıma katılırken bir hata oluştu');
-      }
-    }
-  };
+
 
   return (
     <motion.div
