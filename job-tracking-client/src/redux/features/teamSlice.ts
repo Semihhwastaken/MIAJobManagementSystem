@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createSlice, createAsyncThunk, createAction, isPending, isRejected } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, createAction } from '@reduxjs/toolkit';
 import { TeamState, TeamMember, Team } from '../../types/team';
 import axiosInstance from '../../services/axiosInstance';
 import { RESET_STATE } from './actionTypes';
-import { RootState } from '../store';
+
 
 interface MemberMetricsUpdateDto {
     teamId: string;
@@ -60,6 +60,7 @@ interface RemoveTeamMemberResponse {
     teamId: string;
     memberId: string;
     message: string;
+    success:string;
 }
 
 // Helper function to check if cache is valid (5 minutes)
@@ -269,6 +270,7 @@ export const joinTeamWithInviteCode = createAsyncThunk(
             
             // Backend API'sine istek yap
             const response = await axiosInstance.post(`/Team/join-with-code/${inviteCode}`);
+            console.log("Görmem gerek: ", response.data);
             
             // İşlem tamamlandı, istek işaretini kaldır
             pendingRequests[requestKey] = false;
@@ -348,7 +350,7 @@ export const removeTeamMember = createAsyncThunk<RemoveTeamMemberResponse, { tea
 
 export const fetchTeams = createAsyncThunk(
     'Team/fetchTeams',
-    async (_, { getState, rejectWithValue, dispatch }) => {
+    async (_, { getState, rejectWithValue }) => {
         const state = getState() as { team: TeamState; auth: { user: any } };
         
         // Use cached data if available and not expired

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import axiosInstance from '../../services/axiosInstance';
@@ -7,8 +6,7 @@ import { toast } from 'react-toastify';
 
 const SubscriptionPlans: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-  const { user } = useSelector((state: RootState) => state.auth);
+  useSelector((state: RootState) => state.auth);
 
   const handleSubscribe = async (planType: string) => {
     try {

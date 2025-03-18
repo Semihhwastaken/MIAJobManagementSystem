@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { motion } from 'framer-motion';
 import { Line, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, ChartOptions, Filler, Chart } from 'chart.js';
@@ -10,17 +11,13 @@ import { chartToImageURL, generatePdfReport } from '../../services/reportGenerat
 import { saveAs } from 'file-saver';
 import { toast } from 'react-toastify';
 import { 
-  generateTeamAnalysis, 
-  validateApiKey, 
-  saveApiKey, 
-  getStoredApiKey, 
-  clearApiKey,
+  
   isAiAnalysisEnabled
 } from '../../services/aiAnalysisService';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
-import teamService from '../../services/teamService';
+
 
 // Register ChartJS components
 ChartJS.register(
@@ -130,7 +127,7 @@ const Dashboard = () => {
   const [selectedTimePeriod, setSelectedTimePeriod] = useState<string>("week");
   const [dataFetchError, setDataFetchError] = useState<string | null>(null);
 
-  const calculateGrowth = (current: number, previous: number): string => {
+  const calculateGrowth = useCallback((current: number, previous: number): string => {
     if (previous === 0) {
       if (current === 0) return '0%'; // Both zero - no change
       return `+${current}00%`; // New items added - show absolute number
@@ -143,9 +140,9 @@ const Dashboard = () => {
     
     // Add plus sign for positive values, negative values already have their sign
     return `${growth > 0 ? '+' : ''}${formattedGrowth}%`;
-  };
+  }, []);
   // Helper function to format dates according to time period
-  const formatDateByTimePeriod = (date: Date | string, timePeriod: string): string => {
+  const formatDateByTimePeriod = useCallback((date: Date | string, timePeriod: string): string => {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
     
     switch (timePeriod) {
@@ -170,7 +167,7 @@ const Dashboard = () => {
       default:
         return dateObj.toLocaleDateString('tr-TR');
     }
-  };
+  }, []);
 
   // Add this new utility function to help with date processing
   const getDateIdentifier = (date: Date, timePeriod: string): string => {
@@ -370,7 +367,7 @@ const Dashboard = () => {
     } finally {
       setDashboardLoading(false);
     }
-  }, [selectedTimePeriod]);
+  }, [selectedTimePeriod,calculateGrowth,formatDateByTimePeriod]);
 
   // Fetch team activity and top contributors
   const fetchTeamActivityAndContributors = useCallback(async (teamId: string) => {
@@ -680,7 +677,7 @@ const Dashboard = () => {
     return () => {
       controller.abort();
     };
-  }, [selectedTeamId, teams.length, selectedTimePeriod]); // Removed function dependencies
+  }, [selectedTeamId, teams.length, selectedTimePeriod,fetchAllTeamsData,fetchDashboardData,fetchTeamActivityAndContributors]); // Removed function dependencies
 
   const handleTeamChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const newTeamId = e.target.value;
@@ -787,8 +784,8 @@ const Dashboard = () => {
   const [includeAIAnalysis, setIncludeAIAnalysis] = useState<boolean>(isAiAnalysisEnabled());
   
   // Reference to the charts
-  const lineChartRef = React.useRef<Chart | null>(null);
-  const doughnutChartRef = React.useRef<Chart | null>(null);
+  const lineChartRef = React.useRef<Chart<'line', number[], string> | null>(null);
+  const doughnutChartRef = React.useRef<Chart<'doughnut', number[], string> | null>(null);
 
   // Update the handleDownloadReport function
   const handleDownloadReport = async () => {
@@ -892,31 +889,6 @@ const Dashboard = () => {
   if (isLoading) {
     return <LoadingScreen />;
   }
-  // AI analizi için buton render kısmı
-  const renderAIAnalysisButton = () => {
-    const isBasicPlan = currentUser?.subscriptionPlan?.toLowerCase() === 'basic';
-  
-    return (
-      <label className={`inline-flex items-center cursor-${isBasicPlan ? 'not-allowed' : 'pointer'}`}>
-        <input
-          type="checkbox"
-          checked={includeAIAnalysis}
-          onChange={() => {
-            if (isBasicPlan) {
-              toast.warning('AI analizi özelliği sadece Pro plan kullanıcıları için mevcuttur.');
-              return;
-            }
-            setIncludeAIAnalysis(!includeAIAnalysis);
-          }}
-          disabled={isBasicPlan}
-          className={`form-checkbox h-5 w-5 ${isBasicPlan ? 'opacity-50' : ''}`}
-        />
-        <span className={`ml-2 ${isBasicPlan ? 'opacity-50' : ''}`}>
-          AI Analizi Ekle
-        </span>
-      </label>
-    );
-  };
 
 
 
@@ -1121,7 +1093,7 @@ const Dashboard = () => {
                     devicePixelRatio: 3 // Higher quality for export
                   }} 
                   ref={(reference) => {
-                    if (reference !== null) {
+                    if (reference !== null && reference !== undefined) {
                       lineChartRef.current = reference;
                     }
                   }}
@@ -1146,7 +1118,7 @@ const Dashboard = () => {
                     devicePixelRatio: 3 // Higher quality for export
                   }}
                   ref={(reference) => {
-                    if (reference !== null) {
+                    if (reference !== null && reference !== undefined) {
                       doughnutChartRef.current = reference;
                     }
                   }} 

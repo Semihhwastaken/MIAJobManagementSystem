@@ -17,7 +17,7 @@ interface TaskState {
 }
 
 // Cache süreleri
-const ACTIVE_TASKS_CACHE_DURATION = 5 * 60 * 1000; // 5 dakika
+
 const COMPLETED_TASKS_CACHE_DURATION = 30 * 60 * 1000; // 30 dakika
 
 
@@ -34,7 +34,7 @@ const initialState: TaskState = {
 
 export const fetchTasks = createAsyncThunk(
     'tasks/fetchTasks',
-    async (_, { getState, rejectWithValue }) => {
+    async (_, { rejectWithValue }) => {
         try {
             console.log('Fetching tasks from server (bypassing cache)');
             const response = await axiosInstance.get('/Tasks');

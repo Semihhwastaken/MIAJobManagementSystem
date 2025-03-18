@@ -196,7 +196,7 @@ const Subscription: React.FC = () => {
       setError(null);
 
       const response = await axiosInstance.post('/subscription/cancel');
-      
+      console.log('Subscription cancel response:', response.data);
       toast.success('Aboneliğiniz başarıyla iptal edildi');
       window.location.reload();
     } catch (err) {

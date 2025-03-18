@@ -125,6 +125,11 @@ interface VerificationResponse {
         email: string;
         fullName: string;
         department: string;
+        role: string;
+        subscriptionPlan: string;
+        subscriptionStatus: string;
+        subscriptionId: string;
+        subscriptionEndDate: string | null;
     };
     error?: string;
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import axiosInstance from '../../services/axiosInstance';
@@ -60,10 +61,11 @@ const CommentList: React.FC<CommentListProps> = ({ taskId, refreshTrigger = 0 })
       try {
         setLoading(true);
         const response = await axiosInstance.get(`/comment/task/${taskId}`);
-        setComments(response.data);
+        const commentsData = response.data as Comment[];
+        setComments(commentsData);
         
         // Yorumlardaki kullanıcı ID'lerini topla
-        const userIds = [...new Set(response.data.map((comment: Comment) => comment.userId))];
+        const userIds = [...new Set(commentsData.map(comment => comment.userId))];
         
         // Kullanıcı bilgilerini getir
         await fetchUserDetails(userIds);

@@ -1,5 +1,4 @@
-import axios from 'axios';
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 interface TeamMember {
   id: string;
   name: string;
@@ -42,7 +41,7 @@ export const isAiAnalysisEnabled = (): boolean => {
 
 // Validate API key - these are legacy functions that may be removed in future
 export const validateApiKey = (key: string): boolean => {
-  return key && key.startsWith('sk-or-v1-') && key.length > 30;
+  return Boolean(key) && typeof key === 'string' && key.startsWith('sk-or-v1-') && key.length > 30;
 };
 
 export const getStoredApiKey = (): string => {
