@@ -6,10 +6,23 @@ import { RootState } from '../../redux/store';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { fetchTaskHistory } from '../../redux/features/tasksSlice';
+import axiosInstance from '../../services/axiosInstance';
 
 interface TaskHistoryProps {
     isOpen: boolean;
     onClose: () => void;
+}
+
+interface TaskHistoryDto {
+    id: string;
+    title: string;
+    description: string;
+    status: string;
+    priority: string;
+    category: string;
+    dueDate: string;
+    assignedUsers: { id: string; fullName: string; }[];
+    completedDate?: Date;
 }
 
 const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
@@ -177,21 +190,6 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
 
                 {/* Tasks List Section */}
                 <div className="overflow-y-auto max-h-[calc(85vh-280px)] p-6">
-                    {loading ? (
-                        <div className="text-center py-12">
-                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                                <i className="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
-                            </div>
-                            <p className="text-gray-500 text-lg">Görev geçmişi yükleniyor...</p>
-                        </div>
-                    ) : error ? (
-                        <div className="text-center py-12">
-                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
-                                <i className="fas fa-exclamation-triangle text-2xl text-red-400"></i>
-                            </div>
-                            <p className="text-red-500 text-lg">{error}</p>
-                        </div>
-                    ) : (
                     <div className="space-y-4">
                         {historicalTasks.map((task) => (
                             <div
@@ -258,7 +256,7 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
                                                 <div className="mt-4">
                                                     <p className="text-sm font-medium text-gray-500 mb-2">Atanan Kişiler</p>
                                                     <div className="flex -space-x-2">
-                                                        {task.assignedUsers.map((user) => (
+                                                        {task.assignedUsers.map((user, index) => (
                                                             <div
                                                                 key={user.id}
                                                                 className="relative inline-flex items-center justify-center w-8 h-8 bg-indigo-500 rounded-full ring-2 ring-white"
@@ -287,7 +285,6 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
                             </div>
                         )}
                     </div>
-                    )}
                 </div>
             </div>
         </Modal>

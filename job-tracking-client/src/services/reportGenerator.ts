@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Chart } from 'chart.js';
@@ -256,15 +255,14 @@ export const generatePdfReport = async (reportData: ReportData): Promise<Blob> =
     unit: 'mm',
     format: 'a4',
     putOnlyUsedFonts: true,
-    compress: true
+    compress: true,
+    margins: {
+      top: 20,
+      bottom: 20,
+      left: 20,
+      right: 20
+    }
   });
-
-  // Set margins by adjusting the coordinate system
-  doc.setProperties({
-    title: 'Performance Report',
-    creator: 'MIA Job Tracking System'
-  });
-
   
   let yPos = 20;
   
@@ -331,7 +329,7 @@ export const generatePdfReport = async (reportData: ReportData): Promise<Blob> =
   yPos = addSectionTitle(doc, '2. Gorev Istatistikleri', yPos);
   
   // Create a table for task statistics with better styling
-  autoTable(doc, {
+  doc.autoTable({
     startY: yPos,
     head: [['Metrik', 'Deger', 'Degisim']],
     body: [
@@ -359,7 +357,7 @@ export const generatePdfReport = async (reportData: ReportData): Promise<Blob> =
     yPos = addSectionTitle(doc, '3. Ekip Performans Gostergeleri', yPos);
     
     // Create a table for team activity with better styling
-    autoTable(doc, {
+    doc.autoTable({
       startY: yPos,
       head: [['Metrik', 'Deger']],
       body: [
@@ -459,7 +457,7 @@ export const generatePdfReport = async (reportData: ReportData): Promise<Blob> =
     ]);
     
     // Create table with improved formatting
-    autoTable(doc, {
+    doc.autoTable({
       startY: yPos,
       head: [['Isim', 'Rol', 'Tamamlanan Gorev', 'Performans']],
       body: contributorsData,
@@ -563,7 +561,7 @@ export const generatePdfReport = async (reportData: ReportData): Promise<Blob> =
   }
   
   // Add footer with improved positioning
-  const pageCount = doc.getNumberOfPages();
+  const pageCount = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8);

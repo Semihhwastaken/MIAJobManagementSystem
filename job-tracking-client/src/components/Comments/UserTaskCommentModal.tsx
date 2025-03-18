@@ -3,7 +3,7 @@ import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import axiosInstance from '../../services/axiosInstance';
 import { toast } from 'react-hot-toast';
-import { PaperClipIcon, TagIcon, XMarkIcon, DocumentIcon } from '@heroicons/react/24/outline';
+import { PaperClipIcon, TagIcon } from '@heroicons/react/24/outline';
 import { useTheme } from '../../context/ThemeContext';
 
 interface UserTaskCommentModalProps {

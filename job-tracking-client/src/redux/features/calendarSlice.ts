@@ -1,4 +1,4 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction, createReducer } from '@reduxjs/toolkit';
 import { RESET_STATE } from './actionTypes';
 
 export interface CalendarEvent {

@@ -18,7 +18,6 @@ interface TaskFormProps {
   isDarkMode: boolean;
   teamId?: string;
   teamName?: string;
-  onSave: (newTaskData: Omit<TaskType, "id">) => Promise<void>;
 }
 
 type TaskStatus = 'todo' | 'in-progress' | 'completed' | 'overdue';
@@ -208,23 +207,18 @@ const TaskForm: React.FC<TaskFormProps> = ({
       
       // Process subtasks to properly format them - either keep valid MongoDB IDs or omit id field
       const processedSubTasks = formData.subTasks.map(subTask => {
-        const now = new Date().toISOString();
         // If it's a valid MongoDB ObjectId (24 hex chars), keep it
         if (subTask.id && /^[0-9a-fA-F]{24}$/.test(subTask.id)) {
           return {
             id: subTask.id,
             title: subTask.title,
-            completed: Boolean(subTask.completed),
-            completedDate: subTask.completed ? now : null,
-            AssignedUserId: subTask.AssignedUserId || null
+            completed: Boolean(subTask.completed)
           };
         } else {
           // Omit the id field for new subtasks - MongoDB will generate it
           return {
             title: subTask.title,
-            completed: Boolean(subTask.completed),
-            completedDate: null,
-            AssignedUserId: null
+            completed: Boolean(subTask.completed)
           };
         }
       });
@@ -327,9 +321,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
           { 
             // Don't include any ID for new subtasks, let MongoDB generate them
             title: newSubTask.trim(), 
-            completed: false ,
-            completedDate: null,
-            AssignedUserId: ''
+            completed: false 
           }
         ]
       });
@@ -738,7 +730,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                           .map(user => (
                             <Listbox.Option
                               key={user.id}
-                              className={({ active }) =>
+                              className={({ selected }) =>
                                 `relative cursor-default select-none py-2 pl-3 pr-9 ${
                                   isDarkMode
                                     ? active ? 'bg-indigo-900/40 text-indigo-100' : 'text-gray-200'
@@ -747,7 +739,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                               }
                               value={user}
                             >
-                              {() => (
+                              {({ active }) => (
                                 <>
                                   <div className="flex items-center">
                                     {user.profileImage ? (

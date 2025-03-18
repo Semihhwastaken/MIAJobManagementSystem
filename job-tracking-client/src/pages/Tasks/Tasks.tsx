@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import TaskDetail from '../../components/TaskDetailModal/TaskDetail';
 import TaskForm from '../../components/TaskForm/TaskForm';
@@ -9,6 +8,11 @@ import { fetchTasks, createTask, updateTask, deleteTask, clearTasksCache } from 
 import { RootState, AppDispatch } from '../../redux/store';
 import Footer from '../../components/Footer/Footer';
 import { getTeamMembersByTeamId } from '../../redux/features/teamSlice';
+
+interface GroupedTask extends Task {
+  isLinked?: boolean;
+  linkedTasks?: Task[];
+}
 import { useTheme } from '../../context/ThemeContext';
 
 // Silme onay modalı için yeni component
@@ -62,10 +66,10 @@ const DeleteConfirmationModal: React.FC<{
 
 const Tasks: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { items: tasks, error } = useSelector((state: RootState) => state.tasks); // Remove loading from destructuring
+  const { items: tasks, loading, error } = useSelector((state: RootState) => state.tasks);
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const [taskOwnerStatus, setTaskOwnerStatus] = useState<{[key: string]: boolean}>({});
-  const [, setIsValidationLoading] = useState(true);
+  const [isValidationLoading, setIsValidationLoading] = useState(true);
   const { isDarkMode } = useTheme();
 
   // Silme onay modalı için state'ler
@@ -84,11 +88,11 @@ const Tasks: React.FC = () => {
   const [isFilterActive, setIsFilterActive] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
-  const priorityOrder = useMemo(() => ({
+  const priorityOrder = {
     'high': 3,
     'medium': 2,
     'low': 1
-  }), []);
+  };
 
   // Optimize task owner validation
   const checkOwnerStatus = useCallback(async (tasks: Task[]) => {
@@ -176,7 +180,7 @@ const Tasks: React.FC = () => {
     if (tasks.length > 0 && currentUser?.id) {
       checkOwnerStatus(tasks);
     }
-  }, [tasks.length, currentUser?.id, checkOwnerStatus,tasks]);
+  }, [tasks.length, currentUser?.id, checkOwnerStatus]);
 
   // Memoize filtered and processed tasks
   const processedTasks = useMemo(() => {
@@ -239,7 +243,7 @@ const Tasks: React.FC = () => {
         }
         return 0;
       });
-  }, [processedTasks, searchTerm, selectedCategory, isFilterActive, dateFilter, sortByPriority, isHistoryModalOpen, currentUser, taskOwnerStatus,priorityOrder,tasks]);
+  }, [processedTasks, searchTerm, selectedCategory, isFilterActive, dateFilter, sortByPriority, isHistoryModalOpen, currentUser, taskOwnerStatus]);
 
   // Memoize action handlers
   const handleTaskClick = useCallback((task: Task, e?: React.MouseEvent) => {
@@ -289,7 +293,7 @@ const Tasks: React.FC = () => {
           ...updatedTaskData,
           id: selectedTask.id,
           assignedUserIds,
-          completedDate: updatedTaskData.completedDate || new Date().toISOString(),
+          completedDate: updatedTaskData.completedDate || new Date()
         };
         await dispatch(updateTask(updatedTask));
         setIsEditModalOpen(false);
@@ -362,7 +366,7 @@ const Tasks: React.FC = () => {
       const taskToCreate = {
         ...newTaskData,
         assignedUserIds,
-        completedDate: newTaskData.completedDate || new Date().toISOString()
+        completedDate: newTaskData.completedDate || new Date()
       };
 
       // Create the task in the backend
@@ -402,6 +406,68 @@ const Tasks: React.FC = () => {
   const categories = ['All Cases', 'Bug', 'Development', 'Documentation', 'Testing', 'Maintenance'];
 
   // Memoize TaskGroup and TaskRow components
+  const TaskGroup = useCallback<React.FC<{ task: GroupedTask }>>(({ task }) => {
+    if (!task.isLinked) {
+      return <TaskRow task={task} />;
+    }
+
+    return (
+      <div className="border-2 border-blue-400 rounded-lg p-4 mb-4">
+        <TaskRow task={task} isMainTask />
+        <div className="space-y-2 mt-3">
+          {task.linkedTasks?.map(linkedTask => (
+            <div key={linkedTask.id} className="ml-4">
+              <TaskRow task={linkedTask as GroupedTask} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }, []);
+
+  const TaskRow = useCallback<React.FC<{ task: GroupedTask; isMainTask?: boolean }>>(({ task, isMainTask }) => {
+    return (
+      <div 
+        className={`bg-white rounded-lg p-4 ${
+          isMainTask ? 'border-b-2 border-blue-200' : 'hover:bg-blue-50'
+        }`}
+      >
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className={isDarkMode ? "text-lg font-semibold text-white-900" : "text-lg font-semibold text-gray-900"}>{task.title}</h3>
+            <p className="text-gray-600 mt-1">{task.description}</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              task.priority === 'high' ? 'bg-red-100 text-red-800' :
+              task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+              'bg-green-100 text-green-800'
+            }`}>
+              {task.priority}
+            </span>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              task.status === 'todo' ? 'bg-gray-100 text-gray-800' :
+              task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+              'bg-green-100 text-green-800'
+            }`}>
+              {task.status}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }, [isDarkMode]);
+
+  if (status === 'loading' || isValidationLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-50">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          <p className="text-gray-600">Yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (status === 'failed') {
     return (
@@ -716,7 +782,7 @@ const Tasks: React.FC = () => {
           task={{
             ...selectedTask,
             assignedUserIds: selectedTask.assignedUsers?.map(user => user.id).filter((id): id is string => id !== undefined) || [],
-            completedDate: selectedTask.completedDate || new Date().toISOString() // Convert Date to string
+            completedDate: selectedTask.completedDate || new Date()
           }}
         />
       )}

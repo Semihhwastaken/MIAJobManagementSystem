@@ -60,7 +60,6 @@ export const StripeProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   );
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useStripe = () => {
   const context = useContext(StripeContext);
   if (context === undefined) {

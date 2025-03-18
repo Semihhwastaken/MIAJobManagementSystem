@@ -16,6 +16,7 @@ import {
     removeTeamMember,
     addExperties,
     fetchMemberActiveTasks,
+    joinTeamWithInviteCode
 } from '../../redux/features/teamSlice';
 import { useTheme } from '../../context/ThemeContext';
 import { TeamMember } from '../../types/team';
@@ -29,8 +30,7 @@ import {
 import { useSnackbar } from 'notistack';
 import { DEPARTMENTS } from '../../constants/departments';
 import TaskForm from '../../components/TaskForm/TaskForm';
-import {Task} from '../../types/task';
-import { createTask  } from '../../redux/features/tasksSlice';
+import { createTask, Task } from '../../redux/features/tasksSlice';
 import Footer from '../../components/Footer/Footer';
 import { toast } from 'react-hot-toast';
 
@@ -53,11 +53,18 @@ const Team: React.FC = () => {
     const [teamDepartment, setTeamDepartment] = useState('');
     const [creatingTeam, setCreatingTeam] = useState(false);
     const [inviteLink, setInviteLink] = useState('');
-    const [, setInviteLinkLoading] = useState(false);
+    const [inviteLinkLoading, setInviteLinkLoading] = useState(false);
     const [showInviteLinkModal, setShowInviteLinkModal] = useState(false);
+    const [inviteCode, setInviteCode] = useState('');
+    const [joiningTeam, setJoiningTeam] = useState(false);
     const [showTaskForm, setShowTaskForm] = useState(false);
-    const [, setRemovingMember] = useState(false);
-    const [, setAddingExpertise] = useState(false);
+    const [currentTeamId, setCurrentTeamId] = useState('');
+    const [currentMemberId, setCurrentMemberId] = useState('');
+    const [removeMemberDialogOpen, setRemoveMemberDialogOpen] = useState(false);
+    const [removingMember, setRemovingMember] = useState(false);
+    const [addingExpertise, setAddingExpertise] = useState(false);
+    const [addExpertiseDialogOpen, setAddExpertiseDialogOpen] = useState(false);
+    const [expertise, setExpertise] = useState('');
     const [selectedMemberForTask, setSelectedMemberForTask] = useState<TeamMember | undefined>(null as unknown as TeamMember | undefined);
     const [selectedTeamForTask, setSelectedTeamForTask] = useState<{ id: string; name: string } | null>(null);
     const [selectedUserId, setSelectedUserId] = useState<string>('');
@@ -95,7 +102,6 @@ const Team: React.FC = () => {
                 team.members.some(member => member.id === currentUser.id)
             ));
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dispatch, navigate, currentUser?.id, teams.length]);
 
     // Teams listesini periyodik olarak güncelle
@@ -368,6 +374,56 @@ const Team: React.FC = () => {
             enqueueSnackbar(error.message || 'Görev oluşturulurken bir hata oluştu', { variant: 'error' });
         }
     };
+
+    const handleJoinTeamWithInviteCode = async () => {
+        if (!inviteCode) {
+            toast.error('Lütfen bir davet kodu girin.');
+            return;
+        }
+        
+        // Kullanıcının üye olduğu takım sayısını kontrol et
+        const memberTeams = teams.filter(team => team.members.some(m => m.id === currentUser?.id));
+        if (memberTeams.length >= 10) {
+            toast.error('En fazla 10 takıma üye olabilirsiniz.');
+            return;
+        }
+
+        setJoiningTeam(true);
+        try {
+            await dispatch(joinTeamWithInviteCode(inviteCode)).unwrap();
+            toast.success('Takıma başarıyla katıldınız.');
+            setInviteCode('');
+            setShowInviteLinkModal(false);
+            
+            // Ekipleri yeniden yükle
+            dispatch(fetchTeams());
+        } catch (error: any) {
+            console.error('Takıma katılma hatası:', error);
+            toast.error('Takıma katılırken bir hata oluştu. Davet kodunu kontrol edin.');
+        } finally {
+            setJoiningTeam(false);
+        }
+    };
+
+    const handleJoinTeam = async () => {
+        try {
+          const response = await teamService.joinTeam(team.id, currentUser?.id || '');
+          if (!response.ok) {
+            const errorData = await response.json();
+            toast.error(errorData.message || 'Takıma katılırken bir hata oluştu');
+            return;
+          }
+          
+          await fetchTeam();
+          toast.success('Takıma başarıyla katıldınız!');
+        } catch (error: any) {
+          if (error.message.includes('Basic plan')) {
+            toast.error(error.message);
+          } else {
+            toast.error('Takıma katılırken bir hata oluştu');
+          }
+        }
+      };
 
     const renderTeamMembers = (teamMembers: TeamMember[], teamName: string, teamId: string) => {
         const filteredAndSortedMembers = teamMembers

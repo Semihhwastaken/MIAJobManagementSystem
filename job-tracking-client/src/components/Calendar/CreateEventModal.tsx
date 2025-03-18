@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { useTheme } from '../../context/ThemeContext';
@@ -124,7 +123,7 @@ const CreateEventModal = ({ isOpen, onClose, onSubmit, initialData }: CreateEven
     };
 
     loadUserTeams();
-  }, [dispatch, initialData?.teamId,formData.teamId]);
+  }, [dispatch, initialData?.teamId]);
 
   // Takım değiştiğinde takım üyelerini yükleme
   useEffect(() => {

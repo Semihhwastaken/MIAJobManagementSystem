@@ -7,7 +7,6 @@ export interface TaskItem {
     status: string;
     priority: string;
     dueDate: Date;
-    category:string;
     assignedUsers: Array<{
         id: string;
         username: string;
@@ -50,9 +49,8 @@ const taskService = {
         }
         
         // Format the due date properly
-        if (task.dueDate) {
-            // Convert any date format to Date object
-            task.dueDate = new Date(task.dueDate);
+        if (task.dueDate && task.dueDate instanceof Date) {
+            task.dueDate = task.dueDate.toISOString();
         }
         
         // Ensure all required fields are present
