@@ -283,7 +283,7 @@ namespace JobTrackingAPI.Controllers
                 }
 
                 // Generate a temporary subscription ID if none exists
-                string subscriptionId = user.SubscriptionId;
+                string subscriptionId = user.SubscriptionId ?? string.Empty;
                 if (string.IsNullOrEmpty(subscriptionId))
                 {
                     subscriptionId = $"manual_{Guid.NewGuid()}";

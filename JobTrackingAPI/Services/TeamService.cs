@@ -169,9 +169,9 @@ public class TeamService : ITeamService
                     Id = user.Id,
                     Role = "admin",
                     Username = user.Username,
-                    Email = user.Email,
-                    FullName = user.FullName,
-                    Department = user.Department,
+                    Email = user.Email ?? string.Empty,
+                    FullName = user.FullName ?? string.Empty,
+                    Department = user.Department ?? string.Empty,
                     Title = user.Title,
                     Position = user.Position,
                     ProfileImage = user.ProfileImage,
@@ -200,7 +200,10 @@ public class TeamService : ITeamService
             throw new Exception("Kullanıcı takım sahipliği güncellenirken hata oluştu");
         }
 
-        _cacheService.InvalidateTeamCaches(team.Id);
+        if (team.Id != null)
+            {
+                _cacheService.InvalidateTeamCaches(team.Id!);
+            }
         return team;
     }
 
@@ -591,12 +594,15 @@ public class TeamService : ITeamService
 
             // Takımı oluşturan kullanıcıyı bul ve ownerTeams listesini güncelle
             var ownerMember = team.Members.FirstOrDefault(m => m.Id == team.CreatedById);
-            if (ownerMember != null)
+            if (ownerMember != null && team.Id != null)
             {
                 await _userService.AddOwnerTeam(ownerMember.Id, team.Id);
             }
 
-            _cacheService.InvalidateTeamCaches(team.Id);
+            if(team.Id != null) 
+            {
+                _cacheService.InvalidateTeamCaches(team.Id);
+            }
             return team;
         }
         catch (Exception ex)
