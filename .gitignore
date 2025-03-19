@@ -12,6 +12,9 @@ yarn-error.log*
 .rules
 .windsurfrules
 .exampleMDformat
+.reports
+results/
+reports/
 
 # .NET
 bin/
