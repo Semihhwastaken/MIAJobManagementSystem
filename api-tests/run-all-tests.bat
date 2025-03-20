@@ -16,6 +16,15 @@ echo Tasks API testleri çalıştırılıyor...
 k6 run --out json=results/tasks-api-results.json tasks-api-test.js
 
 echo.
+echo Calendar API testleri çalıştırılıyor...
+k6 run --out json=results/calendar-api-results.json calendar-api-test.js
+
+echo.
+echo Notification API testleri çalıştırılıyor...
+k6 run --out json=results/notification-api-results.json notification-api-test.js
+
+
+echo.
 echo ========================================
 echo Testler tamamlandı, rapor oluşturuluyor...
 echo ========================================

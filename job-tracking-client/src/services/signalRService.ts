@@ -27,7 +27,7 @@ class SignalRService {
             .withAutomaticReconnect([
                 0, 2000, 5000, 10000, 15000, 30000 // More aggressive reconnection strategy
             ])
-            .configureLogging(signalR.LogLevel.Warning)
+            .configureLogging(signalR.LogLevel.Information)
             .build();
 
         // Notification Hub bağlantısı (NotificationAPI - 8080)

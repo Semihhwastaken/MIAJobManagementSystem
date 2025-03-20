@@ -66,7 +66,9 @@ async function generateReport() {
   const testFiles = [
     { name: 'Auth API', file: path.join(resultsDir, 'auth-api-results.json') },
     { name: 'Users API', file: path.join(resultsDir, 'users-api-results.json') },
-    { name: 'Tasks API', file: path.join(resultsDir, 'tasks-api-results.json') }
+    { name: 'Tasks API', file: path.join(resultsDir, 'tasks-api-results.json') },
+    { name: 'Calendar API', file: path.join(resultsDir, 'calendar-api-results.json') },
+    { name: 'Notification API', file: path.join(resultsDir, 'notification-api-results.json') }
   ];
   
   // Test sonuçlarını topla
