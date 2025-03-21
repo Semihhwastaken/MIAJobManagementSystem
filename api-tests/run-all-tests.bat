@@ -36,6 +36,10 @@ echo Feedback API testleri çalıştırılıyor...
 k6 run --out json=results/feedback-api-results.json feedback-api-test.js
 
 echo.
+echo Comment API testleri çalıştırılıyor...
+k6 run --out json=results/comment-api-results.json comment-api-test.js
+
+echo.
 echo ========================================
 echo Testler tamamlandı, rapor oluşturuluyor...
 echo ========================================

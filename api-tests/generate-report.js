@@ -71,7 +71,8 @@ async function generateReport() {
     { name: 'Notification API', file: path.join(resultsDir, 'notification-api-results.json') },
     { name: 'Team API', file: path.join(resultsDir, 'team-api-results.json') },
     { name: 'Message API', file: path.join(resultsDir, 'message-api-results.json') },
-    { name: 'Feedback API', file: path.join(resultsDir, 'feedback-api-results.json') }
+    { name: 'Feedback API', file: path.join(resultsDir, 'feedback-api-results.json') },
+    { name: 'Comment API', file: path.join(resultsDir, 'comment-api-results.json') }
   ];
   
   // Test sonuçlarını topla
