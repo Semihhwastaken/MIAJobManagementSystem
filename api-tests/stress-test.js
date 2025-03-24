@@ -141,20 +141,20 @@ async function makeRequest(method, url, data = null, requiresAuth = false) {
   makeRequest.counter = makeRequest.counter || 0;
   makeRequest.counter++;
   
+  // Config objesini try bloğu dışında tanımlayarak scope hatasını engelleyelim
+  const config = {
+    method,
+    url,
+    timeout: 10000,
+    headers: {} // Boş headers objesi oluştur
+  };
+  
   try {
-    const config = {
-      method,
-      url,
-      timeout: 10000
-    };
-
     if (requiresAuth) {
       if (!jwtToken) {
         await authenticate();
       }
-      config.headers = {
-        'Authorization': `Bearer ${jwtToken}`
-      };
+      config.headers['Authorization'] = `Bearer ${jwtToken}`;
       
       // Her 100 istekte bir token mesajını göster
       if (makeRequest.counter % 100 === 0) {
@@ -164,6 +164,14 @@ async function makeRequest(method, url, data = null, requiresAuth = false) {
     
     if (data && (method === "POST" || method === "PUT" || method === "PATCH")) {
       config.data = data;
+      // Content-Type header'ını ekle
+      config.headers['Content-Type'] = 'application/json';
+      
+      // Debug mode için Content-Type header'ını göster
+      if (makeRequest.counter % 100 === 0 || makeRequest.counter <= 5) {
+        console.log(chalk.blue(`[${makeRequest.counter}] Headers: ${JSON.stringify(config.headers)}`));
+        console.log(chalk.gray(`[${makeRequest.counter}] Data: ${JSON.stringify(data).substring(0, 50)}...`));
+      }
     }
     
     const startTime = Date.now();
@@ -194,17 +202,32 @@ async function makeRequest(method, url, data = null, requiresAuth = false) {
       }
     }
 
+    // Hata detaylarını kaydet
+    let errorMessage = error.message;
+    if (error.response) {
+      errorMessage += ` (Status: ${error.response.status})`;
+      // Eğer 415 hatası alındıysa, Content-Type ile ilgili bilgilendirme ekle
+      if (error.response.status === 415) {
+        console.log(chalk.red(`Content-Type hatası: API JSON verilerini kabul etmiyor olabilir`));
+        // Hata ayıklama için daha fazla bilgi
+        console.log(chalk.yellow(`İstek URL: ${url}`));
+        console.log(chalk.yellow(`İstek method: ${method}`));
+        console.log(chalk.yellow(`Headers: ${JSON.stringify(config.headers)}`));
+        console.log(chalk.yellow(`Data: ${data ? JSON.stringify(data).substring(0, 100) : 'null'}`));
+      }
+    }
+
     return {
       success: false,
       statusCode: error.response ? error.response.status : 0,
       duration: duration,
-      error: error.message
+      error: errorMessage
     };
   }
 }
 
 // Function to run stress test on a specific endpoint
-async function runStressTest(method, endpoint, intensity, requiresAuth = false) {
+async function runStressTest(method, endpoint, intensity, requiresAuth = false, sampleData = null) {
   const baseUrl = process.env.BASE_URL;
   const fullUrl = `${baseUrl}${endpoint}`;
   
@@ -212,6 +235,10 @@ async function runStressTest(method, endpoint, intensity, requiresAuth = false) 
   console.log(chalk.gray(`Concurrent Users: ${TEST_INTENSITIES[intensity].concurrentUsers}`));
   console.log(chalk.gray(`Requests Per User: ${TEST_INTENSITIES[intensity].requestsPerUser}`));
   console.log(chalk.gray(`Delay Between Requests: ${TEST_INTENSITIES[intensity].delayBetweenRequests}ms`));
+  
+  if (sampleData) {
+    console.log(chalk.blue(`Request Body Data: ${JSON.stringify(sampleData, null, 2)}`));
+  }
   
   // Kimlik doğrulama gerekiyorsa, teste başlamadan önce token al
   if (requiresAuth) {
@@ -257,7 +284,8 @@ async function runStressTest(method, endpoint, intensity, requiresAuth = false) 
   for (let user = 0; user < TEST_INTENSITIES[intensity].concurrentUsers; user++) {
     userPromises.push((async () => {
       for (let req = 0; req < TEST_INTENSITIES[intensity].requestsPerUser; req++) {
-        const result = await makeRequest(method, fullUrl, null, requiresAuth);
+        // Önemli değişiklik: null yerine sampleData parametresini geçiriyoruz
+        const result = await makeRequest(method, fullUrl, sampleData, requiresAuth);
         
         // Update results
         results.totalRequests++;
@@ -759,7 +787,165 @@ async function main() {
       }
     }
 
-    const results = await runStressTest(selectedMethods[i], selectedEndpoints[i], intensity, requiresAuth);
+    // Kategori için seçilen endpoint'e göre sampleData'yı al
+    let sampleData = null;
+    if (selectedMethods[i] === "POST" || selectedMethods[i] === "PUT" || selectedMethods[i] === "PATCH") {
+      // Custom Categories kategorilerindeki örnek verileri kontrol et
+      let foundSampleData = false;
+      
+      // 1. Doğrudan kategori içinde örnek veri var mı?
+      if (API_TYPES["Custom Categories"]?.[apiType]?.sampleData) {
+        const endpointIndex = API_TYPES["Custom Categories"][apiType].endpoints.findIndex(ep => 
+          ep.replace(/{[^}]+}/g, '.*') === selectedEndpoints[i].replace(/\/\d+$/, '')
+        );
+        
+        if (endpointIndex !== -1 && API_TYPES["Custom Categories"][apiType].sampleData?.[endpointIndex]) {
+          sampleData = API_TYPES["Custom Categories"][apiType].sampleData[endpointIndex];
+          foundSampleData = true;
+          console.log(chalk.gray(`Önceden tanımlanmış örnek veri bulundu.`));
+        }
+      }
+      
+      // 2. View Category Endpoints ile seçilen bir endpoint için kontrol et
+      if (!foundSampleData && !isCustomCategory && selectedEndpoints.length === 1) {
+        const customCategories = API_TYPES["Custom Categories"];
+        for (const categoryName in customCategories) {
+          const category = customCategories[categoryName];
+          const endpointIndex = category.endpoints.findIndex(ep => 
+            ep.replace(/{[^}]+}/g, '.*') === selectedEndpoints[0].replace(/\/\d+$/, '')
+          );
+          
+          if (endpointIndex !== -1 && category.methods[endpointIndex] === selectedMethods[0] && 
+              category.sampleData && category.sampleData[endpointIndex]) {
+            sampleData = category.sampleData[endpointIndex];
+            foundSampleData = true;
+            console.log(chalk.gray(`${categoryName} kategorisinde örnek veri bulundu.`));
+            break;
+          }
+        }
+      }
+      
+      // 3. Örnek veri bulunamadıysa, kullanıcıya sor
+      if (!foundSampleData) {
+        const { useCustomData } = await inquirer.prompt([{
+          type: "confirm",
+          name: "useCustomData",
+          message: `${selectedMethods[i]} ${selectedEndpoints[i]} için örnek veri girmek ister misiniz?`,
+          default: true
+        }]);
+        
+        if (useCustomData) {
+          const { dataInput } = await inquirer.prompt([{
+            type: "editor",
+            name: "dataInput",
+            message: "JSON formatında örnek veriyi girin:",
+            validate: (input) => {
+              try {
+                JSON.parse(input);
+                return true;
+              } catch (e) {
+                return "Geçerli bir JSON girilmelidir.";
+              }
+            }
+          }]);
+          
+          sampleData = JSON.parse(dataInput);
+          
+          // Veriyi kaydetmek ister misiniz?
+          const { saveData } = await inquirer.prompt([{
+            type: "confirm",
+            name: "saveData",
+            message: "Bu örnek veriyi gelecek testler için kaydetmek ister misiniz?",
+            default: true
+          }]);
+          
+          if (saveData) {
+            // Hangi kategoriye ekleyelim?
+            let targetCategory = apiType;
+            
+            if (!API_TYPES["Custom Categories"][targetCategory]) {
+              const categories = Object.keys(API_TYPES["Custom Categories"]);
+              const { category } = await inquirer.prompt([{
+                type: "list",
+                name: "category",
+                message: "Örnek veriyi hangi kategoriye eklemek istersiniz?",
+                choices: [...categories, "Yeni Kategori"]
+              }]);
+              
+              if (category === "Yeni Kategori") {
+                const { newCategory } = await inquirer.prompt([{
+                  type: "input",
+                  name: "newCategory",
+                  message: "Yeni kategori adı girin:",
+                  validate: input => input.trim() !== "" ? true : "Kategori adı gereklidir"
+                }]);
+                
+                API_TYPES["Custom Categories"][newCategory] = {
+                  endpoints: [selectedEndpoints[i]],
+                  methods: [selectedMethods[i]],
+                  requiresAuth: requiresAuth,
+                  sampleData: [sampleData]
+                };
+              } else {
+                targetCategory = category;
+                
+                // Yeni endpoint ekle
+                const categoryData = API_TYPES["Custom Categories"][targetCategory];
+                categoryData.endpoints.push(selectedEndpoints[i]);
+                categoryData.methods.push(selectedMethods[i]);
+                
+                // sampleData dizisini oluştur veya güncelle
+                if (!categoryData.sampleData) {
+                  categoryData.sampleData = Array(categoryData.endpoints.length).fill(null);
+                } else {
+                  categoryData.sampleData.push(null);
+                }
+                
+                // Yeni eklenen endpoint'in indexini bul ve sampleData'yı ekle
+                const newIndex = categoryData.endpoints.length - 1;
+                categoryData.sampleData[newIndex] = sampleData;
+              }
+            } else {
+              // Kategori zaten var, endpoint'in var olup olmadığını kontrol et
+              const categoryData = API_TYPES["Custom Categories"][targetCategory];
+              const endpointIndex = categoryData.endpoints.findIndex(ep => 
+                ep.replace(/{[^}]+}/g, '.*') === selectedEndpoints[i].replace(/\/\d+$/, '')
+              );
+              
+              if (endpointIndex !== -1) {
+                // Endpoint zaten mevcut, sampleData'yı güncelle
+                if (!categoryData.sampleData) {
+                  categoryData.sampleData = Array(categoryData.endpoints.length).fill(null);
+                }
+                
+                categoryData.sampleData[endpointIndex] = sampleData;
+              } else {
+                // Yeni endpoint ekle
+                categoryData.endpoints.push(selectedEndpoints[i]);
+                categoryData.methods.push(selectedMethods[i]);
+                
+                if (!categoryData.sampleData) {
+                  categoryData.sampleData = Array(categoryData.endpoints.length).fill(null);
+                } else {
+                  categoryData.sampleData.push(sampleData);
+                }
+              }
+            }
+            
+            // api-definitions.json dosyasını güncelle
+            fs.writeFileSync(
+              path.join(__dirname, 'api-definitions.json'),
+              JSON.stringify(API_TYPES, null, 2),
+              'utf8'
+            );
+            
+            console.log(chalk.green(`Örnek veri başarıyla kaydedildi.`));
+          }
+        }
+      }
+    }
+
+    const results = await runStressTest(selectedMethods[i], selectedEndpoints[i], intensity, requiresAuth, sampleData);
     displayResults(results, selectedMethods[i], selectedEndpoints[i], intensity);
   }
   

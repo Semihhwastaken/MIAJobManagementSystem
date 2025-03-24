@@ -16,7 +16,10 @@
         "GET",
         "GET"
       ],
-      "requiresAuth": true
+      "requiresAuth": true,
+      "sampleData": [
+        null
+      ]
     },
     "Auth": {
       "endpoints": [
@@ -25,7 +28,10 @@
       "methods": [
         "GET"
       ],
-      "requiresAuth": true
+      "requiresAuth": true,
+      "sampleData": [
+        null
+      ]
     },
     "Calendar": {
       "endpoints": [
@@ -34,7 +40,10 @@
       "methods": [
         "GET"
       ],
-      "requiresAuth": true
+      "requiresAuth": true,
+      "sampleData": [
+        null
+      ]
     },
     "Comment": {
       "endpoints": [
@@ -53,6 +62,126 @@
         "GET"
       ],
       "requiresAuth": true
+    },
+    "Tasks": {
+      "endpoints": [
+        "/api/Tasks",
+        "/api/Tasks/{id}"
+      ],
+      "methods": [
+        "POST",
+        "PUT"
+      ],
+      "requiresAuth": true,
+      "sampleData": [
+        {
+          "id": "",
+          "title": "Yeni Görev",
+          "description": "Bu yeni bir görev açıklaması",
+          "status": "pending",
+          "priority": "high",
+          "category": "Development",
+          "isLocked": false,
+          "assignedUsers": [
+            {
+              "id": "67caa8641c34098650859ce4",
+              "username": "TestNajung",
+              "email": "sabridoga2000@gmail.com",
+              "fullName": "Sabri alperen Kaya",
+              "department": "Web Developer",
+              "title": "Frontend",
+              "position": "Junior",
+              "profileImage": ""
+            }  
+          ],
+          "assignedUserIds": ["67caa8641c34098650859ce4"],
+          "dueDate": "2025-04-15T12:00:00.000Z",
+          "createdBy": {
+            "id": "",
+            "username": "",
+            "fullName": "",
+            "profileImage": ""
+          },
+          "subTasks": [
+          ],
+          "comments": [],
+          "teamId": "67d2c7ed664c5cbba91de412",
+          "dependencies": [],
+          "completedDate": null,
+          "assignedJobs": []
+        },
+        {
+          "id": "",
+          "title": "Güncellenmiş Görev",
+          "description": "Bu görev güncellendi",
+          "status": "inProgress",
+          "priority": "high",
+          "category": "Maintenance",
+          "isLocked": false,
+          "assignedUsers": [
+            {
+              "id": "67caa8641c34098650859ce4",
+              "username": "TestUser1",
+              "email": "test1@example.com",
+              "fullName": "Test User 1",
+              "department": "IT",
+              "title": "Developer",
+              "position": "Senior",
+              "profileImage": null
+            }
+          ],
+          "assignedUserIds": ["67caa8641c34098650859ce4"],
+          "dueDate": "2025-05-10T15:00:00.000Z",
+          "createdBy": {
+            "id": "67caa8641c34098650859ce4",
+            "username": "TestNajung",
+            "fullName": "Test User",
+            "profileImage": null
+          },
+          "subTasks": [
+            {
+              "title": "Güncellenen alt görev",
+              "completed": false,
+              "completedDate": null,
+              "assignedUserId": "67caa8641c34098650859ce4"
+            }
+          ],
+          "attachments": [],
+          "comments": [],
+          "teamId": "67cac8831c34098650859ce6",
+          "dependencies": [],
+          "completedDate": null,
+          "assignedJobs": []
+        }
+      ]
+    },
+    "Users": {
+      "endpoints": [
+        "/api/Users",
+        "/api/Users/{id}"
+      ],
+      "methods": [
+        "POST",
+        "PUT"
+      ],
+      "requiresAuth": true,
+      "sampleData": [
+        {
+          "username": "yenikullanici",
+          "email": "yeni@ornek.com",
+          "fullName": "Yeni Kullanıcı",
+          "password": "Test123!",
+          "departmentId": 1,
+          "role": "User"
+        },
+        {
+          "id": 1,
+          "email": "guncellenmis@ornek.com",
+          "fullName": "Güncellenmiş Kullanıcı",
+          "departmentId": 2,
+          "role": "Manager"
+        }
+      ]
     }
   }
 }
