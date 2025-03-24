@@ -1,0 +1,58 @@
+{
+  "Auth": {
+    "loginEndpoint": "/api/Auth/login",
+    "credentials": {
+      "username": "TestNajung",
+      "password": "asker123"
+    }
+  },
+  "Custom Categories": {
+    "Admin": {
+      "endpoints": [
+        "/api/Admin/users",
+        "/api/Admin/dashboard"
+      ],
+      "methods": [
+        "GET",
+        "GET"
+      ],
+      "requiresAuth": true
+    },
+    "Auth": {
+      "endpoints": [
+        "/api/Auth/current-user"
+      ],
+      "methods": [
+        "GET"
+      ],
+      "requiresAuth": true
+    },
+    "Calendar": {
+      "endpoints": [
+        "/api/calendar/events"
+      ],
+      "methods": [
+        "GET"
+      ],
+      "requiresAuth": true
+    },
+    "Comment": {
+      "endpoints": [
+        "/api/Comment/tasks"
+      ],
+      "methods": [
+        "GET"
+      ],
+      "requiresAuth": true
+    },
+    "Feedback": {
+      "endpoints": [
+        "/api/Feedback/public"
+      ],
+      "methods": [
+        "GET"
+      ],
+      "requiresAuth": true
+    }
+  }
+}
