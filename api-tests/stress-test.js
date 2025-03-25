@@ -446,7 +446,7 @@ async function main() {
     );
 
     // Stack to keep track of previous menus
-    const menuStack = [];
+    let menuStack = [];
 
     // Select API type
     const { apiType } = await inquirer.prompt([

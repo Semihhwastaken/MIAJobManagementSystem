@@ -10,9 +10,13 @@
     "Admin": {
       "endpoints": [
         "/api/Admin/users",
-        "/api/Admin/dashboard"
+        "/api/Admin/dashboard",
+        "/api/Admin/taskStats",
+        "/api/Admin/teamStats"
       ],
       "methods": [
+        "GET",
+        "GET",
         "GET",
         "GET"
       ],
@@ -23,9 +27,11 @@
     },
     "Auth": {
       "endpoints": [
-        "/api/Auth/current-user"
+        "/api/Auth/current-user",
+        "/api/Auth/check-preload-status"
       ],
       "methods": [
+        "GET",
         "GET"
       ],
       "requiresAuth": true,
@@ -92,9 +98,11 @@
               "title": "Frontend",
               "position": "Junior",
               "profileImage": ""
-            }  
+            }
           ],
-          "assignedUserIds": ["67caa8641c34098650859ce4"],
+          "assignedUserIds": [
+            "67caa8641c34098650859ce4"
+          ],
           "dueDate": "2025-04-15T12:00:00.000Z",
           "createdBy": {
             "id": "",
@@ -102,8 +110,7 @@
             "fullName": "",
             "profileImage": ""
           },
-          "subTasks": [
-          ],
+          "subTasks": [],
           "comments": [],
           "teamId": "67d2c7ed664c5cbba91de412",
           "dependencies": [],
@@ -130,7 +137,9 @@
               "profileImage": null
             }
           ],
-          "assignedUserIds": ["67caa8641c34098650859ce4"],
+          "assignedUserIds": [
+            "67caa8641c34098650859ce4"
+          ],
           "dueDate": "2025-05-10T15:00:00.000Z",
           "createdBy": {
             "id": "67caa8641c34098650859ce4",
