@@ -445,15 +445,35 @@ async function main() {
       type !== "Auth" || API_TYPES[type].endpoints // Only show Auth if it has endpoints
     );
 
+    // Stack to keep track of previous menus
+    const menuStack = [];
+
     // Select API type
     const { apiType } = await inquirer.prompt([
       {
         type: "list",
         name: "apiType",
         message: "Select API type to test:",
-        choices: apiTypeChoices
+        choices: [
+          ...apiTypeChoices, 
+          new inquirer.Separator(),
+          "🚪 Çıkış"
+        ]
       }
     ]);
+
+    if (apiType === "🚪 Çıkış") {
+      if (await confirmExit()) {
+        console.log(chalk.green("\nAPI Stress Tester'ı kullandığınız için teşekkürler!"));
+        process.exit(0);
+      } else {
+        continue;
+      }
+    }
+
+
+    // Add current menu to stack
+    menuStack.push("main");
     
     let selectedEndpoints = [];
     let selectedMethods = [];
@@ -519,18 +539,26 @@ async function main() {
       selectedMethods = ensureArray(API_TYPES["Custom APIs"][selectedApi]?.methods);
     } else if (apiType === "Custom Categories") {
       // Show category management options
+      menuStack.push("category_menu");
       const { action } = await inquirer.prompt([
         {
           type: "list",
           name: "action",
-          message: "What would you like to do?",
+          message: "Ne yapmak istersiniz?",
           choices: [
             "Add New Category",
             "Add Endpoint to Existing Category",
-            "View Category Endpoints"
+            "View Category Endpoints",
+            new inquirer.Separator(),
+            "⬅️ Geri Git"
           ]
         }
       ]);
+
+      if (action === "⬅️ Geri Git") {
+        menuStack.pop();
+        continue;
+      }
 
       if (action === "Add New Category") {
         const { categoryName } = await inquirer.prompt([
@@ -598,14 +626,24 @@ async function main() {
           continue;
         }
 
+        menuStack.push("add_endpoint");
         const { categoryName } = await inquirer.prompt([
           {
             type: "list",
             name: "categoryName",
             message: "Select category to add endpoint:",
-            choices: categories
+            choices: [
+              ...categories,
+              new inquirer.Separator(),
+              "⬅️ Geri Git"
+            ]
           }
         ]);
+
+        if (categoryName === "⬅️ Geri Git") {
+          menuStack.pop();
+          continue;
+        }
 
         const { endpoint, method, requiresAuth } = await inquirer.prompt([
           {
@@ -651,14 +689,24 @@ async function main() {
           continue;
         }
 
+        menuStack.push("view_category");
         const { categoryName } = await inquirer.prompt([
           {
             type: "list",
-          name: "categoryName",
-          message: "Select category to view:",
-          choices: categories
+            name: "categoryName",
+            message: "Select category to view:",
+            choices: [
+              ...categories,
+              new inquirer.Separator(),
+              "⬅️ Geri Git"
+            ]
+          }
+        ]);
+
+        if (categoryName === "⬅️ Geri Git") {
+          menuStack.pop();
+          continue;
         }
-      ]);
 
       const category = API_TYPES["Custom Categories"][categoryName];
       
@@ -667,15 +715,25 @@ async function main() {
         continue;
       }
 
+      menuStack.push("endpoint_selection");
       const { endpoint } = await inquirer.prompt([{
         type: "list",
         name: "endpoint",
-        message: "Select endpoint to test:",
-        choices: category.endpoints.map((endpoint, index) => ({
-          name: `${category.methods[index]} ${endpoint}`,
-          value: index
-        }))
+        message: "Test edilecek endpoint'i seçin:",
+        choices: [
+          ...category.endpoints.map((endpoint, index) => ({
+            name: `${category.methods[index]} ${endpoint}`,
+            value: index
+          })),
+          new inquirer.Separator(),
+          { name: "⬅️ Geri Git", value: "back" }
+        ]
       }]);
+
+      if (endpoint === "back") {
+        menuStack.pop();
+        continue;
+      }
 
       selectedEndpoints = [category.endpoints[endpoint]];
       selectedMethods = [category.methods[endpoint]];
@@ -721,12 +779,22 @@ async function main() {
   }
   
   // Select test intensity
+  menuStack.push("intensity_selection");
   const { intensity } = await inquirer.prompt([{
     type: "list",
     name: "intensity",
-    message: "Select test intensity:",
-    choices: Object.keys(TEST_INTENSITIES)
+    message: "Test yoğunluğunu seçin:",
+    choices: [
+      ...Object.keys(TEST_INTENSITIES),
+      new inquirer.Separator(),
+      "⬅️ Geri Git"
+    ]
   }]);
+
+  if (intensity === "⬅️ Geri Git") {
+    menuStack.pop();
+    continue;
+  }
   
   // Run the tests
   for (let i = 0; i < selectedEndpoints.length; i++) {
@@ -950,21 +1018,48 @@ async function main() {
   }
   
   // Ask if user wants to run another test
-  const { continueTesting } = await inquirer.prompt([{
-    type: "confirm",
-    name: "continueTesting",
-    message: "Would you like to run another stress test?",
-    default: true
+  const { nextAction } = await inquirer.prompt([{
+    type: "list",
+    name: "nextAction",
+    message: "Ne yapmak istersiniz?",
+    choices: [
+      "🔄 Yeni Test Başlat",
+      "🚪 Çıkış"
+    ]
   }]);
-  
-  continueTestingFlag = continueTesting;
+
+  if (nextAction === "🔄 Yeni Test Başlat") {
+    menuStack = []; // Reset menu stack for new test
+    continue;
+  } else if (nextAction === "🚪 Çıkış") {
+    if (await confirmExit()) {
+      console.log(chalk.green("\nAPI Stress Tester'ı kullandığınız için teşekkürler!"));
+      process.exit(0);
+    }
+    continue;
+  }
 }
 
 console.log(chalk.green("\nThank you for using API Stress Tester!"));
 }
 
+// Helper function to confirm exit
+async function confirmExit() {
+  const { confirm } = await inquirer.prompt([
+    {
+      type: "confirm",
+      name: "confirm",
+      message: "Uygulamadan çıkmak istediğinize emin misiniz?",
+      default: false
+    }
+  ]);
+  return confirm;
+}
+
 // Execute main function
 main().catch(error => {
   console.error(chalk.red("\nError:"), error.message);
-  process.exit(1);
+  if (error.message !== "User initiated exit") {
+    process.exit(1);
+  }
 });
