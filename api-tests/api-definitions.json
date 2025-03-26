@@ -63,97 +63,373 @@
       ],
       "requiresAuth": true
     },
-    "Tasks": {
+    "DynamicQueryTests": {
       "endpoints": [
-        "/api/Tasks",
-        "/api/Tasks/{id}"
+        "/api/Tasks"
       ],
       "methods": [
-        "POST",
-        "PUT"
+        "POST"
       ],
       "requiresAuth": true,
-      "sampleData": [
+      "parameterSets": [
         {
-          "id": "",
-          "title": "Yeni Görev",
-          "description": "Bu yeni bir görev açıklaması",
-          "status": "pending",
-          "priority": "high",
-          "category": "Development",
-          "isLocked": false,
-          "assignedUsers": [
-            {
-              "id": "67caa8641c34098650859ce4",
-              "username": "TestNajung",
-              "email": "sabridoga2000@gmail.com",
-              "fullName": "Sabri alperen Kaya",
-              "department": "Web Developer",
-              "title": "Frontend",
-              "position": "Junior",
-              "profileImage": ""
-            }  
-          ],
-          "assignedUserIds": ["67caa8641c34098650859ce4"],
-          "dueDate": "2025-04-15T12:00:00.000Z",
-          "createdBy": {
+          "name": "Basic Task",
+          "description": "Minimal task with only required fields",
+          "data": {
             "id": "",
-            "username": "",
-            "fullName": "",
-            "profileImage": ""
-          },
-          "subTasks": [
-          ],
-          "comments": [],
-          "teamId": "67d2c7ed664c5cbba91de412",
-          "dependencies": [],
-          "completedDate": null,
-          "assignedJobs": []
+            "title": "Basic Task",
+            "description": "A simple task with minimal fields",
+            "status": "pending",
+            "priority": "medium",
+            "category": "Development",
+            "teamId": "67d2c7ed664c5cbba91de412",
+            "createdBy": {
+              "id": "",
+              "username": "",
+              "fullName": ""
+            }
+          }
         },
         {
-          "id": "",
-          "title": "Güncellenmiş Görev",
-          "description": "Bu görev güncellendi",
-          "status": "inProgress",
-          "priority": "high",
-          "category": "Maintenance",
-          "isLocked": false,
-          "assignedUsers": [
-            {
-              "id": "67caa8641c34098650859ce4",
-              "username": "TestUser1",
-              "email": "test1@example.com",
-              "fullName": "Test User 1",
-              "department": "IT",
-              "title": "Developer",
-              "position": "Senior",
-              "profileImage": null
+          "name": "Task with Assigned Users",
+          "description": "Task with assigned users to test user assignment load",
+          "data": {
+            "id": "",
+            "title": "Task with Users",
+            "description": "Testing task with multiple assigned users",
+            "status": "pending",
+            "priority": "high",
+            "category": "Development",
+            "assignedUsers": [
+              {
+                "id": "67caa8641c34098650859ce4",
+                "username": "TestNajung",
+                "email": "sabridoga2000@gmail.com",
+                "fullName": "Sabri alperen Kaya",
+                "department": "Web Developer",
+                "title": "Frontend",
+                "position": "Junior",
+                "profileImage": ""
+              }
+            ],
+            "assignedUserIds": ["67caa8641c34098650859ce4"],
+            "teamId": "67d2c7ed664c5cbba91de412",
+            "createdBy": {
+              "id": "",
+              "username": "",
+              "fullName": ""
             }
-          ],
-          "assignedUserIds": ["67caa8641c34098650859ce4"],
-          "dueDate": "2025-05-10T15:00:00.000Z",
-          "createdBy": {
-            "id": "67caa8641c34098650859ce4",
-            "username": "TestNajung",
-            "fullName": "Test User",
-            "profileImage": null
-          },
-          "subTasks": [
-            {
-              "title": "Güncellenen alt görev",
-              "completed": false,
-              "completedDate": null,
-              "assignedUserId": "67caa8641c34098650859ce4"
+          }
+        },
+        {
+          "name": "Task with SubTasks",
+          "description": "Task with multiple subtasks to test subtask processing load",
+          "data": {
+            "id": "",
+            "title": "Task with SubTasks",
+            "description": "Testing task with multiple subtasks",
+            "status": "pending",
+            "priority": "medium",
+            "category": "Development",
+            "subTasks": [
+              {
+                "title": "Subtask 1",
+                "completed": false,
+                "assignedUserId": "67caa8641c34098650859ce4"
+              },
+              {
+                "title": "Subtask 2",
+                "completed": false,
+                "assignedUserId": "67caa8641c34098650859ce4"
+              },
+              {
+                "title": "Subtask 3",
+                "completed": false,
+                "assignedUserId": "67caa8641c34098650859ce4"
+              }
+            ],
+            "teamId": "67d2c7ed664c5cbba91de412",
+            "createdBy": {
+              "id": "",
+              "username": "",
+              "fullName": ""
             }
-          ],
-          "attachments": [],
-          "comments": [],
-          "teamId": "67cac8831c34098650859ce6",
-          "dependencies": [],
-          "completedDate": null,
-          "assignedJobs": []
+          }
+        },
+        {
+          "name": "Task with Dependencies",
+          "description": "Task with dependencies to test dependency processing load",
+          "data": {
+            "id": "",
+            "title": "Task with Dependencies",
+            "description": "Testing task with dependencies",
+            "status": "pending",
+            "priority": "high",
+            "category": "Development",
+            "dependencies": [],
+            "teamId": "67d2c7ed664c5cbba91de412",
+            "createdBy": {
+              "id": "",
+              "username": "",
+              "fullName": ""
+            }
+          }
+        },
+        {
+          "name": "Complex Task",
+          "description": "Complex task with all possible fields to test maximum load",
+          "data": {
+            "id": "",
+            "title": "Complex Task",
+            "description": "A complex task with all possible fields populated",
+            "status": "inProgress",
+            "priority": "critical",
+            "category": "Development",
+            "isLocked": false,
+            "assignedUsers": [
+              {
+                "id": "67caa8641c34098650859ce4",
+                "username": "TestNajung",
+                "email": "sabridoga2000@gmail.com",
+                "fullName": "Sabri alperen Kaya",
+                "department": "Web Developer",
+                "title": "Frontend",
+                "position": "Junior",
+                "profileImage": ""
+              }
+            ],
+            "assignedUserIds": ["67caa8641c34098650859ce4"],
+            "dueDate": "2025-05-15T12:00:00.000Z",
+            "subTasks": [
+              {
+                "title": "Complex Subtask 1",
+                "completed": false,
+                "assignedUserId": "67caa8641c34098650859ce4"
+              },
+              {
+                "title": "Complex Subtask 2",
+                "completed": false,
+                "assignedUserId": "67caa8641c34098650859ce4"
+              }
+            ],
+            "dependencies": [],
+            "teamId": "67d2c7ed664c5cbba91de412",
+            "comments": [],
+            "createdBy": {
+              "id": "",
+              "username": "",
+              "fullName": ""
+            }
+          }
         }
       ]
+    },
+    
+    "TasksEndpoints": {
+      "GET": {
+        "endpoints": [
+          "/api/Tasks",
+          "/api/Tasks/{id}"
+        ],
+        "methods": [
+          "GET"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Get All Tasks",
+            "description": "Retrieve all tasks",
+            "data": null
+          },
+          {
+            "name": "Get Task By ID",
+            "description": "Retrieve a specific task by ID",
+            "data": {
+              "id": "67d2c7ed664c5cbba91de413"
+            }
+          }
+        ]
+      },
+
+      "PUT": {
+        "endpoints": [
+          "/api/Tasks/{id}"
+        ],
+        "methods": [
+          "PUT"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Basic Task Update",
+            "description": "Minimal task update with only required fields",
+            "data": {
+              "id": "",
+              "title": "Updated Basic Task",
+              "description": "A simple task with minimal fields updated",
+              "status": "inProgress",
+              "priority": "medium",
+              "category": "Development",
+              "teamId": "67d2c7ed664c5cbba91de412",
+              "createdBy": {
+                "id": "",
+                "username": "",
+                "fullName": ""
+              }
+            }
+          },
+          {
+            "name": "Task Update with Assigned Users",
+            "description": "Task update with assigned users to test user assignment load",
+            "data": {
+              "id": "",
+              "title": "Updated Task with Users",
+              "description": "Testing task update with multiple assigned users",
+              "status": "inProgress",
+              "priority": "high",
+              "category": "Development",
+              "assignedUsers": [
+                {
+                  "id": "67caa8641c34098650859ce4",
+                  "username": "TestNajung",
+                  "email": "sabridoga2000@gmail.com",
+                  "fullName": "Sabri alperen Kaya",
+                  "department": "Web Developer",
+                  "title": "Frontend",
+                  "position": "Junior",
+                  "profileImage": ""
+                }
+              ],
+              "assignedUserIds": ["67caa8641c34098650859ce4"],
+              "teamId": "67d2c7ed664c5cbba91de412",
+              "createdBy": {
+                "id": "",
+                "username": "",
+                "fullName": ""
+              }
+            }
+          },
+          {
+            "name": "Task Update with SubTasks",
+            "description": "Task update with multiple subtasks to test subtask processing load",
+            "data": {
+              "id": "",
+              "title": "Updated Task with SubTasks",
+              "description": "Testing task update with multiple subtasks",
+              "status": "inProgress",
+              "priority": "medium",
+              "category": "Development",
+              "subTasks": [
+                {
+                  "title": "Updated Subtask 1",
+                  "completed": false,
+                  "assignedUserId": "67caa8641c34098650859ce4"
+                },
+                {
+                  "title": "Updated Subtask 2",
+                  "completed": false,
+                  "assignedUserId": "67caa8641c34098650859ce4"
+                },
+                {
+                  "title": "Updated Subtask 3",
+                  "completed": false,
+                  "assignedUserId": "67caa8641c34098650859ce4"
+                }
+              ],
+              "teamId": "67d2c7ed664c5cbba91de412",
+              "createdBy": {
+                "id": "",
+                "username": "",
+                "fullName": ""
+              }
+            }
+          },
+          {
+            "name": "Task Update with Dependencies",
+            "description": "Task update with dependencies to test dependency processing load",
+            "data": {
+              "id": "",
+              "title": "Updated Task with Dependencies",
+              "description": "Testing task update with dependencies",
+              "status": "inProgress",
+              "priority": "high",
+              "category": "Development",
+              "dependencies": [],
+              "teamId": "67d2c7ed664c5cbba91de412",
+              "createdBy": {
+                "id": "",
+                "username": "",
+                "fullName": ""
+              }
+            }
+          },
+          {
+            "name": "Complex Task Update",
+            "description": "Complex task update with all possible fields to test maximum load",
+            "data": {
+              "id": "",
+              "title": "Updated Complex Task",
+              "description": "A complex task with all possible fields updated",
+              "status": "inProgress",
+              "priority": "critical",
+              "category": "Development",
+              "isLocked": false,
+              "assignedUsers": [
+                {
+                  "id": "67caa8641c34098650859ce4",
+                  "username": "TestNajung",
+                  "email": "sabridoga2000@gmail.com",
+                  "fullName": "Sabri alperen Kaya",
+                  "department": "Web Developer",
+                  "title": "Frontend",
+                  "position": "Junior",
+                  "profileImage": ""
+                }
+              ],
+              "assignedUserIds": ["67caa8641c34098650859ce4"],
+              "dueDate": "2025-05-15T12:00:00.000Z",
+              "subTasks": [
+                {
+                  "title": "Updated Complex Subtask 1",
+                  "completed": false,
+                  "assignedUserId": "67caa8641c34098650859ce4"
+                },
+                {
+                  "title": "Updated Complex Subtask 2",
+                  "completed": false,
+                  "assignedUserId": "67caa8641c34098650859ce4"
+                }
+              ],
+              "dependencies": [],
+              "teamId": "67d2c7ed664c5cbba91de412",
+              "comments": [],
+              "createdBy": {
+                "id": "",
+                "username": "",
+                "fullName": ""
+              }
+            }
+          }
+        ]
+      },
+      "DELETE": {
+        "endpoints": [
+          "/api/Tasks/{id}"
+        ],
+        "methods": [
+          "DELETE"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Delete Task",
+            "description": "Delete an existing task",
+            "data": {
+              "id": "67d2c7ed664c5cbba91de413"
+            }
+          }
+        ]
+      }
     },
     "Users": {
       "endpoints": [
