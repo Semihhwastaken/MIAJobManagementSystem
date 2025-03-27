@@ -39,35 +39,202 @@
         null
       ]
     },
-    "Calendar": {
-      "endpoints": [
-        "/api/calendar/events"
-      ],
-      "methods": [
-        "GET"
-      ],
-      "requiresAuth": true,
-      "sampleData": [
-        null
-      ]
+    "CalendarEventEndpoints": {
+      "POST": {
+        "endpoints": [
+          "/api/calendar/events",
+          "/api/calendar/events/team"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Basic Event",
+            "description": "Create a basic calendar event with minimal fields",
+            "data": {
+              "title": "Test Meeting",
+              "description": "This is a test meeting",
+              "startDate": "2025-04-01",
+              "endDate": "2025-04-01",
+              "startTime": "10:00",
+              "endTime": "11:00",
+              "priority": "Medium",
+              "category": "meeting",
+              "participants": ["test@example.com"],
+              "createdBy": ""
+            }
+          },
+          {
+            "name": "Team Event",
+            "description": "Create a calendar event for a team",
+            "data": {
+              "title": "Team Meeting",
+              "description": "Weekly team sync-up",
+              "startDate": "2025-04-02",
+              "endDate": "2025-04-02",
+              "startTime": "14:00",
+              "endTime": "15:00",
+              "priority": "High",
+              "category": "meeting",
+              "participants": ["test@example.com"],
+              "teamId": "",
+              "meetingLink": "https://meet.example.com/test",
+              "createdBy": ""
+            }
+          },
+          {
+            "name": "Multi-day Event",
+            "description": "Create a calendar event spanning multiple days",
+            "data": {
+              "title": "Conference",
+              "description": "Annual industry conference",
+              "startDate": "2025-04-05",
+              "endDate": "2025-04-07",
+              "startTime": "09:00",
+              "endTime": "17:00",
+              "priority": "High",
+              "category": "meeting",
+              "participants": ["test@example.com"],
+              "createdBy": ""
+            }
+          }
+        ]
+      },
+      "PUT": {
+        "endpoints": [
+          "/api/calendar/events/{id}"
+        ],
+        "methods": [
+          "PUT"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Update Event",
+            "description": "Update an existing calendar event",
+            "data": {
+              "id": "",
+              "title": "Updated Meeting",
+              "description": "This meeting has been updated",
+              "startDate": "2025-04-10",
+              "endDate": "2025-04-10",
+              "startTime": "11:00",
+              "endTime": "12:00",
+              "priority": "High",
+              "category": "meeting",
+              "participants": ["test@example.com"],
+              "createdBy": ""
+            }
+          }
+        ]
+      }
     },
-    "Comment": {
-      "endpoints": [
-        "/api/Comment/tasks"
-      ],
-      "methods": [
-        "GET"
-      ],
-      "requiresAuth": true
-    },
-    "Feedback": {
-      "endpoints": [
-        "/api/Feedback/public"
-      ],
-      "methods": [
-        "GET"
-      ],
-      "requiresAuth": true
+    "MessageEndpoints": {
+      "GET": {
+        "endpoints": [
+          "/api/Messages/user/{userId}",
+          "/api/Messages/conversation/{userId}/{otherUserId}",
+          "/api/Messages/conversations/{userId}"
+        ],
+        "methods": [
+          "GET"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Get User Messages",
+            "description": "Retrieve all messages for a specific user with pagination",
+            "data": {
+              "userId": "67caa8641c34098650859ce4",
+              "page": 1,
+              "pageSize": 50
+            }
+          },
+          {
+            "name": "Get Conversation",
+            "description": "Retrieve conversation between two users",
+            "data": {
+              "userId": "67caa8641c34098650859ce4",
+              "otherUserId": "67caa9271a19e9a6a9f42283"
+            }
+          }
+        ]
+      },
+      "POST": {
+        "endpoints": [
+          "/api/Messages/send/{senderId}"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Basic Message",
+            "description": "Send a basic text message with minimal fields",
+            "data": {
+              "receiverId": "67caa9271a19e9a6a9f42283",
+              "content": "This is a test message",
+              "subject": "Test Message"
+            }
+          },
+          {
+            "name": "Long Message",
+            "description": "Send a message with longer content to test performance",
+            "data": {
+              "receiverId": "67caa9271a19e9a6a9f42283",
+              "content": "This is a longer test message with more content to test the performance of the API. It contains multiple sentences and paragraphs to simulate a real-world scenario where users might send detailed messages. The system should handle this efficiently and provide good performance even with larger message content.",
+              "subject": "Performance Test Message"
+            }
+          },
+          {
+            "name": "Message with Special Characters",
+            "description": "Send a message with special characters to test encoding",
+            "data": {
+              "receiverId": "67caa9271a19e9a6a9f42283",
+              "content": "Test message with special characters: !@#$%^&*()_+{}|:<>?~`-=[]\\;',./\"",
+              "subject": "Special Characters Test"
+            }
+          }
+        ]
+      },
+      "PUT": {
+        "endpoints": [
+          "/api/Messages/read/{id}"
+        ],
+        "methods": [
+          "PUT"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Mark Message as Read",
+            "description": "Mark a message as read",
+            "data": {}
+          }
+        ]
+      },
+      "DELETE": {
+        "endpoints": [
+          "/api/Messages/{messageId}?userId={userId}"
+        ],
+        "methods": [
+          "DELETE"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Delete Message",
+            "description": "Delete a specific message",
+            "data": {
+              "messageId": "",
+              "userId": ""
+            }
+          }
+        ]
+      }
     },
     "DynamicQueryTests": {
       "endpoints": [
@@ -230,7 +397,6 @@
         }
       ]
     },
-    
     "TasksEndpoints": {
       "GET": {
         "endpoints": [
@@ -256,7 +422,6 @@
           }
         ]
       },
-
       "PUT": {
         "endpoints": [
           "/api/Tasks/{id}"
@@ -464,6 +629,100 @@
           "role": "Manager"
         }
       ]
+    },
+    "CommentEndpoints": {
+      "POST": {
+        "endpoints": [
+          "/api/Comment",
+          "/api/Comment/user-task-comment",
+          "/api/Comment/{commentId}/attachments"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Basic Comment",
+            "description": "Create a basic comment with minimal fields",
+            "data": {
+              "taskId": "",
+              "userId": "",
+              "content": "This is a test comment"
+            }
+          },
+          {
+            "name": "Comment with Mentions",
+            "description": "Create a comment that mentions other users",
+            "data": {
+              "taskId": "",
+              "userId": "",
+              "content": "This is a test comment mentioning @TestUser"
+            }
+          },
+          {
+            "name": "Comment with Priority",
+            "description": "Create a comment with priority and tags",
+            "data": {
+              "taskId": "",
+              "userId": "",
+              "content": "This is a high priority comment",
+              "priority": "high",
+              "tags": ["important", "urgent"]
+            }
+          },
+          {
+            "name": "User Task Comment",
+            "description": "Create a comment on a task assigned to the user",
+            "data": {
+              "taskId": "",
+              "content": "This is a comment on my assigned task",
+              "priority": "medium",
+              "tags": ["progress", "update"],
+              "dueDate": "2025-04-15T12:00:00Z"
+            }
+          },
+          {
+            "name": "Comment with Attachment",
+            "description": "Add an attachment to a comment",
+            "data": {
+              "commentId": "",
+              "fileName": "test-document.pdf",
+              "fileUrl": "https://example.com/test-document.pdf",
+              "fileSize": 1024,
+              "fileType": "application/pdf"
+            }
+          }
+        ]
+      },
+      "PUT": {
+        "endpoints": [
+          "/api/Comment/{id}"
+        ],
+        "methods": [
+          "PUT"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Update Comment Content",
+            "description": "Update the content of an existing comment",
+            "data": {
+              "id": "",
+              "content": "This is an updated comment content"
+            }
+          },
+          {
+            "name": "Update Comment Priority",
+            "description": "Update the priority and tags of an existing comment",
+            "data": {
+              "id": "",
+              "priority": "high",
+              "tags": ["updated", "critical"]
+            }
+          }
+        ]
+      }
     }
   }
 }

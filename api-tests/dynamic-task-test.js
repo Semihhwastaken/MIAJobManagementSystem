@@ -574,7 +574,7 @@ async function main() {
         type: "list",
         name: "apiCategory",
         message: "Select API category to test:",
-        choices: ["Task", "Exit"]
+        choices: ["Task", "Message", "CalendarEvent", "Exit"]
       }
     ]);
     
@@ -582,24 +582,43 @@ async function main() {
       continueTestingFlag = false;
       break;
     }
-
-    // Then select the HTTP method
-    const { httpMethod } = await inquirer.prompt([
-      {
-        type: "list",
-        name: "httpMethod",
-        message: `Select ${apiCategory} API method to test:`,
-        choices: ["GET", "POST", "PUT", "DELETE", "Back", "Exit"]
-      }
-    ]);
     
-    if (httpMethod === "Back") {
+    // Load API definitions for the selected category
+    let categoryTests;
+    if (apiCategory === "Task") {
+      categoryTests = API_TYPES["Custom Categories"]["TasksEndpoints"];
+    } else if (apiCategory === "Message") {
+      categoryTests = API_TYPES["Custom Categories"]["MessageEndpoints"];
+    } else if (apiCategory === "CalendarEvent") {
+      categoryTests = API_TYPES["Custom Categories"]["CalendarEventEndpoints"];
+    }
+    
+    if (!categoryTests) {
+      console.log(chalk.red(`No tests defined for ${apiCategory} category`));
       continue;
     }
+    
+    // Select HTTP method to test
+    const { httpMethod } = await inquirer.prompt([{
+      type: "list",
+      name: "httpMethod",
+      message: "Select HTTP method to test:",
+      choices: Object.keys(categoryTests).concat(["Back to Main Menu", "Exit"])
+    }]);
     
     if (httpMethod === "Exit") {
       continueTestingFlag = false;
       break;
+    } else if (httpMethod === "Back to Main Menu") {
+      continue;
+    }
+    
+    // Get the tests for the selected method
+    const methodTests = categoryTests[httpMethod];
+    
+    if (!methodTests) {
+      console.log(chalk.red(`No tests defined for ${httpMethod} method in ${apiCategory} category`));
+      continue;
     }
 
     // If POST method is selected for Tasks, show the dynamic parameter sets
@@ -1019,6 +1038,1388 @@ async function main() {
       } else {
         continueTestingFlag = false;
         break;
+      }
+    } else if (apiCategory === "Message") {
+      // Handle Message API testing
+      const messageTests = categoryTests;
+      
+      if (httpMethod === "GET") {
+        // For GET, we need to select which endpoint to test
+        const { endpointChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "endpointChoice",
+            message: "Select GET endpoint to test:",
+            choices: [
+              ...messageTests.GET.endpoints.map((endpoint, index) => ({
+                name: endpoint,
+                value: index
+              })),
+              {
+                name: "Back",
+                value: "back"
+              },
+              {
+                name: "Exit",
+                value: "exit"
+              }
+            ]
+          }
+        ]);
+        
+        if (endpointChoice === "back") {
+          continue;
+        }
+        
+        if (endpointChoice === "exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        let endpoint = messageTests.GET.endpoints[endpointChoice];
+        
+        // Handle different GET endpoints
+        if (endpoint.includes("{userId}") && !endpoint.includes("{otherUserId}")) {
+          // For getting messages for a specific user
+          const currentUser = await getCurrentUser();
+          endpoint = endpoint.replace("{userId}", currentUser.id);
+          
+        } else if (endpoint.includes("{userId}") && endpoint.includes("{otherUserId}")) {
+          // For getting conversation between two users
+          console.log(chalk.blue("\nFetching users for conversation..."));
+          
+          // Get current user
+          const currentUser = await getCurrentUser();
+          
+          // Get other users
+          let users = [];
+          try {
+            const usersResponse = await axios({
+              method: 'GET',
+              url: `${process.env.BASE_URL}/api/Users`,
+              headers: {
+                'Authorization': `Bearer ${jwtToken}`
+              }
+            });
+            
+            if (Array.isArray(usersResponse.data)) {
+              users = usersResponse.data;
+            } else if (usersResponse.data && typeof usersResponse.data === 'object') {
+              if (Array.isArray(usersResponse.data.data)) {
+                users = usersResponse.data.data;
+              } else if (usersResponse.data.users && Array.isArray(usersResponse.data.users)) {
+                users = usersResponse.data.users;
+              } else if (usersResponse.data.items && Array.isArray(usersResponse.data.items)) {
+                users = usersResponse.data.items;
+              } else if (usersResponse.data.results && Array.isArray(usersResponse.data.results)) {
+                users = usersResponse.data.results;
+              }
+            }
+            
+            // Debug the response structure
+            console.log(chalk.gray(`Users response type: ${typeof usersResponse.data}`));
+            if (typeof usersResponse.data === 'object') {
+              console.log(chalk.gray(`Users response structure: ${Array.isArray(usersResponse.data) ? 'Array' : 'Object with keys: ' + Object.keys(usersResponse.data).join(', ')}`));
+            }
+            
+          } catch (error) {
+            console.log(chalk.red(`\nError fetching users: ${error.message}`));
+            if (error.response) {
+              console.log(chalk.red(`Status: ${error.response.status}`));
+              console.log(chalk.gray(`Response data: ${JSON.stringify(error.response.data || {})}`));
+            }
+          }
+          
+          // Ensure users is an array
+          if (!Array.isArray(users)) {
+            console.log(chalk.yellow("Could not extract users array from response. Creating a fallback array."));
+            users = [];
+          }
+          
+          // Filter out the current user
+          const otherUsers = users.filter(user => 
+            user && 
+            typeof user === 'object' && 
+            user.id && 
+            user.id !== currentUser.id
+          );
+          
+          if (otherUsers.length === 0) {
+            console.log(chalk.yellow("\nNo other users found. Creating a fallback test user..."));
+            otherUsers.push({
+              id: "67d2c7ed664c5cbba91de412", // Use a fallback ID
+              username: "TestRecipient",
+              fullName: "Test Recipient (Fallback)"
+            });
+          }
+          
+          // Select a user for the conversation
+          const { otherUserId } = await inquirer.prompt([
+            {
+              type: "list",
+              name: "otherUserId",
+              message: "Select user for conversation:",
+              choices: otherUsers.map(user => ({
+                name: user.fullName || user.username || user.id,
+                value: user.id
+              }))
+            }
+          ]);
+          
+          // Update the endpoint with both user IDs
+          endpoint = endpoint.replace("{userId}", currentUser.id).replace("{otherUserId}", otherUserId);
+        }
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+        
+        const results = await runStressTest(
+          httpMethod, 
+          endpoint, 
+          intensity, 
+          messageTests.GET.requiresAuth, 
+          null
+        );
+        
+        displayResults(results, httpMethod, endpoint, intensity);
+        
+      } else if (httpMethod === "POST") {
+        // For POST, we need to select which endpoint and parameter set to test
+        const { endpointChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "endpointChoice",
+            message: "Select POST endpoint to test:",
+            choices: [
+              ...messageTests.POST.endpoints.map((endpoint, index) => ({
+                name: endpoint,
+                value: index
+              })),
+              {
+                name: "Back",
+                value: "back"
+              },
+              {
+                name: "Exit",
+                value: "exit"
+              }
+            ]
+          }
+        ]);
+        
+        if (endpointChoice === "back") {
+          continue;
+        }
+        
+        if (endpointChoice === "exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        // Get current user
+        const currentUser = await getCurrentUser();
+        
+        // Update the endpoint with the sender ID
+        let endpoint = messageTests.POST.endpoints[endpointChoice].replace("{senderId}", currentUser.id);
+        
+        // Select which parameter set to test
+        const { paramSetChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "paramSetChoice",
+            message: "Select parameter set to test:",
+            choices: [
+              ...messageTests.POST.parameterSets.map((set, index) => ({
+                name: `${set.name} - ${set.description}`,
+                value: index
+              })),
+              {
+                name: "Compare All Parameter Sets",
+                value: "all"
+              },
+              {
+                name: "Back",
+                value: "back"
+              },
+              {
+                name: "Exit",
+                value: "exit"
+              }
+            ]
+          }
+        ]);
+        
+        if (paramSetChoice === "back") {
+          continue;
+        }
+        
+        if (paramSetChoice === "exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        // Get other users for receiver selection
+        let users = [];
+        try {
+          const usersResponse = await axios({
+            method: 'GET',
+            url: `${process.env.BASE_URL}/api/Users`,
+            headers: {
+              'Authorization': `Bearer ${jwtToken}`
+            }
+          });
+          
+          if (Array.isArray(usersResponse.data)) {
+            users = usersResponse.data;
+          } else if (usersResponse.data && typeof usersResponse.data === 'object') {
+            if (Array.isArray(usersResponse.data.data)) {
+              users = usersResponse.data.data;
+            } else if (usersResponse.data.users && Array.isArray(usersResponse.data.users)) {
+              users = usersResponse.data.users;
+            } else if (usersResponse.data.items && Array.isArray(usersResponse.data.items)) {
+              users = usersResponse.data.items;
+            } else if (usersResponse.data.results && Array.isArray(usersResponse.data.results)) {
+              users = usersResponse.data.results;
+            }
+          }
+          
+        } catch (error) {
+          console.log(chalk.red(`\nError fetching users: ${error.message}`));
+        }
+        
+        // Ensure users is an array
+        if (!Array.isArray(users)) {
+          console.log(chalk.yellow("Could not extract users array from response. Creating a fallback array."));
+          users = [];
+        }
+        
+        // Filter out the current user
+        const otherUsers = users.filter(user => 
+          user && 
+          typeof user === 'object' && 
+          user.id && 
+          user.id !== currentUser.id
+        );
+        
+        if (otherUsers.length === 0) {
+          console.log(chalk.yellow("\nNo other users found. Creating a fallback test user..."));
+          otherUsers.push({
+            id: "67d2c7ed664c5cbba91de412", // Use a fallback ID
+            username: "TestRecipient",
+            fullName: "Test Recipient (Fallback)"
+          });
+        }
+        
+        // Select a user as the receiver
+        const { receiverId } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "receiverId",
+            message: "Select message recipient:",
+            choices: otherUsers.map(user => ({
+              name: user.fullName || user.username || user.id,
+              value: user.id
+            }))
+          }
+        ]);
+        
+        // Update parameter sets with the selected receiver ID
+        let updatedParameterSets = JSON.parse(JSON.stringify(messageTests.POST.parameterSets));
+        updatedParameterSets = updatedParameterSets.map(set => {
+          set.data.receiverId = receiverId;
+          return set;
+        });
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        if (paramSetChoice === "all") {
+          // Run tests for all parameter sets and compare results
+          console.log(chalk.blue("\nRunning comparison tests for all parameter sets..."));
+          
+          const allResults = [];
+          const spinner = ora('Preparing comparison tests...').start();
+          
+          for (let i = 0; i < updatedParameterSets.length; i++) {
+            const paramSet = updatedParameterSets[i];
+            spinner.text = `Testing parameter set: ${paramSet.name}`;
+            
+            const result = await runStressTest(
+              httpMethod, 
+              endpoint, 
+              intensity, 
+              messageTests.POST.requiresAuth, 
+              paramSet.data
+            );
+            
+            allResults.push({
+              name: paramSet.name,
+              description: paramSet.description,
+              results: result
+            });
+          }
+          
+          spinner.succeed('All parameter set tests completed');
+          
+          // Display comparison results
+          console.log(chalk.green("\n✅ Message Parameter Test Comparison Complete"));
+          
+          // Create comparison table
+          const comparisonData = [
+            ["Parameter Set", "Avg Response Time (ms)", "Success Rate", "Min Time (ms)", "Max Time (ms)"]
+          ];
+          
+          allResults.forEach(result => {
+            const successRate = ((result.results.successfulRequests / result.results.totalRequests) * 100).toFixed(2);
+            comparisonData.push([
+              result.name,
+              result.results.avgResponseTime.toFixed(2),
+              `${successRate}%`,
+              result.results.minResponseTime,
+              result.results.maxResponseTime
+            ]);
+          });
+          
+          console.log(table(comparisonData));
+          
+          // Find the slowest parameter set
+          const slowestSet = allResults.reduce((prev, current) => 
+            prev.results.avgResponseTime > current.results.avgResponseTime ? prev : current
+          );
+          
+          console.log(chalk.yellow(`\nHighest API Load: ${slowestSet.name}`));
+          console.log(chalk.gray(`Description: ${slowestSet.description}`));
+          console.log(chalk.gray(`Average Response Time: ${slowestSet.results.avgResponseTime.toFixed(2)} ms`));
+          
+          // Save comparison results to file
+          const resultsDir = path.join(__dirname, "results");
+          fs.ensureDirSync(resultsDir);
+          
+          const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\..+/, "");
+          const resultsFile = path.join(
+            resultsDir, 
+            `message-comparison-${intensity.toLowerCase()}-${timestamp}.json`
+          );
+          
+          fs.writeJsonSync(resultsFile, {
+            timestamp: new Date().toISOString(),
+            endpoint,
+            method: httpMethod,
+            intensity,
+            parameterSets: updatedParameterSets.map(set => set.name),
+            results: allResults
+          }, { spaces: 2 });
+          
+          console.log(chalk.gray(`\nComparison results saved to: ${resultsFile}`));
+        } else {
+          // Run test for a single parameter set
+          const paramSet = updatedParameterSets[paramSetChoice];
+          console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+          console.log(chalk.gray(`Parameter set: ${paramSet.name}`));
+          console.log(chalk.gray(`Sending message to: ${otherUsers.find(u => u.id === receiverId)?.fullName || receiverId}`));
+          
+          const results = await runStressTest(
+            httpMethod, 
+            endpoint, 
+            intensity, 
+            messageTests.POST.requiresAuth, 
+            paramSet.data
+          );
+          
+          displayResults(results, httpMethod, endpoint, intensity);
+        }
+        
+      } else if (httpMethod === "PUT") {
+        // For PUT, we need to fetch existing messages to mark as read
+        console.log(chalk.blue("\nFetching unread messages..."));
+        
+        // Get current user
+        const currentUser = await getCurrentUser();
+        
+        // Get messages
+        let messages = [];
+        try {
+          const response = await axios({
+            method: 'GET',
+            url: `${process.env.BASE_URL}/api/Messages/user/${currentUser.id}`,
+            headers: {
+              'Authorization': `Bearer ${jwtToken}`
+            }
+          });
+          
+          if (Array.isArray(response.data)) {
+            messages = response.data;
+          } else if (response.data && typeof response.data === 'object') {
+            if (Array.isArray(response.data.data)) {
+              messages = response.data.data;
+            } else if (response.data.messages && Array.isArray(response.data.messages)) {
+              messages = response.data.messages;
+            } else if (response.data.items && Array.isArray(response.data.items)) {
+              messages = response.data.items;
+            }
+          }
+          
+          // Debug the response structure
+          console.log(chalk.gray(`Messages response type: ${typeof response.data}`));
+          if (typeof response.data === 'object') {
+            console.log(chalk.gray(`Messages response structure: ${Array.isArray(response.data) ? 'Array' : 'Object with keys: ' + Object.keys(response.data).join(', ')}`));
+          }
+          
+        } catch (error) {
+          console.log(chalk.red(`\nError fetching messages: ${error.message}`));
+          if (error.response) {
+            console.log(chalk.red(`Status: ${error.response.status}`));
+            console.log(chalk.gray(`Response data: ${JSON.stringify(error.response.data || {})}`));
+          }
+        }
+        
+        // Ensure messages is an array
+        if (!Array.isArray(messages)) {
+          console.log(chalk.yellow("Could not extract messages array from response. Creating a fallback array."));
+          messages = [];
+        }
+        
+        // Filter unread messages
+        const unreadMessages = messages.filter(message => 
+          message && 
+          typeof message === 'object' && 
+          message.id && 
+          message.receiverId === currentUser.id && 
+          !message.isRead
+        );
+        
+        // If no unread messages found, create fallback messages
+        if (unreadMessages.length === 0) {
+          console.log(chalk.yellow("\nNo unread messages found. Creating fallback test messages..."));
+          unreadMessages.push({
+            id: "67d2c7ed664c5cbba91de420",
+            senderId: "67d2c7ed664c5cbba91de412",
+            receiverId: currentUser.id,
+            content: "This is a test message",
+            subject: "Test Message",
+            isRead: false,
+            createdAt: new Date().toISOString()
+          });
+        }
+        
+        // Select a message to mark as read
+        const { messageId } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "messageId",
+            message: "Select message to mark as read:",
+            choices: unreadMessages.map(message => ({
+              name: `${message.subject} (${new Date(message.createdAt).toLocaleString()})`,
+              value: message.id
+            }))
+          }
+        ]);
+        
+        // Update the endpoint with the selected message ID
+        const endpoint = messageTests.PUT.endpoints[0].replace("{id}", messageId);
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+        console.log(chalk.gray(`Marking message with ID: ${messageId} as read`));
+        
+        const results = await runStressTest(
+          httpMethod, 
+          endpoint, 
+          intensity, 
+          messageTests.PUT.requiresAuth, 
+          {}
+        );
+        
+        displayResults(results, httpMethod, endpoint, intensity);
+        
+      } else if (httpMethod === "DELETE") {
+        // For DELETE, we need to fetch existing messages to delete
+        console.log(chalk.blue("\nFetching messages..."));
+        
+        // Get current user
+        const currentUser = await getCurrentUser();
+        
+        // Get messages
+        let messages = [];
+        try {
+          const response = await axios({
+            method: 'GET',
+            url: `${process.env.BASE_URL}/api/Messages/user/${currentUser.id}`,
+            headers: {
+              'Authorization': `Bearer ${jwtToken}`
+            }
+          });
+          
+          if (Array.isArray(response.data)) {
+            messages = response.data;
+          } else if (response.data && typeof response.data === 'object') {
+            if (Array.isArray(response.data.data)) {
+              messages = response.data.data;
+            } else if (response.data.messages && Array.isArray(response.data.messages)) {
+              messages = response.data.messages;
+            } else if (response.data.items && Array.isArray(response.data.items)) {
+              messages = response.data.items;
+            }
+          }
+          
+        } catch (error) {
+          console.log(chalk.red(`\nError fetching messages: ${error.message}`));
+          if (error.response) {
+            console.log(chalk.red(`Status: ${error.response.status}`));
+            console.log(chalk.gray(`Response data: ${JSON.stringify(error.response.data || {})}`));
+          }
+        }
+        
+        // Ensure messages is an array
+        if (!Array.isArray(messages)) {
+          console.log(chalk.yellow("Could not extract messages array from response. Creating a fallback array."));
+          messages = [];
+        }
+        
+        // Filter messages that the user can delete (sent or received by the user)
+        const userMessages = messages.filter(message => 
+          message && 
+          typeof message === 'object' && 
+          message.id && 
+          (message.senderId === currentUser.id || message.receiverId === currentUser.id)
+        );
+        
+        // If no messages found, create fallback messages
+        if (userMessages.length === 0) {
+          console.log(chalk.yellow("\nNo messages found that you can delete. Creating fallback test messages..."));
+          userMessages.push({
+            id: "67d2c7ed664c5cbba91de420",
+            senderId: currentUser.id,
+            receiverId: "67d2c7ed664c5cbba91de412",
+            content: "This is a test message",
+            subject: "Test Message",
+            createdAt: new Date().toISOString()
+          });
+          
+          userMessages.push({
+            id: "67d2c7ed664c5cbba91de421",
+            senderId: "67d2c7ed664c5cbba91de412",
+            receiverId: currentUser.id,
+            content: "This is a reply to your test message",
+            subject: "Re: Test Message",
+            createdAt: new Date().toISOString()
+          });
+        }
+        
+        // Select a message to delete
+        const { messageId } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "messageId",
+            message: "Select message to delete:",
+            choices: userMessages.map(message => ({
+              name: `${message.subject} (${message.senderId === currentUser.id ? 'Sent' : 'Received'} - ${new Date(message.createdAt).toLocaleString()})`,
+              value: message.id
+            }))
+          }
+        ]);
+        
+        // Update the endpoint with the selected message ID and user ID
+        const endpoint = messageTests.DELETE.endpoints[0]
+          .replace("{messageId}", messageId)
+          .replace("{userId}", currentUser.id);
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+        console.log(chalk.gray(`Deleting message with ID: ${messageId}`));
+        
+        const results = await runStressTest(
+          httpMethod, 
+          endpoint, 
+          intensity, 
+          messageTests.DELETE.requiresAuth, 
+          null
+        );
+        
+        displayResults(results, httpMethod, endpoint, intensity);
+      }
+    } else if (apiCategory === "CalendarEvent") {
+      // Handle CalendarEvent API testing
+      const calendarEventTests = categoryTests;
+      
+      if (httpMethod === "GET") {
+        // For GET, we need to select which endpoint to test
+        const { endpointChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "endpointChoice",
+            message: "Select GET endpoint to test:",
+            choices: [
+              ...calendarEventTests.GET.endpoints.map((endpoint, index) => ({
+                name: endpoint,
+                value: index
+              })),
+              {
+                name: "Back",
+                value: "back"
+              },
+              {
+                name: "Exit",
+                value: "exit"
+              }
+            ]
+          }
+        ]);
+        
+        if (endpointChoice === "back") {
+          continue;
+        }
+        
+        if (endpointChoice === "exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        let endpoint = calendarEventTests.GET.endpoints[endpointChoice];
+        
+        // Handle different GET endpoints
+        if (endpoint.includes("{id}")) {
+          // For getting a specific event by ID, we need to fetch existing events first
+          console.log(chalk.blue("\nFetching existing calendar events..."));
+          
+          // Get current user
+          const currentUser = await getCurrentUser();
+          
+          // Get calendar events
+          let events = [];
+          try {
+            const response = await axios({
+              method: 'GET',
+              url: `${process.env.BASE_URL}/api/calendar/events?startDate=2025-01-01&endDate=2025-12-31`,
+              headers: {
+                'Authorization': `Bearer ${jwtToken}`
+              }
+            });
+            
+            if (Array.isArray(response.data)) {
+              events = response.data;
+            } else if (response.data && typeof response.data === 'object') {
+              if (Array.isArray(response.data.data)) {
+                events = response.data.data;
+              } else if (response.data.events && Array.isArray(response.data.events)) {
+                events = response.data.events;
+              }
+            }
+            
+          } catch (error) {
+            console.log(chalk.red(`\nError fetching events: ${error.message}`));
+            if (error.response) {
+              console.log(chalk.red(`Status: ${error.response.status}`));
+              console.log(chalk.gray(`Response data: ${JSON.stringify(error.response.data || {})}`));
+            }
+          }
+          
+          // Ensure events is an array
+          if (!Array.isArray(events)) {
+            console.log(chalk.yellow("Could not extract events array from response. Creating a fallback array."));
+            events = [];
+          }
+          
+          // Filter valid event objects
+          events = events.filter(event => 
+            event && 
+            typeof event === 'object' && 
+            event.id
+          );
+          
+          // If no events found, create fallback events
+          if (events.length === 0) {
+            console.log(chalk.yellow("\nNo events found. Creating fallback test events..."));
+            events.push({
+              id: "67d2c7ed664c5cbba91de415",
+              title: "Test Meeting 1",
+              description: "This is a test meeting",
+              startDate: "2025-04-01",
+              endDate: "2025-04-01",
+              startTime: "10:00",
+              endTime: "11:00",
+              priority: "Medium",
+              category: "meeting",
+              createdBy: currentUser.id
+            });
+            
+            events.push({
+              id: "67d2c7ed664c5cbba91de416",
+              title: "Test Meeting 2",
+              description: "This is another test meeting",
+              startDate: "2025-04-02",
+              endDate: "2025-04-02",
+              startTime: "14:00",
+              endTime: "15:00",
+              priority: "High",
+              category: "meeting",
+              createdBy: currentUser.id
+            });
+          }
+          
+          // Select an event
+          const { eventId } = await inquirer.prompt([
+            {
+              type: "list",
+              name: "eventId",
+              message: "Select event to view:",
+              choices: events.map(event => ({
+                name: `${event.title} (${event.startDate} ${event.startTime})`,
+                value: event.id
+              }))
+            }
+          ]);
+          
+          // Update the endpoint with the selected event ID
+          endpoint = endpoint.replace("{id}", eventId);
+          
+        } else if (endpoint.includes("{userId}")) {
+          // For getting events for a specific user
+          const currentUser = await getCurrentUser();
+          endpoint = endpoint.replace("{userId}", currentUser.id);
+          
+        } else if (endpoint.includes("{teamId}")) {
+          // For getting events for a specific team, we need to fetch teams first
+          console.log(chalk.blue("\nFetching teams..."));
+          
+          // Get teams
+          let teams = [];
+          try {
+            const response = await axios({
+              method: 'GET',
+              url: `${process.env.BASE_URL}/api/Teams`,
+              headers: {
+                'Authorization': `Bearer ${jwtToken}`
+              }
+            });
+            
+            if (Array.isArray(response.data)) {
+              teams = response.data;
+            } else if (response.data && typeof response.data === 'object') {
+              if (Array.isArray(response.data.data)) {
+                teams = response.data.data;
+              } else if (response.data.teams && Array.isArray(response.data.teams)) {
+                teams = response.data.teams;
+              }
+            }
+            
+          } catch (error) {
+            console.log(chalk.red(`\nError fetching teams: ${error.message}`));
+          }
+          
+          // Ensure teams is an array
+          if (!Array.isArray(teams)) {
+            console.log(chalk.yellow("Could not extract teams array from response. Creating a fallback array."));
+            teams = [];
+          }
+          
+          // Filter valid team objects
+          teams = teams.filter(team => 
+            team && 
+            typeof team === 'object' && 
+            team.id
+          );
+          
+          // If no teams found, create a fallback team
+          if (teams.length === 0) {
+            console.log(chalk.yellow("\nNo teams found. Creating a fallback test team..."));
+            teams.push({
+              id: "67d2c7ed664c5cbba91de417",
+              name: "Test Team"
+            });
+          }
+          
+          // Select a team
+          const { teamId } = await inquirer.prompt([
+            {
+              type: "list",
+              name: "teamId",
+              message: "Select team:",
+              choices: teams.map(team => ({
+                name: team.name || team.id,
+                value: team.id
+              }))
+            }
+          ]);
+          
+          // Update the endpoint with the selected team ID
+          endpoint = endpoint.replace("{teamId}", teamId);
+        } else if (endpoint === "/api/calendar/events") {
+          // For getting events by date range
+          const { startDate, endDate } = await inquirer.prompt([
+            {
+              type: "input",
+              name: "startDate",
+              message: "Enter start date (YYYY-MM-DD):",
+              default: "2025-03-01",
+              validate: input => /^\d{4}-\d{2}-\d{2}$/.test(input) ? true : "Invalid date format. Use YYYY-MM-DD"
+            },
+            {
+              type: "input",
+              name: "endDate",
+              message: "Enter end date (YYYY-MM-DD):",
+              default: "2025-04-01",
+              validate: input => /^\d{4}-\d{2}-\d{2}$/.test(input) ? true : "Invalid date format. Use YYYY-MM-DD"
+            }
+          ]);
+          
+          // Update the endpoint with query parameters
+          endpoint = `${endpoint}?startDate=${startDate}&endDate=${endDate}`;
+        }
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+        
+        const results = await runStressTest(
+          httpMethod, 
+          endpoint, 
+          intensity, 
+          calendarEventTests.GET.requiresAuth, 
+          null
+        );
+        
+        displayResults(results, httpMethod, endpoint, intensity);
+        
+      } else if (httpMethod === "POST") {
+        // For POST, we need to select which endpoint and parameter set to test
+        const { endpointChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "endpointChoice",
+            message: "Select POST endpoint to test:",
+            choices: [
+              ...calendarEventTests.POST.endpoints.map((endpoint, index) => ({
+                name: endpoint,
+                value: index
+              })),
+              {
+                name: "Back",
+                value: "back"
+              },
+              {
+                name: "Exit",
+                value: "exit"
+              }
+            ]
+          }
+        ]);
+        
+        if (endpointChoice === "back") {
+          continue;
+        }
+        
+        if (endpointChoice === "exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        const endpoint = calendarEventTests.POST.endpoints[endpointChoice];
+        
+        // Get current user
+        const currentUser = await getCurrentUser();
+        
+        // Select which parameter set to test
+        const { paramSetChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "paramSetChoice",
+            message: "Select parameter set to test:",
+            choices: [
+              ...calendarEventTests.POST.parameterSets.map((set, index) => ({
+                name: `${set.name} - ${set.description}`,
+                value: index
+              })),
+              {
+                name: "Compare All Parameter Sets",
+                value: "all"
+              },
+              {
+                name: "Back",
+                value: "back"
+              },
+              {
+                name: "Exit",
+                value: "exit"
+              }
+            ]
+          }
+        ]);
+        
+        if (paramSetChoice === "back") {
+          continue;
+        }
+        
+        if (paramSetChoice === "exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        // Update parameter sets with the current user's ID
+        let updatedParameterSets = JSON.parse(JSON.stringify(calendarEventTests.POST.parameterSets));
+        updatedParameterSets = updatedParameterSets.map(set => {
+          set.data.createdBy = currentUser.id;
+          
+          // If it's a team event, fetch a team ID
+          if (endpoint.includes("team") && set.data.teamId === "") {
+            // Fetch teams or use a fallback ID
+            set.data.teamId = "67d2c7ed664c5cbba91de417"; // Fallback team ID
+          }
+          
+          return set;
+        });
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        if (paramSetChoice === "all") {
+          // Run tests for all parameter sets and compare results
+          console.log(chalk.blue("\nRunning comparison tests for all parameter sets..."));
+          
+          const allResults = [];
+          const spinner = ora('Preparing comparison tests...').start();
+          
+          for (let i = 0; i < updatedParameterSets.length; i++) {
+            const paramSet = updatedParameterSets[i];
+            spinner.text = `Testing parameter set: ${paramSet.name}`;
+            
+            const result = await runStressTest(
+              httpMethod, 
+              endpoint, 
+              intensity, 
+              calendarEventTests.POST.requiresAuth, 
+              paramSet.data
+            );
+            
+            allResults.push({
+              name: paramSet.name,
+              description: paramSet.description,
+              results: result
+            });
+          }
+          
+          spinner.succeed('All parameter set tests completed');
+          
+          // Display comparison results
+          console.log(chalk.green("\n✅ Calendar Event Parameter Test Comparison Complete"));
+          
+          // Create comparison table
+          const comparisonData = [
+            ["Parameter Set", "Avg Response Time (ms)", "Success Rate", "Min Time (ms)", "Max Time (ms)"]
+          ];
+          
+          allResults.forEach(result => {
+            const successRate = ((result.results.successfulRequests / result.results.totalRequests) * 100).toFixed(2);
+            comparisonData.push([
+              result.name,
+              result.results.avgResponseTime.toFixed(2),
+              `${successRate}%`,
+              result.results.minResponseTime,
+              result.results.maxResponseTime
+            ]);
+          });
+          
+          console.log(table(comparisonData));
+          
+          // Find the slowest parameter set
+          const slowestSet = allResults.reduce((prev, current) => 
+            prev.results.avgResponseTime > current.results.avgResponseTime ? prev : current
+          );
+          
+          console.log(chalk.yellow(`\nHighest API Load: ${slowestSet.name}`));
+          console.log(chalk.gray(`Description: ${slowestSet.description}`));
+          console.log(chalk.gray(`Average Response Time: ${slowestSet.results.avgResponseTime.toFixed(2)} ms`));
+          
+          // Save comparison results to file
+          const resultsDir = path.join(__dirname, "results");
+          fs.ensureDirSync(resultsDir);
+          
+          const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\..+/, "");
+          const resultsFile = path.join(
+            resultsDir, 
+            `calendar-event-comparison-${intensity.toLowerCase()}-${timestamp}.json`
+          );
+          
+          fs.writeJsonSync(resultsFile, {
+            timestamp: new Date().toISOString(),
+            endpoint,
+            method: httpMethod,
+            intensity,
+            parameterSets: updatedParameterSets.map(set => set.name),
+            results: allResults
+          }, { spaces: 2 });
+          
+          console.log(chalk.gray(`\nComparison results saved to: ${resultsFile}`));
+        } else {
+          // Run test for a single parameter set
+          const paramSet = updatedParameterSets[paramSetChoice];
+          console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+          console.log(chalk.gray(`Parameter set: ${paramSet.name}`));
+          
+          const results = await runStressTest(
+            httpMethod, 
+            endpoint, 
+            intensity, 
+            calendarEventTests.POST.requiresAuth, 
+            paramSet.data
+          );
+          
+          displayResults(results, httpMethod, endpoint, intensity);
+        }
+        
+      } else if (httpMethod === "PUT") {
+        // For PUT, we need to fetch existing events to update
+        console.log(chalk.blue("\nFetching existing calendar events..."));
+        
+        // Get current user
+        const currentUser = await getCurrentUser();
+        
+        // Get calendar events
+        let events = [];
+        try {
+          const response = await axios({
+            method: 'GET',
+            url: `${process.env.BASE_URL}/api/calendar/events?startDate=2025-01-01&endDate=2025-12-31`,
+            headers: {
+              'Authorization': `Bearer ${jwtToken}`
+            }
+          });
+          
+          if (Array.isArray(response.data)) {
+            events = response.data;
+          } else if (response.data && typeof response.data === 'object') {
+            if (Array.isArray(response.data.data)) {
+              events = response.data.data;
+            } else if (response.data.events && Array.isArray(response.data.events)) {
+              events = response.data.events;
+            }
+          }
+          
+        } catch (error) {
+          console.log(chalk.red(`\nError fetching events: ${error.message}`));
+          if (error.response) {
+            console.log(chalk.red(`Status: ${error.response.status}`));
+            console.log(chalk.gray(`Response data: ${JSON.stringify(error.response.data || {})}`));
+          }
+        }
+        
+        // Ensure events is an array
+        if (!Array.isArray(events)) {
+          console.log(chalk.yellow("Could not extract events array from response. Creating a fallback array."));
+          events = [];
+        }
+        
+        // Filter events created by the current user
+        events = events.filter(event => 
+          event && 
+          typeof event === 'object' && 
+          event.id && 
+          event.createdBy === currentUser.id
+        );
+        
+        // If no events found, create fallback events
+        if (events.length === 0) {
+          console.log(chalk.yellow("\nNo events found that you can update. Creating fallback test events..."));
+          events.push({
+            id: "67d2c7ed664c5cbba91de415",
+            title: "Test Meeting 1",
+            description: "This is a test meeting",
+            startDate: "2025-04-01",
+            endDate: "2025-04-01",
+            startTime: "10:00",
+            endTime: "11:00",
+            priority: "Medium",
+            category: "meeting",
+            createdBy: currentUser.id
+          });
+          
+          events.push({
+            id: "67d2c7ed664c5cbba91de416",
+            title: "Test Meeting 2",
+            description: "This is another test meeting",
+            startDate: "2025-04-02",
+            endDate: "2025-04-02",
+            startTime: "14:00",
+            endTime: "15:00",
+            priority: "High",
+            category: "meeting",
+            createdBy: currentUser.id
+          });
+        }
+        
+        // Select an event to update
+        const { eventId } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "eventId",
+            message: "Select event to update:",
+            choices: events.map(event => ({
+              name: `${event.title} (${event.startDate} ${event.startTime})`,
+              value: event.id
+            }))
+          }
+        ]);
+        
+        // Update the endpoint with the selected event ID
+        const endpoint = calendarEventTests.PUT.endpoints[0].replace("{id}", eventId);
+        
+        // Get the selected event
+        const selectedEvent = events.find(event => event.id === eventId);
+        
+        // Update the parameter set with the selected event's data
+        let paramSet = JSON.parse(JSON.stringify(calendarEventTests.PUT.parameterSets[0]));
+        paramSet.data = {
+          ...selectedEvent,
+          title: `Updated: ${selectedEvent.title}`,
+          description: `Updated: ${selectedEvent.description}`
+        };
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+        console.log(chalk.gray(`Updating event: ${paramSet.data.title}`));
+        
+        const results = await runStressTest(
+          httpMethod, 
+          endpoint, 
+          intensity, 
+          calendarEventTests.PUT.requiresAuth, 
+          paramSet.data
+        );
+        
+        displayResults(results, httpMethod, endpoint, intensity);
+        
+      } else if (httpMethod === "DELETE") {
+        // For DELETE, we need to fetch existing events to delete
+        console.log(chalk.blue("\nFetching existing calendar events..."));
+        
+        // Get current user
+        const currentUser = await getCurrentUser();
+        
+        // Get calendar events
+        let events = [];
+        try {
+          const response = await axios({
+            method: 'GET',
+            url: `${process.env.BASE_URL}/api/calendar/events?startDate=2025-01-01&endDate=2025-12-31`,
+            headers: {
+              'Authorization': `Bearer ${jwtToken}`
+            }
+          });
+          
+          if (Array.isArray(response.data)) {
+            events = response.data;
+          } else if (response.data && typeof response.data === 'object') {
+            if (Array.isArray(response.data.data)) {
+              events = response.data.data;
+            } else if (response.data.events && Array.isArray(response.data.events)) {
+              events = response.data.events;
+            }
+          }
+          
+        } catch (error) {
+          console.log(chalk.red(`\nError fetching events: ${error.message}`));
+          if (error.response) {
+            console.log(chalk.red(`Status: ${error.response.status}`));
+            console.log(chalk.gray(`Response data: ${JSON.stringify(error.response.data || {})}`));
+          }
+        }
+        
+        // Ensure events is an array
+        if (!Array.isArray(events)) {
+          console.log(chalk.yellow("Could not extract events array from response. Creating a fallback array."));
+          events = [];
+        }
+        
+        // Filter events created by the current user
+        events = events.filter(event => 
+          event && 
+          typeof event === 'object' && 
+          event.id && 
+          event.createdBy === currentUser.id
+        );
+        
+        // If no events found, create fallback events
+        if (events.length === 0) {
+          console.log(chalk.yellow("\nNo events found that you can delete. Creating fallback test events..."));
+          events.push({
+            id: "67d2c7ed664c5cbba91de415",
+            title: "Test Meeting 1",
+            description: "This is a test meeting",
+            startDate: "2025-04-01",
+            endDate: "2025-04-01",
+            startTime: "10:00",
+            endTime: "11:00",
+            priority: "Medium",
+            category: "meeting",
+            createdBy: currentUser.id
+          });
+          
+          events.push({
+            id: "67d2c7ed664c5cbba91de416",
+            title: "Test Meeting 2",
+            description: "This is another test meeting",
+            startDate: "2025-04-02",
+            endDate: "2025-04-02",
+            startTime: "14:00",
+            endTime: "15:00",
+            priority: "High",
+            category: "meeting",
+            createdBy: currentUser.id
+          });
+        }
+        
+        // Select an event to delete
+        const { eventId } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "eventId",
+            message: "Select event to delete:",
+            choices: events.map(event => ({
+              name: `${event.title} (${event.startDate} ${event.startTime})`,
+              value: event.id
+            }))
+          }
+        ]);
+        
+        // Update the endpoint with the selected event ID
+        const endpoint = calendarEventTests.DELETE.endpoints[0].replace("{id}", eventId);
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+        console.log(chalk.gray(`Deleting event with ID: ${eventId}`));
+        
+        const results = await runStressTest(
+          httpMethod, 
+          endpoint, 
+          intensity, 
+          calendarEventTests.DELETE.requiresAuth, 
+          null
+        );
+        
+        displayResults(results, httpMethod, endpoint, intensity);
       }
     } else {
       // For other methods, implement basic stress testing
