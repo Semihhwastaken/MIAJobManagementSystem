@@ -397,6 +397,411 @@
         }
       ]
     },
+    "CommentEndpoints": {
+      "GET": {
+        "endpoints": [
+          "/api/Comment/task/{taskId}"
+        ],
+        "methods": [
+          "GET"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Get Task Comments",
+            "description": "Retrieve all comments for a specific task",
+            "data": {
+              "taskId": ""
+            }
+          }
+        ]
+      },
+      "POST": {
+        "endpoints": [
+          "/api/Comment",
+          "/api/Comment/user-task-comment"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Basic Comment",
+            "description": "Create a basic comment with minimal fields",
+            "data": {
+              "taskId": "",
+              "userId": "",
+              "content": "This is a test comment"
+            }
+          },
+          {
+            "name": "Comment with Mentions",
+            "description": "Create a comment that mentions other users",
+            "data": {
+              "taskId": "",
+              "userId": "",
+              "content": "This is a test comment mentioning @TestUser"
+            }
+          },
+          {
+            "name": "Detailed Comment",
+            "description": "Create a comment with all available fields",
+            "data": {
+              "taskId": "",
+              "userId": "",
+              "content": "This is a detailed test comment with priority and tags",
+              "priority": "high",
+              "tags": ["important", "test", "api"],
+              "dueDate": "2025-04-30T12:00:00Z"
+            }
+          }
+        ]
+      },
+      "POST_ATTACHMENT": {
+        "endpoints": [
+          "/api/Comment/{commentId}/attachments"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Add Attachment",
+            "description": "Add an attachment to a comment",
+            "data": {
+              "fileName": "test-document.pdf",
+              "fileUrl": "https://example.com/files/test-document.pdf",
+              "fileType": "application/pdf",
+              "fileSize": 1024000
+            }
+          }
+        ]
+      },
+      "DELETE": {
+        "endpoints": [
+          "/api/Comment/{id}"
+        ],
+        "methods": [
+          "DELETE"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Delete Comment",
+            "description": "Delete a specific comment",
+            "data": {}
+          }
+        ]
+      }
+    },
+    "FeedbackEndpoints": {
+      "GET": {
+        "endpoints": [
+          "/api/Feedback/public",
+          "/api/Feedback",
+          "/api/Feedback/stats"
+        ],
+        "methods": [
+          "GET"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Get Public Feedbacks",
+            "description": "Retrieve public feedbacks that are visible to all users",
+            "data": {}
+          },
+          {
+            "name": "Get All Feedbacks",
+            "description": "Admin only - Retrieve all feedbacks with optional status filter",
+            "data": {
+              "status": "New"
+            }
+          },
+          {
+            "name": "Get Feedback Stats",
+            "description": "Admin only - Retrieve feedback statistics",
+            "data": {}
+          }
+        ]
+      },
+      "POST": {
+        "endpoints": [
+          "/api/Feedback"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Basic Feedback",
+            "description": "Submit basic feedback with minimal fields",
+            "data": {
+              "userId": "",
+              "userName": "",
+              "userRole": "User",
+              "content": "This is a test feedback",
+              "rating": 4,
+              "isPublic": false
+            }
+          },
+          {
+            "name": "Detailed Feedback",
+            "description": "Submit detailed feedback with all available fields",
+            "data": {
+              "userId": "",
+              "userName": "",
+              "userRole": "User",
+              "content": "This is a detailed test feedback with additional information about the system performance and user experience.",
+              "rating": 5,
+              "isPublic": true,
+              "userAvatar": "https://example.com/avatar.jpg"
+            }
+          },
+          {
+            "name": "Critical Feedback",
+            "description": "Submit feedback with a low rating",
+            "data": {
+              "userId": "",
+              "userName": "",
+              "userRole": "User",
+              "content": "This is a critical feedback reporting issues with the system.",
+              "rating": 1,
+              "isPublic": false
+            }
+          }
+        ]
+      },
+      "PUT": {
+        "endpoints": [
+          "/api/Feedback/{id}/status"
+        ],
+        "methods": [
+          "PUT"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Mark as Read",
+            "description": "Update feedback status to Read",
+            "data": {
+              "status": "Read",
+              "response": ""
+            }
+          },
+          {
+            "name": "Respond to Feedback",
+            "description": "Update feedback status to Responded with admin response",
+            "data": {
+              "status": "Responded",
+              "response": "Thank you for your feedback. We have addressed your concerns."
+            }
+          },
+          {
+            "name": "Archive Feedback",
+            "description": "Update feedback status to Archived",
+            "data": {
+              "status": "Archived",
+              "response": ""
+            }
+          }
+        ]
+      },
+      "DELETE": {
+        "endpoints": [
+          "/api/Feedback/{id}"
+        ],
+        "methods": [
+          "DELETE"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Delete Feedback",
+            "description": "Admin only - Delete a specific feedback",
+            "data": {}
+          }
+        ]
+      }
+    },
+    "TeamEndpoints": {
+      "GET": {
+        "endpoints": [
+          "/api/Team",
+          "/api/Team/my-teams",
+          "/api/Team/{id}",
+          "/api/Team/members/{teamId}",
+          "/api/Team/departments",
+          "/api/Team/members/department/{department}"
+        ],
+        "methods": [
+          "GET"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Get User Teams",
+            "description": "Retrieve all teams the current user is a member of",
+            "data": {}
+          },
+          {
+            "name": "Get My Teams",
+            "description": "Retrieve all teams owned by the current user",
+            "data": {}
+          },
+          {
+            "name": "Get Team by ID",
+            "description": "Retrieve a specific team by ID",
+            "data": {
+              "id": ""
+            }
+          },
+          {
+            "name": "Get Team Members",
+            "description": "Retrieve all members of a specific team",
+            "data": {
+              "teamId": ""
+            }
+          },
+          {
+            "name": "Get Departments",
+            "description": "Retrieve all available departments",
+            "data": {}
+          },
+          {
+            "name": "Get Members by Department",
+            "description": "Retrieve all team members in a specific department",
+            "data": {
+              "department": "Engineering"
+            }
+          }
+        ]
+      },
+      "POST": {
+        "endpoints": [
+          "/api/Team",
+          "/api/Team/{teamId}/members",
+          "/api/Team/join/{inviteCode}"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Create Basic Team",
+            "description": "Create a new team with minimal fields",
+            "data": {
+              "name": "Test Team",
+              "description": "This is a test team",
+              "createdById": ""
+            }
+          },
+          {
+            "name": "Create Detailed Team",
+            "description": "Create a new team with all available fields",
+            "data": {
+              "name": "Detailed Test Team",
+              "description": "This is a detailed test team with additional information",
+              "createdById": "",
+              "department": "Engineering",
+              "teamType": "Development",
+              "isPrivate": false,
+              "maxMembers": 10
+            }
+          },
+          {
+            "name": "Add Member to Team",
+            "description": "Add a new member to an existing team",
+            "data": {
+              "teamId": "",
+              "userId": "",
+              "role": "Member",
+              "department": "Engineering"
+            }
+          },
+          {
+            "name": "Join Team with Invite Code",
+            "description": "Join a team using an invite code",
+            "data": {
+              "inviteCode": ""
+            }
+          }
+        ]
+      },
+      "PUT": {
+        "endpoints": [
+          "/api/Team/{id}",
+          "/api/Team/members/{id}",
+          "/api/Team/members/{id}/status"
+        ],
+        "methods": [
+          "PUT"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Update Team",
+            "description": "Update an existing team's information",
+            "data": {
+              "id": "",
+              "name": "Updated Team Name",
+              "description": "This team has been updated",
+              "department": "Engineering",
+              "isPrivate": true
+            }
+          },
+          {
+            "name": "Update Team Member",
+            "description": "Update a team member's information",
+            "data": {
+              "id": "",
+              "role": "Manager",
+              "department": "Engineering",
+              "position": "Team Lead"
+            }
+          },
+          {
+            "name": "Update Member Status",
+            "description": "Update a team member's status",
+            "data": {
+              "id": "",
+              "status": "Active"
+            }
+          }
+        ]
+      },
+      "DELETE": {
+        "endpoints": [
+          "/api/Team/{id}",
+          "/api/Team/{teamId}/members/{memberId}"
+        ],
+        "methods": [
+          "DELETE"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Delete Team",
+            "description": "Delete an existing team",
+            "data": {
+              "id": ""
+            }
+          },
+          {
+            "name": "Remove Team Member",
+            "description": "Remove a member from a team",
+            "data": {
+              "teamId": "",
+              "memberId": ""
+            }
+          }
+        ]
+      }
+    },
     "TasksEndpoints": {
       "GET": {
         "endpoints": [
@@ -629,100 +1034,6 @@
           "role": "Manager"
         }
       ]
-    },
-    "CommentEndpoints": {
-      "POST": {
-        "endpoints": [
-          "/api/Comment",
-          "/api/Comment/user-task-comment",
-          "/api/Comment/{commentId}/attachments"
-        ],
-        "methods": [
-          "POST"
-        ],
-        "requiresAuth": true,
-        "parameterSets": [
-          {
-            "name": "Basic Comment",
-            "description": "Create a basic comment with minimal fields",
-            "data": {
-              "taskId": "",
-              "userId": "",
-              "content": "This is a test comment"
-            }
-          },
-          {
-            "name": "Comment with Mentions",
-            "description": "Create a comment that mentions other users",
-            "data": {
-              "taskId": "",
-              "userId": "",
-              "content": "This is a test comment mentioning @TestUser"
-            }
-          },
-          {
-            "name": "Comment with Priority",
-            "description": "Create a comment with priority and tags",
-            "data": {
-              "taskId": "",
-              "userId": "",
-              "content": "This is a high priority comment",
-              "priority": "high",
-              "tags": ["important", "urgent"]
-            }
-          },
-          {
-            "name": "User Task Comment",
-            "description": "Create a comment on a task assigned to the user",
-            "data": {
-              "taskId": "",
-              "content": "This is a comment on my assigned task",
-              "priority": "medium",
-              "tags": ["progress", "update"],
-              "dueDate": "2025-04-15T12:00:00Z"
-            }
-          },
-          {
-            "name": "Comment with Attachment",
-            "description": "Add an attachment to a comment",
-            "data": {
-              "commentId": "",
-              "fileName": "test-document.pdf",
-              "fileUrl": "https://example.com/test-document.pdf",
-              "fileSize": 1024,
-              "fileType": "application/pdf"
-            }
-          }
-        ]
-      },
-      "PUT": {
-        "endpoints": [
-          "/api/Comment/{id}"
-        ],
-        "methods": [
-          "PUT"
-        ],
-        "requiresAuth": true,
-        "parameterSets": [
-          {
-            "name": "Update Comment Content",
-            "description": "Update the content of an existing comment",
-            "data": {
-              "id": "",
-              "content": "This is an updated comment content"
-            }
-          },
-          {
-            "name": "Update Comment Priority",
-            "description": "Update the priority and tags of an existing comment",
-            "data": {
-              "id": "",
-              "priority": "high",
-              "tags": ["updated", "critical"]
-            }
-          }
-        ]
-      }
     }
   }
 }

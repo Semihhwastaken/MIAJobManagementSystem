@@ -574,7 +574,7 @@ async function main() {
         type: "list",
         name: "apiCategory",
         message: "Select API category to test:",
-        choices: ["Task", "Message", "CalendarEvent", "Exit"]
+        choices: ["Task", "Message", "Comment", "Feedback", "Team", "CalendarEvent", "Exit"]
       }
     ]);
     
@@ -589,6 +589,12 @@ async function main() {
       categoryTests = API_TYPES["Custom Categories"]["TasksEndpoints"];
     } else if (apiCategory === "Message") {
       categoryTests = API_TYPES["Custom Categories"]["MessageEndpoints"];
+    } else if (apiCategory === "Comment") {
+      categoryTests = API_TYPES["Custom Categories"]["CommentEndpoints"];
+    } else if (apiCategory === "Feedback") {
+      categoryTests = API_TYPES["Custom Categories"]["FeedbackEndpoints"];
+    } else if (apiCategory === "Team") {
+      categoryTests = API_TYPES["Custom Categories"]["TeamEndpoints"];
     } else if (apiCategory === "CalendarEvent") {
       categoryTests = API_TYPES["Custom Categories"]["CalendarEventEndpoints"];
     }
@@ -691,7 +697,7 @@ async function main() {
         continueTestingFlag = false;
         break;
       }
-
+      
       if (paramSetChoice === "all") {
         // Run tests for all parameter sets and compare results
         console.log(chalk.blue("\nRunning comparison tests for all parameter sets..."));
@@ -995,7 +1001,7 @@ async function main() {
         
         fs.writeJsonSync(resultsFile, {
           timestamp: new Date().toISOString(),
-          endpoint: endpoint,
+          endpoint,
           method: "PUT",
           intensity,
           parameterSets: updatedParameterSets.map(set => set.name),
@@ -1114,12 +1120,6 @@ async function main() {
               } else if (usersResponse.data.results && Array.isArray(usersResponse.data.results)) {
                 users = usersResponse.data.results;
               }
-            }
-            
-            // Debug the response structure
-            console.log(chalk.gray(`Users response type: ${typeof usersResponse.data}`));
-            if (typeof usersResponse.data === 'object') {
-              console.log(chalk.gray(`Users response structure: ${Array.isArray(usersResponse.data) ? 'Array' : 'Object with keys: ' + Object.keys(usersResponse.data).join(', ')}`));
             }
             
           } catch (error) {
@@ -1544,7 +1544,7 @@ async function main() {
             }))
           }
         ]);
-        
+
         // Update the endpoint with the selected message ID
         const endpoint = messageTests.PUT.endpoints[0].replace("{id}", messageId);
         
@@ -1700,6 +1700,1376 @@ async function main() {
         
         displayResults(results, httpMethod, endpoint, intensity);
       }
+    } else if (apiCategory === "Comment") {
+      // Handle Comment API testing
+      const commentTests = categoryTests;
+      
+      if (httpMethod === "GET") {
+        // For GET, we need to select which endpoint to test
+        const { endpointChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "endpointChoice",
+            message: "Select GET endpoint to test:",
+            choices: [
+              ...commentTests.GET.endpoints.map((endpoint, index) => ({
+                name: endpoint,
+                value: index
+              })),
+              {
+                name: "Back",
+                value: "back"
+              },
+              {
+                name: "Exit",
+                value: "exit"
+              }
+            ]
+          }
+        ]);
+        
+        if (endpointChoice === "back") {
+          continue;
+        }
+        
+        if (endpointChoice === "exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        let endpoint = commentTests.GET.endpoints[endpointChoice];
+        
+        // For getting comments for a specific task, we need to fetch existing tasks first
+        if (endpoint.includes("{taskId}")) {
+          console.log(chalk.blue("\nFetching existing tasks..."));
+          
+          // Get current user
+          const currentUser = await getCurrentUser();
+          
+          // Get tasks
+          const taskIds = await getExistingTaskIds();
+          
+          if (taskIds.length === 0) {
+            console.log(chalk.yellow("\nNo tasks found. Creating a fallback task ID..."));
+            taskIds.push("67d2c7ed664c5cbba91de430"); // Use a fallback ID
+          }
+          
+          // Select a task to get comments for
+          const { taskId } = await inquirer.prompt([
+            {
+              type: "list",
+              name: "taskId",
+              message: "Select task to get comments from:",
+              choices: taskIds.map((id, index) => ({
+                name: `Task ${index + 1}: ${id}`,
+                value: id
+              }))
+            }
+          ]);
+          
+          // Update the endpoint with the selected task ID
+          endpoint = endpoint.replace("{taskId}", taskId);
+        }
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+        
+        const results = await runStressTest(
+          httpMethod, 
+          endpoint, 
+          intensity, 
+          commentTests.GET.requiresAuth, 
+          null
+        );
+        
+        displayResults(results, httpMethod, endpoint, intensity);
+        
+      } else if (httpMethod === "POST") {
+        // For POST, we need to select which endpoint and parameter set to test
+        const { endpointChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "endpointChoice",
+            message: "Select POST endpoint to test:",
+            choices: [
+              ...commentTests.POST.endpoints.map((endpoint, index) => ({
+                name: endpoint,
+                value: index
+              })),
+              {
+                name: "Back",
+                value: "back"
+              },
+              {
+                name: "Exit",
+                value: "exit"
+              }
+            ]
+          }
+        ]);
+        
+        if (endpointChoice === "back") {
+          continue;
+        }
+        
+        if (endpointChoice === "exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        // Get current user
+        const currentUser = await getCurrentUser();
+        
+        // Get endpoint
+        let endpoint = commentTests.POST.endpoints[endpointChoice];
+        let isUserTaskComment = endpoint.includes("user-task-comment");
+        
+        // Select which parameter set to test
+        const { paramSetChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "paramSetChoice",
+            message: "Select parameter set to test:",
+            choices: [
+              ...commentTests.POST.parameterSets.map((set, index) => ({
+                name: `${set.name} - ${set.description}`,
+                value: index
+              })),
+              {
+                name: "Compare All Parameter Sets",
+                value: "all"
+              },
+              {
+                name: "Back",
+                value: "back"
+              },
+              {
+                name: "Exit",
+                value: "exit"
+              }
+            ]
+          }
+        ]);
+        
+        if (paramSetChoice === "back") {
+          continue;
+        }
+        
+        if (paramSetChoice === "exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        // Get task IDs for the comment
+        console.log(chalk.blue("\nFetching existing tasks..."));
+        const taskIds = await getExistingTaskIds();
+        
+        if (taskIds.length === 0) {
+          console.log(chalk.yellow("\nNo tasks found. Creating a fallback task ID..."));
+          taskIds.push("67d2c7ed664c5cbba91de430"); // Use a fallback ID
+        }
+        
+        // Select a task for the comment
+        const { taskId } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "taskId",
+            message: "Select task for the comment:",
+            choices: taskIds.map((id, index) => ({
+              name: `Task ${index + 1}: ${id}`,
+              value: id
+            }))
+          }
+        ]);
+        
+        // Update parameter sets with the selected task ID and user ID
+        let updatedParameterSets = JSON.parse(JSON.stringify(commentTests.POST.parameterSets));
+        updatedParameterSets = updatedParameterSets.map(set => {
+          if (isUserTaskComment) {
+            // For user-task-comment endpoint, only taskId is needed
+            set.data.taskId = taskId;
+            delete set.data.userId; // Remove userId as it's taken from auth token
+          } else {
+            // For regular comment endpoint
+            set.data.taskId = taskId;
+            set.data.userId = currentUser.id;
+          }
+          return set;
+        });
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        if (paramSetChoice === "all") {
+          // Run tests for all parameter sets and compare results
+          console.log(chalk.blue("\nRunning comparison tests for all parameter sets..."));
+          
+          const allResults = [];
+          const spinner = ora('Preparing comparison tests...').start();
+          
+          for (let i = 0; i < updatedParameterSets.length; i++) {
+            const paramSet = updatedParameterSets[i];
+            spinner.text = `Testing parameter set: ${paramSet.name}`;
+            
+            const result = await runStressTest(
+              httpMethod, 
+              endpoint, 
+              intensity, 
+              commentTests.POST.requiresAuth, 
+              paramSet.data
+            );
+            
+            allResults.push({
+              name: paramSet.name,
+              description: paramSet.description,
+              results: result
+            });
+          }
+          
+          spinner.succeed('All parameter set tests completed');
+          
+          // Display comparison results
+          console.log(chalk.green("\n✅ Comment Parameter Test Comparison Complete"));
+          
+          // Create comparison table
+          const comparisonData = [
+            ["Parameter Set", "Avg Response Time (ms)", "Success Rate", "Min Time (ms)", "Max Time (ms)"]
+          ];
+          
+          allResults.forEach(result => {
+            const successRate = ((result.results.successfulRequests / result.results.totalRequests) * 100).toFixed(2);
+            comparisonData.push([
+              result.name,
+              result.results.avgResponseTime.toFixed(2),
+              `${successRate}%`,
+              result.results.minResponseTime,
+              result.results.maxResponseTime
+            ]);
+          });
+          
+          console.log(table(comparisonData));
+          
+          // Find the slowest parameter set
+          const slowestSet = allResults.reduce((prev, current) => 
+            prev.results.avgResponseTime > current.results.avgResponseTime ? prev : current
+          );
+          
+          console.log(chalk.yellow(`\nHighest API Load: ${slowestSet.name}`));
+          console.log(chalk.gray(`Description: ${slowestSet.description}`));
+          console.log(chalk.gray(`Average Response Time: ${slowestSet.results.avgResponseTime.toFixed(2)} ms`));
+          
+          // Save comparison results to file
+          const resultsDir = path.join(__dirname, "results");
+          fs.ensureDirSync(resultsDir);
+          
+          const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\..+/, "");
+          const resultsFile = path.join(
+            resultsDir, 
+            `comment-comparison-${intensity.toLowerCase()}-${timestamp}.json`
+          );
+          
+          fs.writeJsonSync(resultsFile, {
+            timestamp: new Date().toISOString(),
+            endpoint,
+            method: httpMethod,
+            intensity,
+            parameterSets: updatedParameterSets.map(set => set.name),
+            results: allResults
+          }, { spaces: 2 });
+          
+          console.log(chalk.gray(`\nComparison results saved to: ${resultsFile}`));
+        } else {
+          // Run test for a single parameter set
+          const paramSet = updatedParameterSets[paramSetChoice];
+          console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+          console.log(chalk.gray(`Parameter set: ${paramSet.name}`));
+          console.log(chalk.gray(`Task ID: ${taskId}`));
+          
+          const results = await runStressTest(
+            httpMethod, 
+            endpoint, 
+            intensity, 
+            commentTests.POST.requiresAuth, 
+            paramSet.data
+          );
+          
+          displayResults(results, httpMethod, endpoint, intensity);
+        }
+        
+      } else if (httpMethod === "POST_ATTACHMENT") {
+        // For POST_ATTACHMENT, we need to fetch existing comments first
+        console.log(chalk.blue("\nFetching existing comments..."));
+        
+        // Get current user
+        const currentUser = await getCurrentUser();
+        
+        // Get tasks first
+        console.log(chalk.blue("Fetching tasks..."));
+        const taskIds = await getExistingTaskIds();
+        
+        if (taskIds.length === 0) {
+          console.log(chalk.yellow("\nNo tasks found. Creating a fallback task ID..."));
+          taskIds.push("67d2c7ed664c5cbba91de430"); // Use a fallback ID
+        }
+        
+        // Select a task to get comments for
+        const { taskId } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "taskId",
+            message: "Select task to get comments from:",
+            choices: taskIds.map((id, index) => ({
+              name: `Task ${index + 1}: ${id}`,
+              value: id
+            }))
+          }
+        ]);
+        
+        // Get comments for the selected task
+        let comments = [];
+        try {
+          const response = await axios({
+            method: 'GET',
+            url: `${process.env.BASE_URL}/api/Comment/task/${taskId}`,
+            headers: {
+              'Authorization': `Bearer ${jwtToken}`
+            }
+          });
+          
+          if (Array.isArray(response.data)) {
+            comments = response.data;
+          } else if (response.data && typeof response.data === 'object') {
+            if (Array.isArray(response.data.data)) {
+              comments = response.data.data;
+            } else if (response.data.comments && Array.isArray(response.data.comments)) {
+              comments = response.data.comments;
+            } else if (response.data.items && Array.isArray(response.data.items)) {
+              comments = response.data.items;
+            }
+          }
+          
+          // Debug the response structure
+          console.log(chalk.gray(`Comments response type: ${typeof response.data}`));
+          if (typeof response.data === 'object') {
+            console.log(chalk.gray(`Comments response structure: ${Array.isArray(response.data) ? 'Array' : 'Object with keys: ' + Object.keys(response.data).join(', ')}`));
+          }
+          
+        } catch (error) {
+          console.log(chalk.red(`\nError fetching comments: ${error.message}`));
+          if (error.response) {
+            console.log(chalk.red(`Status: ${error.response.status}`));
+            console.log(chalk.gray(`Response data: ${JSON.stringify(error.response.data || {})}`));
+          }
+        }
+        
+        // If no comments found, create a new comment
+        if (!Array.isArray(comments) || comments.length === 0) {
+          console.log(chalk.yellow("\nNo comments found. Creating a new comment..."));
+          
+          try {
+            const createCommentResponse = await axios({
+              method: 'POST',
+              url: `${process.env.BASE_URL}/api/Comment`,
+              headers: {
+                'Authorization': `Bearer ${jwtToken}`,
+                'Content-Type': 'application/json'
+              },
+              data: {
+                taskId: taskId,
+                userId: currentUser.id,
+                content: "This is a test comment created for attachment testing"
+              }
+            });
+            
+            if (createCommentResponse.data && createCommentResponse.data.id) {
+              comments = [createCommentResponse.data];
+              console.log(chalk.green(`Created new comment with ID: ${createCommentResponse.data.id}`));
+            } else {
+              console.log(chalk.yellow("Could not create a new comment. Using fallback comment."));
+              comments = [{
+                id: "67d2c7ed664c5cbba91de440",
+                content: "Fallback comment"
+              }];
+            }
+            
+          } catch (error) {
+            console.log(chalk.red(`\nError creating comment: ${error.message}`));
+            console.log(chalk.yellow("Using fallback comment."));
+            comments = [{
+              id: "67d2c7ed664c5cbba91de440",
+              content: "Fallback comment"
+            }];
+          }
+        }
+        
+        // Select a comment to add attachment to
+        const { commentId } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "commentId",
+            message: "Select comment to add attachment to:",
+            choices: comments.map(comment => ({
+              name: `${comment.content.substring(0, 30)}... (ID: ${comment.id})`,
+              value: comment.id
+            }))
+          }
+        ]);
+        
+        // Get the endpoint and update it with the comment ID
+        const endpoint = commentTests.POST_ATTACHMENT.endpoints[0].replace("{commentId}", commentId);
+        
+        // Get parameter sets
+        const parameterSets = commentTests.POST_ATTACHMENT.parameterSets;
+        
+        // Select which parameter set to test
+        const { paramSetChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "paramSetChoice",
+            message: "Select attachment type to add:",
+            choices: parameterSets.map((set, index) => ({
+              name: `${set.name} - ${set.description}`,
+              value: index
+            }))
+          }
+        ]);
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        console.log(chalk.blue(`\nRunning POST test on ${endpoint}...`));
+        console.log(chalk.gray(`Adding attachment to comment with ID: ${commentId}`));
+        
+        const results = await runStressTest(
+          "POST", 
+          endpoint, 
+          intensity, 
+          commentTests.POST_ATTACHMENT.requiresAuth, 
+          parameterSets[paramSetChoice].data
+        );
+        
+        displayResults(results, "POST", endpoint, intensity);
+        
+      } else if (httpMethod === "DELETE") {
+        // For DELETE, we need to fetch existing comments to delete
+        console.log(chalk.blue("\nFetching existing comments..."));
+        
+        // Get current user
+        const currentUser = await getCurrentUser();
+        
+        // Get tasks first
+        console.log(chalk.blue("Fetching tasks..."));
+        const taskIds = await getExistingTaskIds();
+        
+        if (taskIds.length === 0) {
+          console.log(chalk.yellow("\nNo tasks found. Creating a fallback task ID..."));
+          taskIds.push("67d2c7ed664c5cbba91de430"); // Use a fallback ID
+        }
+        
+        // Select a task to get comments for
+        const { taskId } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "taskId",
+            message: "Select task to get comments from:",
+            choices: taskIds.map((id, index) => ({
+              name: `Task ${index + 1}: ${id}`,
+              value: id
+            }))
+          }
+        ]);
+        
+        // Get comments for the selected task
+        let comments = [];
+        try {
+          const response = await axios({
+            method: 'GET',
+            url: `${process.env.BASE_URL}/api/Comment/task/${taskId}`,
+            headers: {
+              'Authorization': `Bearer ${jwtToken}`
+            }
+          });
+          
+          if (Array.isArray(response.data)) {
+            comments = response.data;
+          } else if (response.data && typeof response.data === 'object') {
+            if (Array.isArray(response.data.data)) {
+              comments = response.data.data;
+            } else if (response.data.comments && Array.isArray(response.data.comments)) {
+              comments = response.data.comments;
+            } else if (response.data.items && Array.isArray(response.data.items)) {
+              comments = response.data.items;
+            }
+          }
+          
+        } catch (error) {
+          console.log(chalk.red(`\nError fetching comments: ${error.message}`));
+          if (error.response) {
+            console.log(chalk.red(`Status: ${error.response.status}`));
+            console.log(chalk.gray(`Response data: ${JSON.stringify(error.response.data || {})}`));
+          }
+        }
+        
+        // If no comments found, create a new comment
+        if (!Array.isArray(comments) || comments.length === 0) {
+          console.log(chalk.yellow("\nNo comments found. Creating a new comment..."));
+          
+          try {
+            const createCommentResponse = await axios({
+              method: 'POST',
+              url: `${process.env.BASE_URL}/api/Comment`,
+              headers: {
+                'Authorization': `Bearer ${jwtToken}`,
+                'Content-Type': 'application/json'
+              },
+              data: {
+                taskId: taskId,
+                userId: currentUser.id,
+                content: "This is a test comment created for deletion testing"
+              }
+            });
+            
+            if (createCommentResponse.data && createCommentResponse.data.id) {
+              comments = [createCommentResponse.data];
+              console.log(chalk.green(`Created new comment with ID: ${createCommentResponse.data.id}`));
+            } else {
+              console.log(chalk.yellow("Could not create a new comment. Using fallback comment."));
+              comments = [{
+                id: "67d2c7ed664c5cbba91de440",
+                content: "Fallback comment"
+              }];
+            }
+            
+          } catch (error) {
+            console.log(chalk.red(`\nError creating comment: ${error.message}`));
+            console.log(chalk.yellow("Using fallback comment."));
+            comments = [{
+              id: "67d2c7ed664c5cbba91de440",
+              content: "Fallback comment"
+            }];
+          }
+        }
+        
+        // Select a comment to delete
+        const { commentId } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "commentId",
+            message: "Select comment to delete:",
+            choices: comments.map(comment => ({
+              name: `${comment.content.substring(0, 30)}... (ID: ${comment.id})`,
+              value: comment.id
+            }))
+          }
+        ]);
+        
+        // Update the endpoint with the selected comment ID
+        const endpoint = commentTests.DELETE.endpoints[0].replace("{id}", commentId);
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+        console.log(chalk.gray(`Deleting comment with ID: ${commentId}`));
+        
+        const results = await runStressTest(
+          httpMethod, 
+          endpoint, 
+          intensity, 
+          commentTests.DELETE.requiresAuth, 
+          null
+        );
+        
+        displayResults(results, httpMethod, endpoint, intensity);
+      }
+    } else if (apiCategory === "Feedback") {
+      // Handle Feedback API testing
+      const feedbackTests = categoryTests;
+      
+      if (httpMethod === "GET") {
+        // For GET, we need to select which endpoint to test
+        const { endpointChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "endpointChoice",
+            message: "Select GET endpoint to test:",
+            choices: [
+              ...feedbackTests.GET.endpoints.map((endpoint, index) => ({
+                name: endpoint,
+                value: index
+              })),
+              {
+                name: "Back",
+                value: "back"
+              },
+              {
+                name: "Exit",
+                value: "exit"
+              }
+            ]
+          }
+        ]);
+        
+        if (endpointChoice === "back") {
+          continue;
+        }
+        
+        if (endpointChoice === "exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        let endpoint = feedbackTests.GET.endpoints[endpointChoice];
+        
+        // Handle different GET endpoints
+        if (endpoint.includes("status")) {
+          // For getting feedbacks with a specific status
+          const { status } = await inquirer.prompt([
+            {
+              type: "list",
+              name: "status",
+              message: "Select feedback status to filter by:",
+              choices: ["New", "Read", "Responded", "Archived", "All"]
+            }
+          ]);
+          
+          if (status !== "All") {
+            endpoint = `${endpoint}?status=${status}`;
+          }
+        }
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+        
+        const results = await runStressTest(
+          httpMethod, 
+          endpoint, 
+          intensity, 
+          feedbackTests.GET.requiresAuth, 
+          null
+        );
+        
+        displayResults(results, httpMethod, endpoint, intensity);
+        
+      } else if (httpMethod === "POST") {
+        // For POST, we need to select which parameter set to test
+        const { paramSetChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "paramSetChoice",
+            message: "Select parameter set to test:",
+            choices: [
+              ...feedbackTests.POST.parameterSets.map((set, index) => ({
+                name: `${set.name} - ${set.description}`,
+                value: index
+              })),
+              {
+                name: "Compare All Parameter Sets",
+                value: "all"
+              },
+              {
+                name: "Back",
+                value: "back"
+              },
+              {
+                name: "Exit",
+                value: "exit"
+              }
+            ]
+          }
+        ]);
+        
+        if (paramSetChoice === "back") {
+          continue;
+        }
+        
+        if (paramSetChoice === "exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        // Get current user
+        const currentUser = await getCurrentUser();
+        
+        // Update parameter sets with the current user information
+        let updatedParameterSets = JSON.parse(JSON.stringify(feedbackTests.POST.parameterSets));
+        updatedParameterSets = updatedParameterSets.map(set => {
+          set.data.userId = currentUser.id;
+          set.data.userName = currentUser.username || currentUser.name || "Test User";
+          set.data.userRole = currentUser.role || "User";
+          return set;
+        });
+        
+        // Get endpoint
+        const endpoint = feedbackTests.POST.endpoints[0];
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        if (paramSetChoice === "all") {
+          // Run tests for all parameter sets and compare results
+          console.log(chalk.blue("\nRunning comparison tests for all parameter sets..."));
+          
+          const allResults = [];
+          const spinner = ora('Preparing comparison tests...').start();
+          
+          for (let i = 0; i < updatedParameterSets.length; i++) {
+            const paramSet = updatedParameterSets[i];
+            spinner.text = `Testing parameter set: ${paramSet.name}`;
+            
+            const result = await runStressTest(
+              httpMethod, 
+              endpoint, 
+              intensity, 
+              feedbackTests.POST.requiresAuth, 
+              paramSet.data
+            );
+            
+            allResults.push({
+              name: paramSet.name,
+              description: paramSet.description,
+              results: result
+            });
+          }
+          
+          spinner.succeed('All parameter set tests completed');
+          
+          // Display comparison results
+          console.log(chalk.green("\n✅ Feedback Parameter Test Comparison Complete"));
+          
+          // Create comparison table
+          const comparisonData = [
+            ["Parameter Set", "Avg Response Time (ms)", "Success Rate", "Min Time (ms)", "Max Time (ms)"]
+          ];
+          
+          allResults.forEach(result => {
+            const successRate = ((result.results.successfulRequests / result.results.totalRequests) * 100).toFixed(2);
+            comparisonData.push([
+              result.name,
+              result.results.avgResponseTime.toFixed(2),
+              `${successRate}%`,
+              result.results.minResponseTime,
+              result.results.maxResponseTime
+            ]);
+          });
+          
+          console.log(table(comparisonData));
+          
+          // Find the slowest parameter set
+          const slowestSet = allResults.reduce((prev, current) => 
+            prev.results.avgResponseTime > current.results.avgResponseTime ? prev : current
+          );
+          
+          console.log(chalk.yellow(`\nHighest API Load: ${slowestSet.name}`));
+          console.log(chalk.gray(`Description: ${slowestSet.description}`));
+          console.log(chalk.gray(`Average Response Time: ${slowestSet.results.avgResponseTime.toFixed(2)} ms`));
+          
+          // Save comparison results to file
+          const resultsDir = path.join(__dirname, "results");
+          fs.ensureDirSync(resultsDir);
+          
+          const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\..+/, "");
+          const resultsFile = path.join(
+            resultsDir, 
+            `feedback-comparison-${intensity.toLowerCase()}-${timestamp}.json`
+          );
+          
+          fs.writeJsonSync(resultsFile, {
+            timestamp: new Date().toISOString(),
+            endpoint,
+            method: httpMethod,
+            intensity,
+            parameterSets: updatedParameterSets.map(set => set.name),
+            results: allResults
+          }, { spaces: 2 });
+          
+          console.log(chalk.gray(`\nComparison results saved to: ${resultsFile}`));
+        } else {
+          // Run test for a single parameter set
+          const paramSet = updatedParameterSets[paramSetChoice];
+          console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+          console.log(chalk.gray(`Parameter set: ${paramSet.name}`));
+          console.log(chalk.gray(`User: ${paramSet.data.userName} (${paramSet.data.userId})`));
+          
+          const results = await runStressTest(
+            httpMethod, 
+            endpoint, 
+            intensity, 
+            feedbackTests.POST.requiresAuth, 
+            paramSet.data
+          );
+          
+          displayResults(results, httpMethod, endpoint, intensity);
+        }
+        
+      } else if (httpMethod === "PUT") {
+        // For PUT, we need to fetch existing feedbacks to update
+        console.log(chalk.blue("\nFetching existing feedbacks..."));
+        
+        // Get feedbacks
+        let feedbacks = [];
+        try {
+          // Try to get all feedbacks (admin only)
+          const response = await axios({
+            method: 'GET',
+            url: `${process.env.BASE_URL}/api/Feedback`,
+            headers: {
+              'Authorization': `Bearer ${jwtToken}`
+            }
+          });
+          
+          if (Array.isArray(response.data)) {
+            feedbacks = response.data;
+          } else if (response.data && typeof response.data === 'object') {
+            if (Array.isArray(response.data.data)) {
+              feedbacks = response.data.data;
+            } else if (response.data.feedbacks && Array.isArray(response.data.feedbacks)) {
+              feedbacks = response.data.feedbacks;
+            } else if (response.data.items && Array.isArray(response.data.items)) {
+              feedbacks = response.data.items;
+            }
+          }
+          
+          // Debug the response structure
+          console.log(chalk.gray(`Feedbacks response type: ${typeof response.data}`));
+          if (typeof response.data === 'object') {
+            console.log(chalk.gray(`Feedbacks response structure: ${Array.isArray(response.data) ? 'Array' : 'Object with keys: ' + Object.keys(response.data).join(', ')}`));
+          }
+          
+        } catch (error) {
+          console.log(chalk.red(`\nError fetching feedbacks: ${error.message}`));
+          if (error.response) {
+            console.log(chalk.red(`Status: ${error.response.status}`));
+            console.log(chalk.gray(`Response data: ${JSON.stringify(error.response.data || {})}`));
+          }
+          
+          // Try to get public feedbacks as fallback
+          try {
+            console.log(chalk.yellow("\nTrying to fetch public feedbacks instead..."));
+            const publicResponse = await axios({
+              method: 'GET',
+              url: `${process.env.BASE_URL}/api/Feedback/public`,
+              headers: {
+                'Authorization': `Bearer ${jwtToken}`
+              }
+            });
+            
+            if (Array.isArray(publicResponse.data)) {
+              feedbacks = publicResponse.data;
+            } else if (publicResponse.data && typeof publicResponse.data === 'object') {
+              if (Array.isArray(publicResponse.data.data)) {
+                feedbacks = publicResponse.data.data;
+              } else if (publicResponse.data.feedbacks && Array.isArray(publicResponse.data.feedbacks)) {
+                feedbacks = publicResponse.data.feedbacks;
+              } else if (publicResponse.data.items && Array.isArray(publicResponse.data.items)) {
+                feedbacks = publicResponse.data.items;
+              }
+            }
+          } catch (publicError) {
+            console.log(chalk.red(`\nError fetching public feedbacks: ${publicError.message}`));
+          }
+        }
+        
+        // If no feedbacks found, create a fallback feedback
+        if (!Array.isArray(feedbacks) || feedbacks.length === 0) {
+          console.log(chalk.yellow("\nNo feedbacks found. Creating a fallback feedback..."));
+          feedbacks = [{
+            id: "67d2c7ed664c5cbba91de450",
+            content: "Fallback feedback for testing",
+            userId: "67d2c7ed664c5cbba91de412",
+            userName: "Test User",
+            rating: 4,
+            status: "New"
+          }];
+        }
+        
+        // Select a feedback to update
+        const { feedbackId } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "feedbackId",
+            message: "Select feedback to update:",
+            choices: feedbacks.map(feedback => ({
+              name: `${feedback.content.substring(0, 30)}... (Rating: ${feedback.rating}, Status: ${feedback.status})`,
+              value: feedback.id
+            }))
+          }
+        ]);
+        
+        // Select which parameter set to test
+        const { paramSetChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "paramSetChoice",
+            message: "Select update type:",
+            choices: feedbackTests.PUT.parameterSets.map((set, index) => ({
+              name: `${set.name} - ${set.description}`,
+              value: index
+            }))
+          }
+        ]);
+        
+        // Update the endpoint with the selected feedback ID
+        const endpoint = feedbackTests.PUT.endpoints[0].replace("{id}", feedbackId);
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+        console.log(chalk.gray(`Updating feedback with ID: ${feedbackId}`));
+        console.log(chalk.gray(`Update type: ${feedbackTests.PUT.parameterSets[paramSetChoice].name}`));
+        
+        const results = await runStressTest(
+          httpMethod, 
+          endpoint, 
+          intensity, 
+          feedbackTests.PUT.requiresAuth, 
+          feedbackTests.PUT.parameterSets[paramSetChoice].data
+        );
+        
+        displayResults(results, httpMethod, endpoint, intensity);
+        
+      } else if (httpMethod === "DELETE") {
+        // For DELETE, we need to fetch existing feedbacks to delete
+        console.log(chalk.blue("\nFetching existing feedbacks..."));
+        
+        // Get feedbacks
+        let feedbacks = [];
+        try {
+          // Try to get all feedbacks (admin only)
+          const response = await axios({
+            method: 'GET',
+            url: `${process.env.BASE_URL}/api/Feedback`,
+            headers: {
+              'Authorization': `Bearer ${jwtToken}`
+            }
+          });
+          
+          if (Array.isArray(response.data)) {
+            feedbacks = response.data;
+          } else if (response.data && typeof response.data === 'object') {
+            if (Array.isArray(response.data.data)) {
+              feedbacks = response.data.data;
+            } else if (response.data.feedbacks && Array.isArray(response.data.feedbacks)) {
+              feedbacks = response.data.feedbacks;
+            } else if (response.data.items && Array.isArray(response.data.items)) {
+              feedbacks = response.data.items;
+            }
+          }
+          
+        } catch (error) {
+          console.log(chalk.red(`\nError fetching feedbacks: ${error.message}`));
+          if (error.response) {
+            console.log(chalk.red(`Status: ${error.response.status}`));
+            console.log(chalk.gray(`Response data: ${JSON.stringify(error.response.data || {})}`));
+          }
+        }
+        
+        // If no feedbacks found, create a fallback feedback
+        if (!Array.isArray(feedbacks) || feedbacks.length === 0) {
+          console.log(chalk.yellow("\nNo feedbacks found. Creating a fallback feedback..."));
+          feedbacks = [{
+            id: "67d2c7ed664c5cbba91de450",
+            content: "Fallback feedback for testing",
+            userId: "67d2c7ed664c5cbba91de412",
+            userName: "Test User",
+            rating: 4,
+            status: "New"
+          }];
+        }
+        
+        // Select a feedback to delete
+        const { feedbackId } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "feedbackId",
+            message: "Select feedback to delete:",
+            choices: feedbacks.map(feedback => ({
+              name: `${feedback.content.substring(0, 30)}... (Rating: ${feedback.rating}, Status: ${feedback.status})`,
+              value: feedback.id
+            }))
+          }
+        ]);
+        
+        // Update the endpoint with the selected feedback ID
+        const endpoint = feedbackTests.DELETE.endpoints[0].replace("{id}", feedbackId);
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+        console.log(chalk.gray(`Deleting feedback with ID: ${feedbackId}`));
+        
+        const results = await runStressTest(
+          httpMethod, 
+          endpoint, 
+          intensity, 
+          feedbackTests.DELETE.requiresAuth, 
+          null
+        );
+        
+        displayResults(results, httpMethod, endpoint, intensity);
+      }
+    } else if (apiCategory === "Team") {
+      // Handle Team API testing
+      const teamTests = categoryTests;
+      
+      if (httpMethod === "GET") {
+        // For GET, we need to select which endpoint to test
+        const { endpointChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "endpointChoice",
+            message: "Select GET endpoint to test:",
+            choices: [
+              ...teamTests.GET.endpoints.map((endpoint, index) => ({
+                name: endpoint,
+                value: index
+              })),
+              {
+                name: "Back",
+                value: "back"
+              },
+              {
+                name: "Exit",
+                value: "exit"
+              }
+            ]
+          }
+        ]);
+        
+        if (endpointChoice === "back") {
+          continue;
+        }
+        
+        if (endpointChoice === "exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        let endpoint = teamTests.GET.endpoints[endpointChoice];
+        
+        // Handle different GET endpoints
+        if (endpoint.includes("{id}")) {
+          // For getting a specific team by ID
+          console.log(chalk.blue("\nFetching existing teams..."));
+          
+          // Get current user
+          const currentUser = await getCurrentUser();
+          
+          // Get teams
+          let teams = [];
+          try {
+            const response = await axios({
+              method: 'GET',
+              url: `${process.env.BASE_URL}/api/Team`,
+              headers: {
+                'Authorization': `Bearer ${jwtToken}`
+              }
+            });
+            
+            if (Array.isArray(response.data)) {
+              teams = response.data;
+            } else if (response.data && typeof response.data === 'object') {
+              if (Array.isArray(response.data.data)) {
+                teams = response.data.data;
+              } else if (response.data.teams && Array.isArray(response.data.teams)) {
+                teams = response.data.teams;
+              } else if (response.data.items && Array.isArray(response.data.items)) {
+                teams = response.data.items;
+              }
+            }
+            
+          } catch (error) {
+            console.log(chalk.red(`\nError fetching teams: ${error.message}`));
+            if (error.response) {
+              console.log(chalk.red(`Status: ${error.response.status}`));
+              console.log(chalk.gray(`Response data: ${JSON.stringify(error.response.data || {})}`));
+            }
+          }
+          
+          // If no teams found, create a fallback team
+          if (!Array.isArray(teams) || teams.length === 0) {
+            console.log(chalk.yellow("\nNo teams found. Creating a fallback team ID..."));
+            teams = [{
+              id: "67d2c7ed664c5cbba91de460",
+              name: "Fallback Team"
+            }];
+          }
+          
+          // Select a team
+          const { teamId } = await inquirer.prompt([
+            {
+              type: "list",
+              name: "teamId",
+              message: "Select team:",
+              choices: teams.map(team => ({
+                name: team.name || `Team ${team.id}`,
+                value: team.id
+              }))
+            }
+          ]);
+          
+          // Update the endpoint with the selected team ID
+          endpoint = endpoint.replace("{id}", teamId);
+          
+        } else if (endpoint.includes("{teamId}")) {
+          // For getting members of a specific team
+          console.log(chalk.blue("\nFetching existing teams..."));
+          
+          // Get current user
+          const currentUser = await getCurrentUser();
+          
+          // Get teams
+          let teams = [];
+          try {
+            const response = await axios({
+              method: 'GET',
+              url: `${process.env.BASE_URL}/api/Team`,
+              headers: {
+                'Authorization': `Bearer ${jwtToken}`
+              }
+            });
+            
+            if (Array.isArray(response.data)) {
+              teams = response.data;
+            } else if (response.data && typeof response.data === 'object') {
+              if (Array.isArray(response.data.data)) {
+                teams = response.data.data;
+              } else if (response.data.teams && Array.isArray(response.data.teams)) {
+                teams = response.data.teams;
+              } else if (response.data.items && Array.isArray(response.data.items)) {
+                teams = response.data.items;
+              }
+            }
+            
+          } catch (error) {
+            console.log(chalk.red(`\nError fetching teams: ${error.message}`));
+            if (error.response) {
+              console.log(chalk.red(`Status: ${error.response.status}`));
+              console.log(chalk.gray(`Response data: ${JSON.stringify(error.response.data || {})}`));
+            }
+          }
+          
+          // If no teams found, create a fallback team
+          if (!Array.isArray(teams) || teams.length === 0) {
+            console.log(chalk.yellow("\nNo teams found. Creating a fallback team ID..."));
+            teams = [{
+              id: "67d2c7ed664c5cbba91de460",
+              name: "Fallback Team"
+            }];
+          }
+          
+          // Select a team
+          const { teamId } = await inquirer.prompt([
+            {
+              type: "list",
+              name: "teamId",
+              message: "Select team to get members for:",
+              choices: teams.map(team => ({
+                name: team.name || `Team ${team.id}`,
+                value: team.id
+              }))
+            }
+          ]);
+          
+          // Update the endpoint with the selected team ID
+          endpoint = endpoint.replace("{teamId}", teamId);
+          
+        } else if (endpoint.includes("{department}")) {
+          // For getting members by department
+          console.log(chalk.blue("\nFetching available departments..."));
+          
+          // Try to get departments
+          let departments = [];
+          try {
+            const response = await axios({
+              method: 'GET',
+              url: `${process.env.BASE_URL}/api/Team/departments`,
+              headers: {
+                'Authorization': `Bearer ${jwtToken}`
+              }
+            });
+            
+            if (Array.isArray(response.data)) {
+              departments = response.data;
+            } else if (response.data && typeof response.data === 'object') {
+              if (Array.isArray(response.data.data)) {
+                departments = response.data.data;
+              } else if (response.data.departments && Array.isArray(response.data.departments)) {
+                departments = response.data.departments;
+              }
+            }
+            
+          } catch (error) {
+            console.log(chalk.red(`\nError fetching departments: ${error.message}`));
+          }
+          
+          // If no departments found, use fallback departments
+          if (!Array.isArray(departments) || departments.length === 0) {
+            console.log(chalk.yellow("\nNo departments found. Using fallback departments..."));
+            departments = ["Engineering", "Marketing", "Sales", "HR", "Finance"];
+          }
+          
+          // Select a department
+          const { department } = await inquirer.prompt([
+            {
+              type: "list",
+              name: "department",
+              message: "Select department:",
+              choices: departments
+            }
+          ]);
+          
+          // Update the endpoint with the selected department
+          endpoint = endpoint.replace("{department}", department);
+        }
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+        
+        const results = await runStressTest(
+          httpMethod, 
+          endpoint, 
+          intensity, 
+          teamTests.GET.requiresAuth, 
+          null
+        );
+        
+        displayResults(results, httpMethod, endpoint, intensity);
+      }
     } else if (apiCategory === "CalendarEvent") {
       // Handle CalendarEvent API testing
       const calendarEventTests = categoryTests;
@@ -1834,99 +3204,6 @@ async function main() {
           
           // Update the endpoint with the selected event ID
           endpoint = endpoint.replace("{id}", eventId);
-          
-        } else if (endpoint.includes("{userId}")) {
-          // For getting events for a specific user
-          const currentUser = await getCurrentUser();
-          endpoint = endpoint.replace("{userId}", currentUser.id);
-          
-        } else if (endpoint.includes("{teamId}")) {
-          // For getting events for a specific team, we need to fetch teams first
-          console.log(chalk.blue("\nFetching teams..."));
-          
-          // Get teams
-          let teams = [];
-          try {
-            const response = await axios({
-              method: 'GET',
-              url: `${process.env.BASE_URL}/api/Teams`,
-              headers: {
-                'Authorization': `Bearer ${jwtToken}`
-              }
-            });
-            
-            if (Array.isArray(response.data)) {
-              teams = response.data;
-            } else if (response.data && typeof response.data === 'object') {
-              if (Array.isArray(response.data.data)) {
-                teams = response.data.data;
-              } else if (response.data.teams && Array.isArray(response.data.teams)) {
-                teams = response.data.teams;
-              }
-            }
-            
-          } catch (error) {
-            console.log(chalk.red(`\nError fetching teams: ${error.message}`));
-          }
-          
-          // Ensure teams is an array
-          if (!Array.isArray(teams)) {
-            console.log(chalk.yellow("Could not extract teams array from response. Creating a fallback array."));
-            teams = [];
-          }
-          
-          // Filter valid team objects
-          teams = teams.filter(team => 
-            team && 
-            typeof team === 'object' && 
-            team.id
-          );
-          
-          // If no teams found, create a fallback team
-          if (teams.length === 0) {
-            console.log(chalk.yellow("\nNo teams found. Creating a fallback test team..."));
-            teams.push({
-              id: "67d2c7ed664c5cbba91de417",
-              name: "Test Team"
-            });
-          }
-          
-          // Select a team
-          const { teamId } = await inquirer.prompt([
-            {
-              type: "list",
-              name: "teamId",
-              message: "Select team:",
-              choices: teams.map(team => ({
-                name: team.name || team.id,
-                value: team.id
-              }))
-            }
-          ]);
-          
-          // Update the endpoint with the selected team ID
-          endpoint = endpoint.replace("{teamId}", teamId);
-        } else if (endpoint === "/api/calendar/events") {
-          // For getting events by date range
-          const { startDate, endDate } = await inquirer.prompt([
-            {
-              type: "input",
-              name: "startDate",
-              message: "Enter start date (YYYY-MM-DD):",
-              default: "2025-03-01",
-              validate: input => /^\d{4}-\d{2}-\d{2}$/.test(input) ? true : "Invalid date format. Use YYYY-MM-DD"
-            },
-            {
-              type: "input",
-              name: "endDate",
-              message: "Enter end date (YYYY-MM-DD):",
-              default: "2025-04-01",
-              validate: input => /^\d{4}-\d{2}-\d{2}$/.test(input) ? true : "Invalid date format. Use YYYY-MM-DD"
-            }
-          ]);
-          
-          // Update the endpoint with query parameters
-          endpoint = `${endpoint}?startDate=${startDate}&endDate=${endDate}`;
         }
         
         // Select test intensity
