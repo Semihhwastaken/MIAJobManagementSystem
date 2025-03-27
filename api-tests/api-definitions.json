@@ -682,8 +682,8 @@
       },
       "POST": {
         "endpoints": [
-          "/api/Team",
-          "/api/Team/{teamId}/members",
+          "/api/Team/create",
+          "/api/Team/add-member",
           "/api/Team/join/{inviteCode}"
         ],
         "methods": [
@@ -697,7 +697,7 @@
             "data": {
               "name": "Test Team",
               "description": "This is a test team",
-              "createdById": ""
+              "department": "Engineering"
             }
           },
           {
@@ -706,11 +706,9 @@
             "data": {
               "name": "Detailed Test Team",
               "description": "This is a detailed test team with additional information",
-              "createdById": "",
               "department": "Engineering",
               "teamType": "Development",
-              "isPrivate": false,
-              "maxMembers": 10
+              "color": "#4287f5"
             }
           },
           {
@@ -719,8 +717,7 @@
             "data": {
               "teamId": "",
               "userId": "",
-              "role": "Member",
-              "department": "Engineering"
+              "role": "Member"
             }
           },
           {

@@ -1294,8 +1294,6 @@ async function main() {
               users = usersResponse.data.users;
             } else if (usersResponse.data.items && Array.isArray(usersResponse.data.items)) {
               users = usersResponse.data.items;
-            } else if (usersResponse.data.results && Array.isArray(usersResponse.data.results)) {
-              users = usersResponse.data.results;
             }
           }
           
@@ -1338,7 +1336,7 @@ async function main() {
             }))
           }
         ]);
-        
+
         // Update parameter sets with the selected receiver ID
         let updatedParameterSets = JSON.parse(JSON.stringify(messageTests.POST.parameterSets));
         updatedParameterSets = updatedParameterSets.map(set => {
@@ -1487,12 +1485,6 @@ async function main() {
             } else if (response.data.items && Array.isArray(response.data.items)) {
               messages = response.data.items;
             }
-          }
-          
-          // Debug the response structure
-          console.log(chalk.gray(`Messages response type: ${typeof response.data}`));
-          if (typeof response.data === 'object') {
-            console.log(chalk.gray(`Messages response structure: ${Array.isArray(response.data) ? 'Array' : 'Object with keys: ' + Object.keys(response.data).join(', ')}`));
           }
           
         } catch (error) {
@@ -3065,6 +3057,507 @@ async function main() {
           endpoint, 
           intensity, 
           teamTests.GET.requiresAuth, 
+          null
+        );
+        
+        displayResults(results, httpMethod, endpoint, intensity);
+      } else if (httpMethod === "POST") {
+        // For POST, we need to select which endpoint and parameter set to test
+        const { endpointChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "endpointChoice",
+            message: "Select POST endpoint to test:",
+            choices: [
+              ...teamTests.POST.endpoints.map((endpoint, index) => ({
+                name: endpoint,
+                value: index
+              })),
+              {
+                name: "Back",
+                value: "back"
+              },
+              {
+                name: "Exit",
+                value: "exit"
+              }
+            ]
+          }
+        ]);
+        
+        if (endpointChoice === "back") {
+          continue;
+        }
+        
+        if (endpointChoice === "exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        // Get current user
+        const currentUser = await getCurrentUser();
+        
+        // Get endpoint
+        let endpoint = teamTests.POST.endpoints[endpointChoice];
+        
+        // Handle different POST endpoints
+        if (endpoint.includes("{teamId}")) {
+          // For adding a member to a team
+          console.log(chalk.blue("\nFetching existing teams..."));
+          
+          // Get teams
+          let teams = [];
+          try {
+            const response = await axios({
+              method: 'GET',
+              url: `${process.env.BASE_URL}/api/Team`,
+              headers: {
+                'Authorization': `Bearer ${jwtToken}`
+              }
+            });
+            
+            if (Array.isArray(response.data)) {
+              teams = response.data;
+            } else if (response.data && typeof response.data === 'object') {
+              if (Array.isArray(response.data.data)) {
+                teams = response.data.data;
+              } else if (response.data.teams && Array.isArray(response.data.teams)) {
+                teams = response.data.teams;
+              } else if (response.data.items && Array.isArray(response.data.items)) {
+                teams = response.data.items;
+              }
+            }
+            
+          } catch (error) {
+            console.log(chalk.red(`\nError fetching teams: ${error.message}`));
+          }
+          
+          // If no teams found, create a fallback team
+          if (!Array.isArray(teams) || teams.length === 0) {
+            console.log(chalk.yellow("\nNo teams found. Creating a fallback team ID..."));
+            teams = [{
+              id: "67d2c7ed664c5cbba91de460",
+              name: "Fallback Team"
+            }];
+          }
+          
+          // Select a team
+          const { teamId } = await inquirer.prompt([
+            {
+              type: "list",
+              name: "teamId",
+              message: "Select team to add member to:",
+              choices: teams.map(team => ({
+                name: team.name || `Team ${team.id}`,
+                value: team.id
+              }))
+            }
+          ]);
+          
+          // Update the endpoint with the selected team ID
+          endpoint = endpoint.replace("{teamId}", teamId);
+        } else if (endpoint.includes("{inviteCode}")) {
+          // For joining a team with invite code
+          const { inviteCode } = await inquirer.prompt([
+            {
+              type: "input",
+              name: "inviteCode",
+              message: "Enter team invite code:",
+              default: "TEST123"
+            }
+          ]);
+          
+          // Update the endpoint with the invite code
+          endpoint = endpoint.replace("{inviteCode}", inviteCode);
+        }
+        
+        // Select which parameter set to test
+        const { paramSetChoice } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "paramSetChoice",
+            message: "Select parameter set to test:",
+            choices: [
+              ...teamTests.POST.parameterSets.map((set, index) => ({
+                name: `${set.name} - ${set.description}`,
+                value: index
+              })),
+              {
+                name: "Compare All Parameter Sets",
+                value: "all"
+              },
+              {
+                name: "Back",
+                value: "back"
+              },
+              {
+                name: "Exit",
+                value: "exit"
+              }
+            ]
+          }
+        ]);
+        
+        if (paramSetChoice === "back") {
+          continue;
+        }
+        
+        if (paramSetChoice === "exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        // Update parameter sets with the current user information
+        let updatedParameterSets = JSON.parse(JSON.stringify(teamTests.POST.parameterSets));
+        updatedParameterSets = updatedParameterSets.map(set => {
+          if (set.data.createdById !== undefined) {
+            set.data.createdById = currentUser.id;
+          }
+          if (set.data.userId !== undefined) {
+            set.data.userId = currentUser.id;
+          }
+          return set;
+        });
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        if (paramSetChoice === "all") {
+          // Run tests for all parameter sets and compare results
+          console.log(chalk.blue("\nRunning comparison tests for all parameter sets..."));
+          
+          const allResults = [];
+          const spinner = ora('Preparing comparison tests...').start();
+          
+          for (let i = 0; i < updatedParameterSets.length; i++) {
+            const paramSet = updatedParameterSets[i];
+            spinner.text = `Testing parameter set: ${paramSet.name}`;
+            
+            const result = await runStressTest(
+              httpMethod, 
+              endpoint, 
+              intensity, 
+              teamTests.POST.requiresAuth, 
+              paramSet.data
+            );
+            
+            allResults.push({
+              name: paramSet.name,
+              description: paramSet.description,
+              results: result
+            });
+          }
+          
+          spinner.succeed('All parameter set tests completed');
+          
+          // Display comparison results
+          console.log(chalk.green("\n✅ Team Parameter Test Comparison Complete"));
+          
+          // Create comparison table
+          const comparisonData = [
+            ["Parameter Set", "Avg Response Time (ms)", "Success Rate", "Min Time (ms)", "Max Time (ms)"]
+          ];
+          
+          allResults.forEach(result => {
+            const successRate = ((result.results.successfulRequests / result.results.totalRequests) * 100).toFixed(2);
+            comparisonData.push([
+              result.name,
+              result.results.avgResponseTime.toFixed(2),
+              `${successRate}%`,
+              result.results.minResponseTime,
+              result.results.maxResponseTime
+            ]);
+          });
+          
+          console.log(table(comparisonData));
+          
+          // Find the slowest parameter set
+          const slowestSet = allResults.reduce((prev, current) => 
+            prev.results.avgResponseTime > current.results.avgResponseTime ? prev : current
+          );
+          
+          console.log(chalk.yellow(`\nHighest API Load: ${slowestSet.name}`));
+          console.log(chalk.gray(`Description: ${slowestSet.description}`));
+          console.log(chalk.gray(`Average Response Time: ${slowestSet.results.avgResponseTime.toFixed(2)} ms`));
+          
+          // Save comparison results to file
+          const resultsDir = path.join(__dirname, "results");
+          fs.ensureDirSync(resultsDir);
+          
+          const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\..+/, "");
+          const resultsFile = path.join(
+            resultsDir, 
+            `team-comparison-${intensity.toLowerCase()}-${timestamp}.json`
+          );
+          
+          fs.writeJsonSync(resultsFile, {
+            timestamp: new Date().toISOString(),
+            endpoint,
+            method: httpMethod,
+            intensity,
+            parameterSets: updatedParameterSets.map(set => set.name),
+            results: allResults
+          }, { spaces: 2 });
+          
+          console.log(chalk.gray(`\nComparison results saved to: ${resultsFile}`));
+        } else {
+          // Run test for a single parameter set
+          const paramSet = updatedParameterSets[paramSetChoice];
+          console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+          console.log(chalk.gray(`Parameter set: ${paramSet.name}`));
+          
+          // Debug the request payload
+          console.log(chalk.gray(`\nRequest payload:`));
+          console.log(chalk.gray(JSON.stringify(paramSet.data, null, 2)));
+          
+          try {
+            // Make a single test request first to check for any issues
+            console.log(chalk.yellow("\nMaking a test request to verify endpoint..."));
+            
+            const testResponse = await axios({
+              method: httpMethod,
+              url: `${process.env.BASE_URL}${endpoint}`,
+              headers: {
+                'Authorization': `Bearer ${jwtToken}`,
+                'Content-Type': 'application/json'
+              },
+              data: paramSet.data
+            });
+            
+            console.log(chalk.green(`Test request successful! Status: ${testResponse.status}`));
+            console.log(chalk.gray(`Response: ${JSON.stringify(testResponse.data, null, 2)}`));
+            
+            // Now run the stress test
+            const results = await runStressTest(
+              httpMethod, 
+              endpoint, 
+              intensity, 
+              teamTests.POST.requiresAuth, 
+              paramSet.data
+            );
+            
+            displayResults(results, httpMethod, endpoint, intensity);
+          } catch (error) {
+            console.log(chalk.red(`\nError: ${error.message}`));
+            if (error.response) {
+              console.log(chalk.red(`Status: ${error.response.status}`));
+              console.log(chalk.gray(`Response data: ${JSON.stringify(error.response.data || {})}`));
+            }
+            
+            // Suggest potential fixes based on error
+            console.log(chalk.yellow("\nPossible solutions:"));
+            console.log("1. Check if the Team API endpoints are correctly defined in the controller");
+            console.log("2. Ensure the request payload matches the expected format");
+            console.log("3. Verify that you have the proper authorization to access this endpoint");
+            console.log("4. Check if required fields are missing in the request payload");
+          }
+        }
+      } else if (httpMethod === "PUT") {
+        // For PUT, we need to fetch existing teams to update
+        console.log(chalk.blue("\nFetching existing teams..."));
+        
+        // Get current user
+        const currentUser = await getCurrentUser();
+        
+        // Get teams
+        let teams = [];
+        try {
+          const response = await axios({
+            method: 'GET',
+            url: `${process.env.BASE_URL}/api/Team`,
+            headers: {
+              'Authorization': `Bearer ${jwtToken}`
+            }
+          });
+          
+          if (Array.isArray(response.data)) {
+            teams = response.data;
+          } else if (response.data && typeof response.data === 'object') {
+            if (Array.isArray(response.data.data)) {
+              teams = response.data.data;
+            } else if (response.data.teams && Array.isArray(response.data.teams)) {
+              teams = response.data.teams;
+            } else if (response.data.items && Array.isArray(response.data.items)) {
+              teams = response.data.items;
+            }
+          }
+          
+        } catch (error) {
+          console.log(chalk.red(`\nError fetching teams: ${error.message}`));
+          if (error.response) {
+            console.log(chalk.red(`Status: ${error.response.status}`));
+            console.log(chalk.gray(`Response data: ${JSON.stringify(error.response.data || {})}`));
+          }
+        }
+        
+        // If no teams found, create a fallback team
+        if (!Array.isArray(teams) || teams.length === 0) {
+          console.log(chalk.yellow("\nNo teams found. Creating a fallback team ID..."));
+          teams = [{
+            id: "67d2c7ed664c5cbba91de460",
+            name: "Fallback Team"
+          }];
+        }
+        
+        // Select a team to update
+        const { teamId } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "teamId",
+            message: "Select team to update:",
+            choices: teams.map(team => ({
+              name: team.name || `Team ${team.id}`,
+              value: team.id
+            }))
+          }
+        ]);
+        
+        // Update the endpoint with the selected team ID
+        const endpoint = teamTests.PUT.endpoints[0].replace("{id}", teamId);
+        
+        // Get the selected team
+        const selectedTeam = teams.find(team => team.id === teamId);
+        
+        // Update the parameter set with the selected team's data
+        let paramSet = JSON.parse(JSON.stringify(teamTests.PUT.parameterSets[0]));
+        paramSet.data = {
+          ...selectedTeam,
+          name: `Updated: ${selectedTeam.name}`,
+          description: `Updated: ${selectedTeam.description}`
+        };
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+        console.log(chalk.gray(`Updating team: ${paramSet.data.name}`));
+        
+        const results = await runStressTest(
+          httpMethod, 
+          endpoint, 
+          intensity, 
+          teamTests.PUT.requiresAuth, 
+          paramSet.data
+        );
+        
+        displayResults(results, httpMethod, endpoint, intensity);
+        
+      } else if (httpMethod === "DELETE") {
+        // For DELETE, we need to fetch existing teams to delete
+        console.log(chalk.blue("\nFetching existing teams..."));
+        
+        // Get current user
+        const currentUser = await getCurrentUser();
+        
+        // Get teams
+        let teams = [];
+        try {
+          const response = await axios({
+            method: 'GET',
+            url: `${process.env.BASE_URL}/api/Team`,
+            headers: {
+              'Authorization': `Bearer ${jwtToken}`
+            }
+          });
+          
+          if (Array.isArray(response.data)) {
+            teams = response.data;
+          } else if (response.data && typeof response.data === 'object') {
+            if (Array.isArray(response.data.data)) {
+              teams = response.data.data;
+            } else if (response.data.teams && Array.isArray(response.data.teams)) {
+              teams = response.data.teams;
+            } else if (response.data.items && Array.isArray(response.data.items)) {
+              teams = response.data.items;
+            }
+          }
+          
+        } catch (error) {
+          console.log(chalk.red(`\nError fetching teams: ${error.message}`));
+          if (error.response) {
+            console.log(chalk.red(`Status: ${error.response.status}`));
+            console.log(chalk.gray(`Response data: ${JSON.stringify(error.response.data || {})}`));
+          }
+        }
+        
+        // If no teams found, create a fallback team
+        if (!Array.isArray(teams) || teams.length === 0) {
+          console.log(chalk.yellow("\nNo teams found. Creating a fallback team ID..."));
+          teams = [{
+            id: "67d2c7ed664c5cbba91de460",
+            name: "Fallback Team"
+          }];
+        }
+        
+        // Select a team to delete
+        const { teamId } = await inquirer.prompt([
+          {
+            type: "list",
+            name: "teamId",
+            message: "Select team to delete:",
+            choices: teams.map(team => ({
+              name: team.name || `Team ${team.id}`,
+              value: team.id
+            }))
+          }
+        ]);
+        
+        // Update the endpoint with the selected team ID
+        const endpoint = teamTests.DELETE.endpoints[0].replace("{id}", teamId);
+        
+        // Select test intensity
+        const { intensity } = await inquirer.prompt([{
+          type: "list",
+          name: "intensity",
+          message: "Select test intensity:",
+          choices: [...Object.keys(TEST_INTENSITIES), "Back", "Exit"]
+        }]);
+        
+        if (intensity === "Back") {
+          continue;
+        }
+        
+        if (intensity === "Exit") {
+          continueTestingFlag = false;
+          break;
+        }
+        
+        console.log(chalk.blue(`\nRunning ${httpMethod} test on ${endpoint}...`));
+        console.log(chalk.gray(`Deleting team with ID: ${teamId}`));
+        
+        const results = await runStressTest(
+          httpMethod, 
+          endpoint, 
+          intensity, 
+          teamTests.DELETE.requiresAuth, 
           null
         );
         
