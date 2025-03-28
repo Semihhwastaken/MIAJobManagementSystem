@@ -15,7 +15,9 @@
     "k6": "^0.0.0"
   },
   "dependencies": {
+    "@microsoft/signalr": "^8.0.7",
     "axios": "^1.8.4",
+    "bcrypt": "^5.1.1",
     "chalk": "^5.4.1",
     "chart.js": "^3.9.1",
     "chartjs-node-canvas": "^4.1.6",

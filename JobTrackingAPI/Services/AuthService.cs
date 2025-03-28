@@ -367,7 +367,7 @@ namespace JobTrackingAPI.Services
             return Convert.ToBase64String(hashedBytes);
         }
 
-        private (byte[] hash, byte[] salt) CreatePasswordHash(string password)
+        public (byte[] hash, byte[] salt) CreatePasswordHash(string password)
         {
             using var hmac = new HMACSHA512();
             var salt = hmac.Key;

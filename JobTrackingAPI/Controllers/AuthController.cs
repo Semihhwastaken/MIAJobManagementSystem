@@ -42,7 +42,7 @@ namespace JobTrackingAPI.Controllers
             _authService = authService;
             _logger = logger;
             _cacheService = cacheService;
-            _usersCollection = database.GetCollection<User>("users");
+            _usersCollection = database.GetCollection<User>("Users");
             _tasksService = tasksService;
             _teamService = teamService;
             _dashboardService = dashboardService;
@@ -85,6 +85,59 @@ namespace JobTrackingAPI.Controllers
             // Generate JWT token
             var token = _authService.GenerateJwtToken(user);
             return Ok(new { message, token });
+        }
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+        {
+            try
+            {
+                // Check if email or username already exists
+                var existingUser = await _usersCollection.Find(u => u.Email == request.Email || u.Username == request.Username).FirstOrDefaultAsync();
+                if (existingUser != null)
+                {
+                    return BadRequest(new { message = existingUser.Email == request.Email ? 
+                        "Bu email adresi zaten kullanımda." : 
+                        "Bu kullanıcı adı zaten kullanımda." });
+                }
+
+                // Create the user directly without verification
+                var (passwordHash, passwordSalt) = _authService.CreatePasswordHash(request.Password);
+
+                var now = DateTime.UtcNow;
+
+                // Create the user
+                var user = new User
+                {
+                    Username = request.Username,
+                    Email = request.Email,
+                    PasswordHash = passwordHash,
+                    PasswordSalt = passwordSalt,
+                    FullName = request.FullName ?? request.Username,
+                    Department = request.Department ?? "Engineering",
+                    Title = request.Title ?? "Test User",
+                    Phone = request.Phone ?? "",
+                    Position = request.Position ?? "Tester",
+                    ProfileImage = request.ProfileImage ?? "",
+                    CreatedDate = now,
+                    UpdatedDate = now,
+                    Role = request.Role ?? "User"
+                };
+
+                await _usersCollection.InsertOneAsync(user);
+
+                // Generate JWT token
+                var token = _authService.GenerateJwtToken(user);
+                
+                _logger.LogInformation($"User registered directly: {user.Username}");
+                
+                return Ok(new { message = "Kayıt başarıyla tamamlandı.", token, userId = user.Id });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Registration error");
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpPost("login")]

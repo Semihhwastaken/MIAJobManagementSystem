@@ -33,9 +33,10 @@ namespace NotificationAPI.Services
         private readonly AsyncRetryPolicy _retryPolicy;
         private readonly SemaphoreSlim _connectionLock = new SemaphoreSlim(1, 1);
         private readonly IConnectionFactory _connectionFactory;
-        private readonly int _workerCount = 4; // Number of concurrent consumers
+        private readonly int _workerCount = 2; // Reduced from 4 to 2 workers per instance
         private readonly List<IModel> _channels = new();
         private IConnection? _connection;
+        private readonly string _instanceId = Guid.NewGuid().ToString().Substring(0, 8); // Unique instance ID
 
         /// <summary>
         /// NotificationBackgroundService yapıcı metodu
@@ -194,38 +195,75 @@ namespace NotificationAPI.Services
 
         private async Task StartConsumerAsync(IModel channel, CancellationToken stoppingToken)
         {
-            // Configure queue with proper settings
-            channel.QueueDeclare("notifications", 
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                arguments: new Dictionary<string, object>
-                {
-                    {"x-message-ttl", 60000}, // 1 minute TTL
-                    {"x-max-length", 10000}, // Max queue length
-                    {"x-overflow", "reject-publish"} // Reject new messages when full
-                });
-
-            var consumer = new AsyncEventingBasicConsumer(channel);
-            consumer.Received += async (model, ea) =>
+            try
             {
+                _logger.LogInformation("Starting consumer for instance {InstanceId}", _instanceId);
+                
+                // Configure queue with proper settings - use passive declare to avoid conflicts
                 try
                 {
-                    // Process message
-                    await ProcessMessageAsync(ea.Body.ToArray());
-                    channel.BasicAck(ea.DeliveryTag, false);
+                    // First try to declare passively (check if exists)
+                    channel.QueueDeclarePassive("notifications");
+                    _logger.LogInformation("Queue 'notifications' already exists, using existing queue");
                 }
                 catch (Exception)
                 {
-                    channel.BasicNack(ea.DeliveryTag, false, true);
+                    // If it doesn't exist, create it with our settings
+                    _logger.LogInformation("Queue 'notifications' doesn't exist, creating it");
+                    channel.QueueDeclare("notifications", 
+                        durable: true,
+                        exclusive: false,
+                        autoDelete: false,
+                        arguments: new Dictionary<string, object>
+                        {
+                            {"x-message-ttl", 60000}, // 1 minute TTL
+                            {"x-max-length", 10000}, // Max queue length
+                            {"x-overflow", "reject-publish"} // Reject new messages when full
+                        });
                 }
-            };
 
-            channel.BasicConsume(queue: "notifications",
-                autoAck: false,
-                consumer: consumer);
+                var consumer = new AsyncEventingBasicConsumer(channel);
+                consumer.Received += async (model, ea) =>
+                {
+                    try
+                    {
+                        // Process message
+                        await ProcessMessageAsync(ea.Body.ToArray());
+                        channel.BasicAck(ea.DeliveryTag, false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing message");
+                        channel.BasicNack(ea.DeliveryTag, false, true);
+                    }
+                };
 
-            await Task.Delay(-1, stoppingToken);
+                // Use instance ID in consumer tag to make it unique
+                string consumerTag = $"consumer_{_instanceId}_{Guid.NewGuid().ToString().Substring(0, 4)}";
+                
+                channel.BasicConsume(
+                    queue: "notifications",
+                    autoAck: false,
+                    consumerTag: consumerTag,
+                    consumer: consumer);
+
+                _logger.LogInformation("Consumer {ConsumerTag} started successfully", consumerTag);
+
+                // Wait until cancellation is requested
+                while (!stoppingToken.IsCancellationRequested)
+                {
+                    await Task.Delay(1000, stoppingToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // This is expected when the token is canceled
+                _logger.LogInformation("Consumer was canceled through token");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in consumer");
+            }
         }
 
         public override async Task StopAsync(CancellationToken cancellationToken)
