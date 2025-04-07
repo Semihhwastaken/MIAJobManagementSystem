@@ -1002,6 +1002,16 @@
             }
           }
         ]
+      },
+
+      "POST": {
+        "endpoints": [
+          "/api/Tasks"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "requiresAuth": true
       }
     },
     "Users": {
