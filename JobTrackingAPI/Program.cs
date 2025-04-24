@@ -13,6 +13,8 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.FileProviders;
 using JobTrackingAPI.Interfaces;
+using Microsoft.AspNetCore.DataProtection; // Eklendi
+using Microsoft.AspNetCore.HttpOverrides; // Eklendi
 
 namespace JobTrackingAPI
 {
@@ -22,12 +24,20 @@ namespace JobTrackingAPI
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            // Data Protection'ı yapılandır (Render için dosya sistemi)
+            // Anahtarların container yeniden başlatıldığında kaybolmasını önler.
+            // '/app/keys' dizininin Dockerfile'da oluşturulduğundan emin olun.
+            builder.Services.AddDataProtection()
+                .PersistKeysToFileSystem(new DirectoryInfo("/app/keys"));
+            // Not: Bu, anahtarları şifrelemez (uyarı alabilirsiniz).
+            // Daha güvenli bir çözüm için Azure Key Vault veya Redis gibi harici bir sağlayıcı kullanmayı düşünün.
+
             // Configure JSON serialization
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-                });            // CORS politikasını ekle - Vercel URL'leri için dinamik yaklaşım
+                });            // CORS politikasını ekle
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowFrontend",
@@ -201,7 +211,7 @@ namespace JobTrackingAPI
                 c.OperationFilter<FileUploadOperationFilter>();
             });
 
-            // Kestrel ayarı (büyük dosyalar için)
+            // Kestrel ayarı
             builder.WebHost.ConfigureKestrel(options =>
             {
                 options.Limits.MaxRequestBodySize = 100_000_000; // 100 MB
@@ -222,6 +232,17 @@ namespace JobTrackingAPI
             });
 
             var app = builder.Build();
+
+            // Forwarded Headers Middleware'ini yapılandır (Proxy/Load Balancer için)
+            // Bu UseHttpsRedirection'dan ÖNCE gelmeli
+            var forwardedHeadersOptions = new ForwardedHeadersOptions
+            {
+                ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+            };
+            forwardedHeadersOptions.KnownNetworks.Clear(); // Render'da IP'ler değişebileceği için temizliyoruz
+            forwardedHeadersOptions.KnownProxies.Clear();
+            app.UseForwardedHeaders(forwardedHeadersOptions);
+
 
             // MongoDB bağlantı kontrolü
             try
@@ -253,8 +274,14 @@ namespace JobTrackingAPI
                     c.RoutePrefix = "swagger";
                 });
             }
+            else // Development değilse HSTS ekle
+            {
+                // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+                app.UseHsts();
+            }
 
-            app.UseHttpsRedirection();
+
+            app.UseHttpsRedirection(); // Forwarded Headers'dan SONRA
 
             // CORS'u etkinleştir
             app.UseCors("AllowFrontend");
@@ -263,8 +290,8 @@ namespace JobTrackingAPI
             app.UseAuthentication();
             app.UseAuthorization();
 
-            // Add static files middleware
-            app.UseStaticFiles();
+            // Varsayılan UseStaticFiles kaldırıldı, sadece /uploads için olan kalıyor.
+            // app.UseStaticFiles(); // Bu satır kaldırıldı veya yorumlandı
 
             app.MapControllers();
             app.MapHub<ChatHub>("/chatHub");
@@ -283,15 +310,23 @@ namespace JobTrackingAPI
                 app.Logger.LogError(ex, "Veritabanı migrasyonu sırasında bir hata oluştu");
             }
 
-            // Configure static file serving
+            // Configure static file serving for uploads
             var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
-            Directory.CreateDirectory(uploadsPath); // Klasör yoksa oluştur
+            Directory.CreateDirectory(uploadsPath); // Klasör yoksa oluştur (wwwroot/uploads)
 
-            app.UseStaticFiles(new StaticFileOptions
+            // wwwroot klasörünün kendisini de oluşturalım (varsa UseStaticFiles() için)
+            var wwwrootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            Directory.CreateDirectory(wwwrootPath);
+
+            app.UseStaticFiles(new StaticFileOptions // Bu /uploads için
             {
                 FileProvider = new PhysicalFileProvider(uploadsPath),
                 RequestPath = "/uploads"
             });
+
+            // İsteğe bağlı: Eğer wwwroot'tan başka statik dosyalar sunacaksanız,
+            // varsayılan UseStaticFiles() çağrısını geri ekleyebilirsiniz.
+            // app.UseStaticFiles();
 
             await app.RunAsync();
         }

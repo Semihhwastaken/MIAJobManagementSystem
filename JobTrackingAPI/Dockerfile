@@ -2,6 +2,9 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 80
 EXPOSE 443
+# Create directories needed by the application
+RUN mkdir /app/keys
+RUN mkdir /app/wwwroot
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
