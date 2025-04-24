@@ -37,7 +37,8 @@ namespace JobTrackingAPI
                         policy.SetIsOriginAllowed(origin =>
                             origin.EndsWith(".vercel.app") || // Herhangi bir Vercel alt alanını kabul et
                             origin.Contains("localhost") ||  // Yerel geliştirme için
-                            origin.EndsWith("miajobmanagement.com"))  // Özel alan adı için
+                            origin.EndsWith("miajobmanagement.com") || // Özel alan adı için
+                            origin.EndsWith("onrender.com"))  // Render backend URL'leri için
                               .AllowAnyHeader()
                               .AllowAnyMethod()
                               .AllowCredentials();
