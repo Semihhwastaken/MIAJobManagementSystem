@@ -1,7 +1,7 @@
 import axiosInstance from './axiosInstance';
 import { Team, TeamMember } from '../types/team';
 
-const API_URL = 'http://localhost:5193/api';
+const API_URL = 'https://miajobmanagementsystem.onrender.com/api';
 
 
 const teamService = {
@@ -26,7 +26,7 @@ const teamService = {
             throw error;
         }
     },
-    
+
     // Takım davet bağlantısı oluştur
     generateInviteLink: async (teamId: string): Promise<string> => {
         try {
@@ -37,7 +37,7 @@ const teamService = {
             throw error;
         }
     },
-    
+
     // Davet bağlantısını getir
     getInviteLink: async (teamId: string): Promise<string> => {
         try {
@@ -48,7 +48,7 @@ const teamService = {
             throw error;
         }
     },
-    
+
     // Davet bağlantısını ayarla
     setInviteLink: async (teamId: string, inviteLink: string): Promise<string> => {
         try {
@@ -59,7 +59,7 @@ const teamService = {
             throw error;
         }
     },
-    
+
     // Davet bağlantısını temizle
     clearInviteLink: async (teamId: string): Promise<void> => {
         try {
@@ -69,7 +69,7 @@ const teamService = {
             throw error;
         }
     },
-    
+
     // Davet koduyla takıma katıl
     joinTeamWithInviteCode: async (inviteCode: string): Promise<Team> => {
         try {
@@ -80,7 +80,7 @@ const teamService = {
             throw error;
         }
     },
-    
+
     // Takım sahibi rolünü ata
     assignOwnerRole: async (teamId: string, userId: string): Promise<boolean> => {
         try {
@@ -91,7 +91,7 @@ const teamService = {
             throw error;
         }
     },
-    
+
     // Takımdan üye çıkar
     removeTeamMember: async (teamId: string, memberId: string): Promise<{ success: boolean, message: string }> => {
         try {
@@ -102,7 +102,7 @@ const teamService = {
             throw error;
         }
     },
-    
+
     // Uzmanlık alanları ekle
     addExpertise: async (memberId: string, expertise: string): Promise<Team> => {
         try {

@@ -27,15 +27,17 @@ namespace JobTrackingAPI
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-                });
-
-            // CORS politikasını ekle
+                });            // CORS politikasını ekle - Vercel URL'leri için dinamik yaklaşım
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowFrontend",
                     policy =>
                     {
-                        policy.WithOrigins("AllowFrontend") // React uygulamasının çalıştığı port
+                        // Tüm Vercel deployment URL'lerini kabul et
+                        policy.SetIsOriginAllowed(origin =>
+                            origin.EndsWith(".vercel.app") || // Herhangi bir Vercel alt alanını kabul et
+                            origin.Contains("localhost") ||  // Yerel geliştirme için
+                            origin.EndsWith("miajobmanagement.com"))  // Özel alan adı için
                               .AllowAnyHeader()
                               .AllowAnyMethod()
                               .AllowCredentials();
