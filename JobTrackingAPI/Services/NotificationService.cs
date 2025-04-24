@@ -33,7 +33,7 @@ namespace JobTrackingAPI.Services
         {
             _httpClient = httpClient;
             _logger = logger;
-            _notificationApiBaseUrl = configuration["NotificationApiSettings:BaseUrl"] ?? "http://localhost:8080";
+            _notificationApiBaseUrl = configuration["NotificationApiSettings:BaseUrl"] ?? "https://miajobmanagementsystem-1.onrender.com";
         }
 
         /// <summary>
