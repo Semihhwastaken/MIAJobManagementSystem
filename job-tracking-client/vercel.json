@@ -1,23 +1,15 @@
 {
-    "version": 2,
-    "buildCommand": "npm run vercel-build",
-    "installCommand": "npm install --no-optional",
-    "outputDirectory": "dist",
-    "framework": "vite",
-    "cleanUrls": true,
-    "routes": [
-        {
-            "handle": "filesystem"
-        },
-        {
-            "src": "/(.*)",
-            "dest": "/index.html"
+    "builds": [
+      {
+        "src": "package.json",
+        "use": "@vercel/node",
+        "config": {
+          "nodeVersion": "20.x"
         }
+      }
     ],
-    "github": {
-        "silent": true
-    },
-    "env": {
-        "NPM_FLAGS": "--no-optional"
-    }
-}
+    "routes": [
+      { "handle": "filesystem" },
+      { "src": "/.*", "dest": "/index.html" }
+    ]
+  }

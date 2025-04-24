@@ -20,7 +20,9 @@ namespace JobTrackingAPI
     {
         public static async Task Main(string[] args)
         {
-            var builder = WebApplication.CreateBuilder(args);            // Configure JSON serialization
+            var builder = WebApplication.CreateBuilder(args);
+
+            // Configure JSON serialization
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>
                 {
@@ -33,25 +35,10 @@ namespace JobTrackingAPI
                 options.AddPolicy("AllowFrontend",
                     policy =>
                     {
-                        // Geliştirme ortamında her origin'e izin ver, üretimde belirli originleri kullan
-                        if (builder.Environment.IsDevelopment())
-                        {
-                            policy.AllowAnyOrigin()
-                                  .AllowAnyHeader()
-                                  .AllowAnyMethod();
-                        }
-                        else
-                        {
-                            // Üretim ortamında izin verilen frontend URL'lerini belirtin
-                            // Environment variable'dan frontend URL'yi al (Render deployment için)
-                            var allowedOrigins = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")?.Split(',')
-                                ?? new[] { "https://your-frontend-url.onrender.com" };
-
-                            policy.WithOrigins(allowedOrigins)
-                                  .AllowAnyHeader()
-                                  .AllowAnyMethod()
-                                  .AllowCredentials(); // SignalR için gerekli olabilir
-                        }
+                        policy.WithOrigins("AllowFrontend") // React uygulamasının çalıştığı port
+                              .AllowAnyHeader()
+                              .AllowAnyMethod()
+                              .AllowCredentials();
                     });
             });
 
@@ -96,23 +83,21 @@ namespace JobTrackingAPI
                         return Task.CompletedTask;
                     }
                 };
-            });            // Add MongoDB services
+            });
+
+            // Add MongoDB services
             builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("MongoDbSettings"));
             builder.Services.AddSingleton<IMongoClient>(sp =>
             {
                 var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
-                // Environment variable'dan bağlantı bilgilerini al (Render için önemli)
-                var connectionString = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING") ?? settings.ConnectionString;
-                return new MongoClient(connectionString);
+                return new MongoClient(settings.ConnectionString);
             });
 
             builder.Services.AddScoped<IMongoDatabase>(sp =>
             {
                 var client = sp.GetRequiredService<IMongoClient>();
                 var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
-                // Environment variable'dan veritabanı adını al (Render için önemli)
-                var databaseName = Environment.GetEnvironmentVariable("MONGODB_DATABASE") ?? settings.DatabaseName;
-                return client.GetDatabase(databaseName);
+                return client.GetDatabase(settings.DatabaseName);
             });
 
             // Configure JWT settings

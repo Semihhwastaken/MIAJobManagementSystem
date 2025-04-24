@@ -8,13 +8,13 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "vercel-build": "npm install --no-optional && npm run build"
+    "vercel-build": "npm install --no-optional && npm install rollup@4 && npm run build"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "4.x"
   },
   "overrides": {
-    "rollup": "^3.29.4"
+  "rollup": "^4.9.0"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
