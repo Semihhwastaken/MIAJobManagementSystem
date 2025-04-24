@@ -1,7 +1,7 @@
 import { User } from '../types/task';
 import axiosInstance from './axiosInstance';
 
-const API_URL = 'https://miajobmanagementsystem.onrender.com/api';
+const API_URL = 'https://miajobmanagementsystem-3sdx.onrender.com/api';
 
 const userService = {
     getAllUsers: async (): Promise<User[]> => {
