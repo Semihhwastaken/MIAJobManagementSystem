@@ -54,10 +54,11 @@ builder.Services.AddCors(options =>
     {
         policy.SetIsOriginAllowed(origin =>
                {
-                   // Allow Vercel preview deployments, localhost, and the production domain
+                   // Allow Vercel preview deployments, localhost, the production domain, and Render deployments
                    return origin.EndsWith(".vercel.app") ||
                           origin.Contains("localhost") ||
-                          origin.EndsWith("miajobmanagement.com");
+                          origin.EndsWith("miajobmanagement.com") ||
+                          origin.EndsWith(".onrender.com"); // Add Render domain
                })
               .AllowAnyHeader()
               .AllowAnyMethod()
