@@ -10,12 +10,13 @@ interface AuthState {
         username: string;
         email: string;
         fullName: string;
-        department:string;
+        department: string;
         role: string;
         subscriptionPlan: string;
         subscriptionStatus: string;
         subscriptionId: string;
         subscriptionEndDate: string | null;
+        profileImage?: string;
     } | null;
     isAuthenticated: boolean;
     loading: boolean;
@@ -47,7 +48,7 @@ export const login = createAsyncThunk(
         try {
             const response = await axios.post('/api/auth/login', credentials);
             const { token, user } = response.data;
-            
+
             // Make sure we store the role along with other user data
             const userData = {
                 id: user.id,
@@ -61,10 +62,10 @@ export const login = createAsyncThunk(
                 subscriptionId: user.subscriptionId || '',
                 subscriptionEndDate: user.subscriptionEndDate || null
             };
-            
+
             localStorage.setItem('token', token);
             localStorage.setItem('user', JSON.stringify(userData));
-            
+
             return { token, user: userData };
         } catch (error: any) {
             return rejectWithValue(error.response?.data?.message || 'Giriş yapılırken bir hata oluştu');

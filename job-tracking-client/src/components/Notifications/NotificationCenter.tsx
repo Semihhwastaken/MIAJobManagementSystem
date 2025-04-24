@@ -6,7 +6,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Notification } from '../../types/notification';
 import { useTheme } from '@mui/material/styles';
 
-export const NotificationCenter: React.FC = () => {
+interface NotificationCenterProps {
+  muted?: boolean;
+}
+
+export const NotificationCenter: React.FC<NotificationCenterProps> = ({ muted = false }) => {
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -36,10 +40,10 @@ export const NotificationCenter: React.FC = () => {
       return formatDate(date);
     }
   };
-  
+
   const [, setToasts] = useState<(Notification & { id: string })[]>([]);
   const toastContainerRef = useRef<HTMLDivElement | null>(null);
-  
+
   useEffect(() => {
     // Create toast container if it doesn't exist
     if (!toastContainerRef.current) {
@@ -48,7 +52,7 @@ export const NotificationCenter: React.FC = () => {
       document.body.appendChild(container);
       toastContainerRef.current = container;
     }
-    
+
     return () => {
       // Clean up toast container on unmount - güvenli silme
       if (toastContainerRef.current) {
@@ -65,19 +69,18 @@ export const NotificationCenter: React.FC = () => {
       }
     };
   }, []);
-  
   const showNotificationToast = (notification: Notification) => {
-    if (!notification.id) return;
-    
+    if (!notification.id || muted) return; // Eğer bildirimler sessize alınmışsa toast gösterme
+
     setToasts(prev => [
       { ...notification, id: notification.id as string },
       ...prev
     ]);
-    
+
     // Limit number of toasts to 3
     setToasts(prev => prev.slice(0, 3));
   };
-  
+
   // Add global styles for toast animations
   useEffect(() => {
     const style = document.createElement('style');
@@ -92,7 +95,7 @@ export const NotificationCenter: React.FC = () => {
       }
     `;
     document.head.appendChild(style);
-    
+
     return () => {
       document.head.removeChild(style);
     };
@@ -119,8 +122,8 @@ export const NotificationCenter: React.FC = () => {
         setIsOpen(false);
       }
     };
-  document.addEventListener('mousedown', handleClickOutside);
-  return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   useEffect(() => {
     if (!user?.id || !isAuthenticated || !token) {
@@ -131,58 +134,58 @@ export const NotificationCenter: React.FC = () => {
       });
       return;
     }
-  console.log('Authentication data loaded:', {
-    userId: user.id,
-    username: user.username,
-    isAuthenticated
-  });
-  const initializeSignalR = async () => {
-    try {
-      if (user?.id) {
-        await signalRService.startConnection(user.id);
-        signalRService.onReceiveNotification(handleNewNotification);
-        if (signalRService.isNotificationConnected()) {
-          signalRService.getConnectedUsersCount().then(count => {
-            console.log('Connected users count:', count);
-          });
+    console.log('Authentication data loaded:', {
+      userId: user.id,
+      username: user.username,
+      isAuthenticated
+    });
+    const initializeSignalR = async () => {
+      try {
+        if (user?.id) {
+          await signalRService.startConnection(user.id);
+          signalRService.onReceiveNotification(handleNewNotification);
+          if (signalRService.isNotificationConnected()) {
+            signalRService.getConnectedUsersCount().then(count => {
+              console.log('Connected users count:', count);
+            });
+          }
         }
+      } catch (error) {
+        console.error('SignalR connection error:', error);
       }
-    } catch (error) {
-      console.error('SignalR connection error:', error);
-    }
-  };
-  const fetchNotifications = async () => {
-    if (!user?.id) {
-      console.warn('Cannot fetch notifications: User ID not found');
-      return;
-    }
-  try {
-    const url = `/Notifications/user/${user.id}`;
-    console.log('Fetching notifications from:', url);
-  const response = await notificationAxiosInstance.get(url);
-  if (Array.isArray(response.data)) {
-    console.log('Notifications fetched successfully:', response.data.length);
-    setNotifications(response.data);
-    notificationsRef.current = response.data;
-    const unreadNotifications = response.data.filter((n: Notification) => !n.isRead);
-    setUnreadCount(unreadNotifications.length);
-  } else {
-    console.error('Invalid API response format:', response.data);
-    setNotifications([]);
-    setUnreadCount(0);
-  }
-  } catch (error) {
-    console.error('Error fetching notifications:', error);
-    setNotifications([]);
-    setUnreadCount(0);
-  }
-  };
-  fetchNotifications();
-  initializeSignalR();
-  return () => {
-    signalRService.onReceiveNotification(() => {}); // Cleanup SignalR subscription
-  };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    };
+    const fetchNotifications = async () => {
+      if (!user?.id) {
+        console.warn('Cannot fetch notifications: User ID not found');
+        return;
+      }
+      try {
+        const url = `/Notifications/user/${user.id}`;
+        console.log('Fetching notifications from:', url);
+        const response = await notificationAxiosInstance.get(url);
+        if (Array.isArray(response.data)) {
+          console.log('Notifications fetched successfully:', response.data.length);
+          setNotifications(response.data);
+          notificationsRef.current = response.data;
+          const unreadNotifications = response.data.filter((n: Notification) => !n.isRead);
+          setUnreadCount(unreadNotifications.length);
+        } else {
+          console.error('Invalid API response format:', response.data);
+          setNotifications([]);
+          setUnreadCount(0);
+        }
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+    };
+    fetchNotifications();
+    initializeSignalR();
+    return () => {
+      signalRService.onReceiveNotification(() => { }); // Cleanup SignalR subscription
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, isAuthenticated, token, user?.username, handleNewNotification]);
   const handleMarkAsRead = async (id: string) => {
     try {
@@ -197,13 +200,13 @@ export const NotificationCenter: React.FC = () => {
   };
   const handleMarkAllAsRead = async () => {
     if (!user?.id) return;
-  try {
-    await notificationAxiosInstance.put(`/Notifications/user/${user.id}/read-all`);
-    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
-    setUnreadCount(0);
-  } catch (error) {
-    console.error('Error marking all notifications as read:', error);
-  }
+    try {
+      await notificationAxiosInstance.put(`/Notifications/user/${user.id}/read-all`);
+      setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
   };
   const getNotificationIcon = (type: string | number | undefined) => {
     if (!type) {
@@ -261,7 +264,7 @@ export const NotificationCenter: React.FC = () => {
       case 'TeamStatusDeleted':
       case '14':
         return '🗑️';
-        
+
       default:
         return '📢';
     }
@@ -282,11 +285,10 @@ export const NotificationCenter: React.FC = () => {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className={`relative p-2 transition-colors duration-200 rounded-full ${
-          isDarkMode 
-            ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
-            : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
-        }`}
+        className={`relative p-2 transition-colors duration-200 rounded-full ${isDarkMode
+          ? 'text-gray-300 hover:text-white hover:bg-gray-700'
+          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+          }`}
       >
         <svg
           className="w-6 h-6"
@@ -320,33 +322,29 @@ export const NotificationCenter: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: 0.2 }}
-            className={`fixed right-0 mt-2 w-96 rounded-xl shadow-xl py-1 z-50 max-h-[80vh] md:absolute md:max-h-[600px] ${
-              isDarkMode 
-                ? 'bg-gray-800 border border-gray-700' 
-                : 'bg-white border border-gray-100'
-            }`}
+            className={`fixed right-0 mt-2 w-96 rounded-xl shadow-xl py-1 z-50 max-h-[80vh] md:absolute md:max-h-[600px] ${isDarkMode
+              ? 'bg-gray-800 border border-gray-700'
+              : 'bg-white border border-gray-100'
+              }`}
             style={{
               top: "100%",
               marginRight: "1rem",
             }}
           >
-            <div className={`sticky top-0 px-4 py-3 border-b rounded-t-xl backdrop-blur-sm ${
-              isDarkMode 
-                ? 'border-gray-700 bg-gray-800/95'
-                : 'border-gray-100 bg-white/95'
-            }`}>
+            <div className={`sticky top-0 px-4 py-3 border-b rounded-t-xl backdrop-blur-sm ${isDarkMode
+              ? 'border-gray-700 bg-gray-800/95'
+              : 'border-gray-100 bg-white/95'
+              }`}>
               <div className="flex justify-between items-center">
-                <h3 className={`text-lg font-semibold ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>Bildirimler</h3>
+                <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>Bildirimler</h3>
                 {unreadCount > 0 && (
                   <button
                     onClick={handleMarkAllAsRead}
-                    className={`text-sm font-medium px-3 py-1 rounded-full transition-colors ${
-                      isDarkMode 
-                        ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-900/50' 
-                        : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
-                    }`}
+                    className={`text-sm font-medium px-3 py-1 rounded-full transition-colors ${isDarkMode
+                      ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-900/50'
+                      : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+                      }`}
                   >
                     Tümünü Okundu İşaretle
                   </button>
@@ -354,11 +352,10 @@ export const NotificationCenter: React.FC = () => {
               </div>
             </div>
 
-            <div className={`overflow-y-auto max-h-[calc(80vh-4rem)] md:max-h-[500px] scrollbar-thin ${
-              isDarkMode 
-                ? 'scrollbar-thumb-gray-600 scrollbar-track-gray-700' 
-                : 'scrollbar-thumb-gray-300 scrollbar-track-gray-100'
-            }`}>
+            <div className={`overflow-y-auto max-h-[calc(80vh-4rem)] md:max-h-[500px] scrollbar-thin ${isDarkMode
+              ? 'scrollbar-thumb-gray-600 scrollbar-track-gray-700'
+              : 'scrollbar-thumb-gray-300 scrollbar-track-gray-100'
+              }`}>
               <AnimatePresence>
                 {notifications.length > 0 ? (
                   notifications.map((notification) => (
@@ -367,15 +364,14 @@ export const NotificationCenter: React.FC = () => {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className={`px-4 py-3 cursor-pointer border-b transition-colors ${
-                        !notification.isRead 
-                          ? isDarkMode 
-                            ? 'bg-blue-900/20 hover:bg-gray-700/50 border-gray-700' 
-                            : 'bg-blue-50/50 hover:bg-gray-50 border-gray-50'
-                          : isDarkMode
-                            ? 'hover:bg-gray-700/50 border-gray-700' 
-                            : 'hover:bg-gray-50 border-gray-50'
-                      }`}
+                      className={`px-4 py-3 cursor-pointer border-b transition-colors ${!notification.isRead
+                        ? isDarkMode
+                          ? 'bg-blue-900/20 hover:bg-gray-700/50 border-gray-700'
+                          : 'bg-blue-50/50 hover:bg-gray-50 border-gray-50'
+                        : isDarkMode
+                          ? 'hover:bg-gray-700/50 border-gray-700'
+                          : 'hover:bg-gray-50 border-gray-50'
+                        }`}
                       onClick={() => notification.id && handleMarkAsRead(notification.id)}
                     >
                       <div className="flex items-start gap-3">
@@ -384,27 +380,23 @@ export const NotificationCenter: React.FC = () => {
                         </span>
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start">
-                            <h4 className={`text-sm font-medium truncate ${
-                              isDarkMode ? 'text-white' : 'text-gray-900'
-                            }`}>
+                            <h4 className={`text-sm font-medium truncate ${isDarkMode ? 'text-white' : 'text-gray-900'
+                              }`}>
                               {notification.title}
                             </h4>
-                            <span className={`text-xs ml-2 whitespace-nowrap ${
-                              isDarkMode ? 'text-gray-500' : 'text-gray-400'
-                            }`}>
+                            <span className={`text-xs ml-2 whitespace-nowrap ${isDarkMode ? 'text-gray-500' : 'text-gray-400'
+                              }`}>
                               {getRelativeTime(notification.createdDate)}
                             </span>
                           </div>
-                          <p className={`text-sm mt-0.5 line-clamp-2 ${
-                            isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                          }`}>
+                          <p className={`text-sm mt-0.5 line-clamp-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                            }`}>
                             {notification.message}
                           </p>
                         </div>
                         {!notification.isRead && (
-                          <span className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                            isDarkMode ? 'bg-blue-400' : 'bg-blue-500'
-                          }`} />
+                          <span className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${isDarkMode ? 'bg-blue-400' : 'bg-blue-500'
+                            }`} />
                         )}
                       </div>
                     </motion.div>
@@ -413,16 +405,14 @@ export const NotificationCenter: React.FC = () => {
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className={`px-4 py-8 text-center ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                    }`}
-                  >
-                    <svg 
-                      className={`w-16 h-16 mx-auto mb-4 ${
-                        isDarkMode ? 'text-gray-600' : 'text-gray-300'
+                    className={`px-4 py-8 text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'
                       }`}
-                      fill="none" 
-                      stroke="currentColor" 
+                  >
+                    <svg
+                      className={`w-16 h-16 mx-auto mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-300'
+                        }`}
+                      fill="none"
+                      stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
