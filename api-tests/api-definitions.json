@@ -1,0 +1,1046 @@
+{
+  "Auth": {
+    "loginEndpoint": "/api/Auth/login",
+    "credentials": {
+      "username": "TestNajung",
+      "password": "asker123"
+    }
+  },
+  "Custom Categories": {
+    "Admin": {
+      "endpoints": [
+        "/api/Admin/users",
+        "/api/Admin/dashboard",
+        "/api/Admin/taskStats",
+        "/api/Admin/teamStats"
+      ],
+      "methods": [
+        "GET",
+        "GET",
+        "GET",
+        "GET"
+      ],
+      "requiresAuth": true,
+      "sampleData": [
+        null
+      ]
+    },
+    "Auth": {
+      "endpoints": [
+        "/api/Auth/current-user",
+        "/api/Auth/check-preload-status"
+      ],
+      "methods": [
+        "GET",
+        "GET"
+      ],
+      "requiresAuth": true,
+      "sampleData": [
+        null
+      ]
+    },
+    "CalendarEventEndpoints": {
+      "POST": {
+        "endpoints": [
+          "/api/calendar/events",
+          "/api/calendar/events/team"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Basic Event",
+            "description": "Create a basic calendar event with minimal fields",
+            "data": {
+              "title": "Test Meeting",
+              "description": "This is a test meeting",
+              "startDate": "2025-04-01",
+              "endDate": "2025-04-01",
+              "startTime": "10:00",
+              "endTime": "11:00",
+              "priority": "Medium",
+              "category": "meeting",
+              "participants": ["test@example.com"],
+              "createdBy": ""
+            }
+          },
+          {
+            "name": "Team Event",
+            "description": "Create a calendar event for a team",
+            "data": {
+              "title": "Team Meeting",
+              "description": "Weekly team sync-up",
+              "startDate": "2025-04-02",
+              "endDate": "2025-04-02",
+              "startTime": "14:00",
+              "endTime": "15:00",
+              "priority": "High",
+              "category": "meeting",
+              "participants": ["test@example.com"],
+              "teamId": "",
+              "meetingLink": "https://meet.example.com/test",
+              "createdBy": ""
+            }
+          },
+          {
+            "name": "Multi-day Event",
+            "description": "Create a calendar event spanning multiple days",
+            "data": {
+              "title": "Conference",
+              "description": "Annual industry conference",
+              "startDate": "2025-04-05",
+              "endDate": "2025-04-07",
+              "startTime": "09:00",
+              "endTime": "17:00",
+              "priority": "High",
+              "category": "meeting",
+              "participants": ["test@example.com"],
+              "createdBy": ""
+            }
+          }
+        ]
+      },
+      "PUT": {
+        "endpoints": [
+          "/api/calendar/events/{id}"
+        ],
+        "methods": [
+          "PUT"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Update Event",
+            "description": "Update an existing calendar event",
+            "data": {
+              "id": "",
+              "title": "Updated Meeting",
+              "description": "This meeting has been updated",
+              "startDate": "2025-04-10",
+              "endDate": "2025-04-10",
+              "startTime": "11:00",
+              "endTime": "12:00",
+              "priority": "High",
+              "category": "meeting",
+              "participants": ["test@example.com"],
+              "createdBy": ""
+            }
+          }
+        ]
+      }
+    },
+    "MessageEndpoints": {
+      "GET": {
+        "endpoints": [
+          "/api/Messages/user/{userId}",
+          "/api/Messages/conversation/{userId}/{otherUserId}",
+          "/api/Messages/conversations/{userId}"
+        ],
+        "methods": [
+          "GET"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Get User Messages",
+            "description": "Retrieve all messages for a specific user with pagination",
+            "data": {
+              "userId": "67caa8641c34098650859ce4",
+              "page": 1,
+              "pageSize": 50
+            }
+          },
+          {
+            "name": "Get Conversation",
+            "description": "Retrieve conversation between two users",
+            "data": {
+              "userId": "67caa8641c34098650859ce4",
+              "otherUserId": "67caa9271a19e9a6a9f42283"
+            }
+          }
+        ]
+      },
+      "POST": {
+        "endpoints": [
+          "/api/Messages/send/{senderId}"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Basic Message",
+            "description": "Send a basic text message with minimal fields",
+            "data": {
+              "receiverId": "67caa9271a19e9a6a9f42283",
+              "content": "This is a test message",
+              "subject": "Test Message"
+            }
+          },
+          {
+            "name": "Long Message",
+            "description": "Send a message with longer content to test performance",
+            "data": {
+              "receiverId": "67caa9271a19e9a6a9f42283",
+              "content": "This is a longer test message with more content to test the performance of the API. It contains multiple sentences and paragraphs to simulate a real-world scenario where users might send detailed messages. The system should handle this efficiently and provide good performance even with larger message content.",
+              "subject": "Performance Test Message"
+            }
+          },
+          {
+            "name": "Message with Special Characters",
+            "description": "Send a message with special characters to test encoding",
+            "data": {
+              "receiverId": "67caa9271a19e9a6a9f42283",
+              "content": "Test message with special characters: !@#$%^&*()_+{}|:<>?~`-=[]\\;',./\"",
+              "subject": "Special Characters Test"
+            }
+          }
+        ]
+      },
+      "PUT": {
+        "endpoints": [
+          "/api/Messages/read/{id}"
+        ],
+        "methods": [
+          "PUT"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Mark Message as Read",
+            "description": "Mark a message as read",
+            "data": {}
+          }
+        ]
+      },
+      "DELETE": {
+        "endpoints": [
+          "/api/Messages/{messageId}?userId={userId}"
+        ],
+        "methods": [
+          "DELETE"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Delete Message",
+            "description": "Delete a specific message",
+            "data": {
+              "messageId": "",
+              "userId": ""
+            }
+          }
+        ]
+      }
+    },
+    "DynamicQueryTests": {
+      "endpoints": [
+        "/api/Tasks"
+      ],
+      "methods": [
+        "POST"
+      ],
+      "requiresAuth": true,
+      "parameterSets": [
+        {
+          "name": "Basic Task",
+          "description": "Minimal task with only required fields",
+          "data": {
+            "id": "",
+            "title": "Basic Task",
+            "description": "A simple task with minimal fields",
+            "status": "pending",
+            "priority": "medium",
+            "category": "Development",
+            "teamId": "67d2c7ed664c5cbba91de412",
+            "createdBy": {
+              "id": "",
+              "username": "",
+              "fullName": ""
+            }
+          }
+        },
+        {
+          "name": "Task with Assigned Users",
+          "description": "Task with assigned users to test user assignment load",
+          "data": {
+            "id": "",
+            "title": "Task with Users",
+            "description": "Testing task with multiple assigned users",
+            "status": "pending",
+            "priority": "high",
+            "category": "Development",
+            "assignedUsers": [
+              {
+                "id": "67caa8641c34098650859ce4",
+                "username": "TestNajung",
+                "email": "sabridoga2000@gmail.com",
+                "fullName": "Sabri alperen Kaya",
+                "department": "Web Developer",
+                "title": "Frontend",
+                "position": "Junior",
+                "profileImage": ""
+              }
+            ],
+            "assignedUserIds": ["67caa8641c34098650859ce4"],
+            "teamId": "67d2c7ed664c5cbba91de412",
+            "createdBy": {
+              "id": "",
+              "username": "",
+              "fullName": ""
+            }
+          }
+        },
+        {
+          "name": "Task with SubTasks",
+          "description": "Task with multiple subtasks to test subtask processing load",
+          "data": {
+            "id": "",
+            "title": "Task with SubTasks",
+            "description": "Testing task with multiple subtasks",
+            "status": "pending",
+            "priority": "medium",
+            "category": "Development",
+            "subTasks": [
+              {
+                "title": "Subtask 1",
+                "completed": false,
+                "assignedUserId": "67caa8641c34098650859ce4"
+              },
+              {
+                "title": "Subtask 2",
+                "completed": false,
+                "assignedUserId": "67caa8641c34098650859ce4"
+              },
+              {
+                "title": "Subtask 3",
+                "completed": false,
+                "assignedUserId": "67caa8641c34098650859ce4"
+              }
+            ],
+            "teamId": "67d2c7ed664c5cbba91de412",
+            "createdBy": {
+              "id": "",
+              "username": "",
+              "fullName": ""
+            }
+          }
+        },
+        {
+          "name": "Task with Dependencies",
+          "description": "Task with dependencies to test dependency processing load",
+          "data": {
+            "id": "",
+            "title": "Task with Dependencies",
+            "description": "Testing task with dependencies",
+            "status": "pending",
+            "priority": "high",
+            "category": "Development",
+            "dependencies": [],
+            "teamId": "67d2c7ed664c5cbba91de412",
+            "createdBy": {
+              "id": "",
+              "username": "",
+              "fullName": ""
+            }
+          }
+        },
+        {
+          "name": "Complex Task",
+          "description": "Complex task with all possible fields to test maximum load",
+          "data": {
+            "id": "",
+            "title": "Complex Task",
+            "description": "A complex task with all possible fields populated",
+            "status": "inProgress",
+            "priority": "critical",
+            "category": "Development",
+            "isLocked": false,
+            "assignedUsers": [
+              {
+                "id": "67caa8641c34098650859ce4",
+                "username": "TestNajung",
+                "email": "sabridoga2000@gmail.com",
+                "fullName": "Sabri alperen Kaya",
+                "department": "Web Developer",
+                "title": "Frontend",
+                "position": "Junior",
+                "profileImage": ""
+              }
+            ],
+            "assignedUserIds": ["67caa8641c34098650859ce4"],
+            "dueDate": "2025-05-15T12:00:00.000Z",
+            "subTasks": [
+              {
+                "title": "Complex Subtask 1",
+                "completed": false,
+                "assignedUserId": "67caa8641c34098650859ce4"
+              },
+              {
+                "title": "Complex Subtask 2",
+                "completed": false,
+                "assignedUserId": "67caa8641c34098650859ce4"
+              }
+            ],
+            "dependencies": [],
+            "teamId": "67d2c7ed664c5cbba91de412",
+            "comments": [],
+            "createdBy": {
+              "id": "",
+              "username": "",
+              "fullName": ""
+            }
+          }
+        }
+      ]
+    },
+    "CommentEndpoints": {
+      "GET": {
+        "endpoints": [
+          "/api/Comment/task/{taskId}"
+        ],
+        "methods": [
+          "GET"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Get Task Comments",
+            "description": "Retrieve all comments for a specific task",
+            "data": {
+              "taskId": ""
+            }
+          }
+        ]
+      },
+      "POST": {
+        "endpoints": [
+          "/api/Comment",
+          "/api/Comment/user-task-comment"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Basic Comment",
+            "description": "Create a basic comment with minimal fields",
+            "data": {
+              "taskId": "",
+              "userId": "",
+              "content": "This is a test comment"
+            }
+          },
+          {
+            "name": "Comment with Mentions",
+            "description": "Create a comment that mentions other users",
+            "data": {
+              "taskId": "",
+              "userId": "",
+              "content": "This is a test comment mentioning @TestUser"
+            }
+          },
+          {
+            "name": "Detailed Comment",
+            "description": "Create a comment with all available fields",
+            "data": {
+              "taskId": "",
+              "userId": "",
+              "content": "This is a detailed test comment with priority and tags",
+              "priority": "high",
+              "tags": ["important", "test", "api"],
+              "dueDate": "2025-04-30T12:00:00Z"
+            }
+          }
+        ]
+      },
+      "POST_ATTACHMENT": {
+        "endpoints": [
+          "/api/Comment/{commentId}/attachments"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Add Attachment",
+            "description": "Add an attachment to a comment",
+            "data": {
+              "fileName": "test-document.pdf",
+              "fileUrl": "https://example.com/files/test-document.pdf",
+              "fileType": "application/pdf",
+              "fileSize": 1024000
+            }
+          }
+        ]
+      },
+      "DELETE": {
+        "endpoints": [
+          "/api/Comment/{id}"
+        ],
+        "methods": [
+          "DELETE"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Delete Comment",
+            "description": "Delete a specific comment",
+            "data": {}
+          }
+        ]
+      }
+    },
+    "FeedbackEndpoints": {
+      "GET": {
+        "endpoints": [
+          "/api/Feedback/public",
+          "/api/Feedback",
+          "/api/Feedback/stats"
+        ],
+        "methods": [
+          "GET"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Get Public Feedbacks",
+            "description": "Retrieve public feedbacks that are visible to all users",
+            "data": {}
+          },
+          {
+            "name": "Get All Feedbacks",
+            "description": "Admin only - Retrieve all feedbacks with optional status filter",
+            "data": {
+              "status": "New"
+            }
+          },
+          {
+            "name": "Get Feedback Stats",
+            "description": "Admin only - Retrieve feedback statistics",
+            "data": {}
+          }
+        ]
+      },
+      "POST": {
+        "endpoints": [
+          "/api/Feedback"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Basic Feedback",
+            "description": "Submit basic feedback with minimal fields",
+            "data": {
+              "userId": "",
+              "userName": "",
+              "userRole": "User",
+              "content": "This is a test feedback",
+              "rating": 4,
+              "isPublic": false
+            }
+          },
+          {
+            "name": "Detailed Feedback",
+            "description": "Submit detailed feedback with all available fields",
+            "data": {
+              "userId": "",
+              "userName": "",
+              "userRole": "User",
+              "content": "This is a detailed test feedback with additional information about the system performance and user experience.",
+              "rating": 5,
+              "isPublic": true,
+              "userAvatar": "https://example.com/avatar.jpg"
+            }
+          },
+          {
+            "name": "Critical Feedback",
+            "description": "Submit feedback with a low rating",
+            "data": {
+              "userId": "",
+              "userName": "",
+              "userRole": "User",
+              "content": "This is a critical feedback reporting issues with the system.",
+              "rating": 1,
+              "isPublic": false
+            }
+          }
+        ]
+      },
+      "PUT": {
+        "endpoints": [
+          "/api/Feedback/{id}/status"
+        ],
+        "methods": [
+          "PUT"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Mark as Read",
+            "description": "Update feedback status to Read",
+            "data": {
+              "status": "Read",
+              "response": ""
+            }
+          },
+          {
+            "name": "Respond to Feedback",
+            "description": "Update feedback status to Responded with admin response",
+            "data": {
+              "status": "Responded",
+              "response": "Thank you for your feedback. We have addressed your concerns."
+            }
+          },
+          {
+            "name": "Archive Feedback",
+            "description": "Update feedback status to Archived",
+            "data": {
+              "status": "Archived",
+              "response": ""
+            }
+          }
+        ]
+      },
+      "DELETE": {
+        "endpoints": [
+          "/api/Feedback/{id}"
+        ],
+        "methods": [
+          "DELETE"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Delete Feedback",
+            "description": "Admin only - Delete a specific feedback",
+            "data": {}
+          }
+        ]
+      }
+    },
+    "TeamEndpoints": {
+      "GET": {
+        "endpoints": [
+          "/api/Team",
+          "/api/Team/my-teams",
+          "/api/Team/{id}",
+          "/api/Team/members/{teamId}",
+          "/api/Team/departments",
+          "/api/Team/members/department/{department}"
+        ],
+        "methods": [
+          "GET"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Get User Teams",
+            "description": "Retrieve all teams the current user is a member of",
+            "data": {}
+          },
+          {
+            "name": "Get My Teams",
+            "description": "Retrieve all teams owned by the current user",
+            "data": {}
+          },
+          {
+            "name": "Get Team by ID",
+            "description": "Retrieve a specific team by ID",
+            "data": {
+              "id": ""
+            }
+          },
+          {
+            "name": "Get Team Members",
+            "description": "Retrieve all members of a specific team",
+            "data": {
+              "teamId": ""
+            }
+          },
+          {
+            "name": "Get Departments",
+            "description": "Retrieve all available departments",
+            "data": {}
+          },
+          {
+            "name": "Get Members by Department",
+            "description": "Retrieve all team members in a specific department",
+            "data": {
+              "department": "Engineering"
+            }
+          }
+        ]
+      },
+      "POST": {
+        "endpoints": [
+          "/api/Team/create",
+          "/api/Team/add-member",
+          "/api/Team/join/{inviteCode}"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Create Basic Team",
+            "description": "Create a new team with minimal fields",
+            "data": {
+              "name": "Test Team",
+              "description": "This is a test team",
+              "department": "Engineering"
+            }
+          },
+          {
+            "name": "Create Detailed Team",
+            "description": "Create a new team with all available fields",
+            "data": {
+              "name": "Detailed Test Team",
+              "description": "This is a detailed test team with additional information",
+              "department": "Engineering",
+              "teamType": "Development",
+              "color": "#4287f5"
+            }
+          },
+          {
+            "name": "Add Member to Team",
+            "description": "Add a new member to an existing team",
+            "data": {
+              "teamId": "",
+              "userId": "",
+              "role": "Member"
+            }
+          },
+          {
+            "name": "Join Team with Invite Code",
+            "description": "Join a team using an invite code",
+            "data": {
+              "inviteCode": ""
+            }
+          }
+        ]
+      },
+      "PUT": {
+        "endpoints": [
+          "/api/Team/{id}",
+          "/api/Team/members/{id}",
+          "/api/Team/members/{id}/status"
+        ],
+        "methods": [
+          "PUT"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Update Team",
+            "description": "Update an existing team's information",
+            "data": {
+              "id": "",
+              "name": "Updated Team Name",
+              "description": "This team has been updated",
+              "department": "Engineering",
+              "isPrivate": true
+            }
+          },
+          {
+            "name": "Update Team Member",
+            "description": "Update a team member's information",
+            "data": {
+              "id": "",
+              "role": "Manager",
+              "department": "Engineering",
+              "position": "Team Lead"
+            }
+          },
+          {
+            "name": "Update Member Status",
+            "description": "Update a team member's status",
+            "data": {
+              "id": "",
+              "status": "Active"
+            }
+          }
+        ]
+      },
+      "DELETE": {
+        "endpoints": [
+          "/api/Team/{id}",
+          "/api/Team/{teamId}/members/{memberId}"
+        ],
+        "methods": [
+          "DELETE"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Delete Team",
+            "description": "Delete an existing team",
+            "data": {
+              "id": ""
+            }
+          },
+          {
+            "name": "Remove Team Member",
+            "description": "Remove a member from a team",
+            "data": {
+              "teamId": "",
+              "memberId": ""
+            }
+          }
+        ]
+      }
+    },
+    "TasksEndpoints": {
+      "GET": {
+        "endpoints": [
+          "/api/Tasks",
+          "/api/Tasks/{id}"
+        ],
+        "methods": [
+          "GET"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Get All Tasks",
+            "description": "Retrieve all tasks",
+            "data": null
+          },
+          {
+            "name": "Get Task By ID",
+            "description": "Retrieve a specific task by ID",
+            "data": {
+              "id": "67d2c7ed664c5cbba91de413"
+            }
+          }
+        ]
+      },
+      "PUT": {
+        "endpoints": [
+          "/api/Tasks/{id}"
+        ],
+        "methods": [
+          "PUT"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Basic Task Update",
+            "description": "Minimal task update with only required fields",
+            "data": {
+              "id": "",
+              "title": "Updated Basic Task",
+              "description": "A simple task with minimal fields updated",
+              "status": "inProgress",
+              "priority": "medium",
+              "category": "Development",
+              "teamId": "67d2c7ed664c5cbba91de412",
+              "createdBy": {
+                "id": "",
+                "username": "",
+                "fullName": ""
+              }
+            }
+          },
+          {
+            "name": "Task Update with Assigned Users",
+            "description": "Task update with assigned users to test user assignment load",
+            "data": {
+              "id": "",
+              "title": "Updated Task with Users",
+              "description": "Testing task update with multiple assigned users",
+              "status": "inProgress",
+              "priority": "high",
+              "category": "Development",
+              "assignedUsers": [
+                {
+                  "id": "67caa8641c34098650859ce4",
+                  "username": "TestNajung",
+                  "email": "sabridoga2000@gmail.com",
+                  "fullName": "Sabri alperen Kaya",
+                  "department": "Web Developer",
+                  "title": "Frontend",
+                  "position": "Junior",
+                  "profileImage": ""
+                }
+              ],
+              "assignedUserIds": ["67caa8641c34098650859ce4"],
+              "teamId": "67d2c7ed664c5cbba91de412",
+              "createdBy": {
+                "id": "",
+                "username": "",
+                "fullName": ""
+              }
+            }
+          },
+          {
+            "name": "Task Update with SubTasks",
+            "description": "Task update with multiple subtasks to test subtask processing load",
+            "data": {
+              "id": "",
+              "title": "Updated Task with SubTasks",
+              "description": "Testing task update with multiple subtasks",
+              "status": "inProgress",
+              "priority": "medium",
+              "category": "Development",
+              "subTasks": [
+                {
+                  "title": "Updated Subtask 1",
+                  "completed": false,
+                  "assignedUserId": "67caa8641c34098650859ce4"
+                },
+                {
+                  "title": "Updated Subtask 2",
+                  "completed": false,
+                  "assignedUserId": "67caa8641c34098650859ce4"
+                },
+                {
+                  "title": "Updated Subtask 3",
+                  "completed": false,
+                  "assignedUserId": "67caa8641c34098650859ce4"
+                }
+              ],
+              "teamId": "67d2c7ed664c5cbba91de412",
+              "createdBy": {
+                "id": "",
+                "username": "",
+                "fullName": ""
+              }
+            }
+          },
+          {
+            "name": "Task Update with Dependencies",
+            "description": "Task update with dependencies to test dependency processing load",
+            "data": {
+              "id": "",
+              "title": "Updated Task with Dependencies",
+              "description": "Testing task update with dependencies",
+              "status": "inProgress",
+              "priority": "high",
+              "category": "Development",
+              "dependencies": [],
+              "teamId": "67d2c7ed664c5cbba91de412",
+              "createdBy": {
+                "id": "",
+                "username": "",
+                "fullName": ""
+              }
+            }
+          },
+          {
+            "name": "Complex Task Update",
+            "description": "Complex task update with all possible fields to test maximum load",
+            "data": {
+              "id": "",
+              "title": "Updated Complex Task",
+              "description": "A complex task with all possible fields updated",
+              "status": "inProgress",
+              "priority": "critical",
+              "category": "Development",
+              "isLocked": false,
+              "assignedUsers": [
+                {
+                  "id": "67caa8641c34098650859ce4",
+                  "username": "TestNajung",
+                  "email": "sabridoga2000@gmail.com",
+                  "fullName": "Sabri alperen Kaya",
+                  "department": "Web Developer",
+                  "title": "Frontend",
+                  "position": "Junior",
+                  "profileImage": ""
+                }
+              ],
+              "assignedUserIds": ["67caa8641c34098650859ce4"],
+              "dueDate": "2025-05-15T12:00:00.000Z",
+              "subTasks": [
+                {
+                  "title": "Updated Complex Subtask 1",
+                  "completed": false,
+                  "assignedUserId": "67caa8641c34098650859ce4"
+                },
+                {
+                  "title": "Updated Complex Subtask 2",
+                  "completed": false,
+                  "assignedUserId": "67caa8641c34098650859ce4"
+                }
+              ],
+              "dependencies": [],
+              "teamId": "67d2c7ed664c5cbba91de412",
+              "comments": [],
+              "createdBy": {
+                "id": "",
+                "username": "",
+                "fullName": ""
+              }
+            }
+          }
+        ]
+      },
+      "DELETE": {
+        "endpoints": [
+          "/api/Tasks/{id}"
+        ],
+        "methods": [
+          "DELETE"
+        ],
+        "requiresAuth": true,
+        "parameterSets": [
+          {
+            "name": "Delete Task",
+            "description": "Delete an existing task",
+            "data": {
+              "id": "67d2c7ed664c5cbba91de413"
+            }
+          }
+        ]
+      },
+
+      "POST": {
+        "endpoints": [
+          "/api/Tasks"
+        ],
+        "methods": [
+          "POST"
+        ],
+        "requiresAuth": true
+      }
+    },
+    "Users": {
+      "endpoints": [
+        "/api/Users",
+        "/api/Users/{id}"
+      ],
+      "methods": [
+        "POST",
+        "PUT"
+      ],
+      "requiresAuth": true,
+      "sampleData": [
+        {
+          "username": "yenikullanici",
+          "email": "yeni@ornek.com",
+          "fullName": "Yeni Kullanıcı",
+          "password": "Test123!",
+          "departmentId": 1,
+          "role": "User"
+        },
+        {
+          "id": 1,
+          "email": "guncellenmis@ornek.com",
+          "fullName": "Güncellenmiş Kullanıcı",
+          "departmentId": 2,
+          "role": "Manager"
+        }
+      ]
+    }
+  }
+}

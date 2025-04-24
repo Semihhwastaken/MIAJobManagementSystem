@@ -25,6 +25,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    ports:
+      - "8081:80"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - MongoDbSettings__ConnectionString=mongodb://mongodb:27017

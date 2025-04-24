@@ -1,0 +1,324 @@
+{
+  "Auth": {
+    "loginEndpoint": "/api/Auth/login",
+    "credentials": {
+      "username": "TestNajung",
+      "password": "asker123"
+    }
+  },
+  "Custom Categories": {
+    "Admin": {
+      "endpoints": [
+        "/api/Admin/users",
+        "/api/Admin/dashboard",
+        "/api/Admin/taskStats",
+        "/api/Admin/teamStats"
+      ],
+      "methods": [
+        "GET",
+        "GET",
+        "GET",
+        "GET"
+      ],
+      "requiresAuth": true,
+      "sampleData": [
+        null
+      ]
+    },
+    "Auth": {
+      "endpoints": [
+        "/api/Auth/current-user",
+        "/api/Auth/check-preload-status",
+        "/api/Auth/login"
+      ],
+      "methods": [
+        "GET",
+        "GET",
+        "POST"
+      ],
+      "requiresAuth": true,
+      "sampleData": [
+        null,
+        null,
+        {
+          "username": "TestNajung",
+          "password": "asker123"
+        }
+      ]
+    },
+    "Calendar": {
+      "endpoints": [
+        "/api/calendar/events?startDate={{date_short}}&endDate={{future_date_short}}",
+        "/api/calendar/events",
+        "/api/calendar/events/{id}",
+        "/api/calendar/events/{id}",
+        "/api/calendar/events/{id}",
+        "/api/calendar/events/user/{userId}",
+        "/api/calendar/events/team-members"
+      ],
+      "methods": [
+        "GET",
+        "POST",
+        "GET",
+        "PUT",
+        "DELETE",
+        "GET",
+        "GET"
+      ],
+      "requiresAuth": true,
+      "sampleData": [
+        null,
+        {
+          "id": "",
+          "title": "{{enum:Toplantı,Bug Fix,Planlama,Retrospective,1:1 Görüşme}}",
+          "description": "{{enum:Aciliyetli,Önemli,Rutin}} toplantı - {{guid}}",
+          "startDate": "{{date_short}}",
+          "endDate": "{{date_short}}",
+          "startTime": "{{time}}",
+          "endTime": "{{time_after_start}}",
+          "priority": "{{enum:High,Medium,Low}}",
+          "category": "{{enum:meeting,task,deadline}}",
+          "participants": [
+            "sabridoga2000@gmail.com"
+          ],
+          "createdBy": "67caa8641c34098650859ce4",
+          "teamId": "",
+          "meetingLink": "",
+          "createdAt": "{{datetime}}",
+          "updatedAt": "{{datetime}}"
+        },
+        null,
+        {
+          "id": "",
+          "title": "{{enum:Toplantı,Bug Fix,Planlama,Retrospective,1:1 Görüşme}}",
+          "description": "{{enum:Aciliyetli,Önemli,Rutin}} toplantı - {{guid}}",
+          "startDate": "{{date_short}}",
+          "endDate": "{{date_short}}",
+          "startTime": "{{time}}",
+          "endTime": "{{time_after_start}}",
+          "priority": "{{enum:High,Medium,Low}}",
+          "category": "{{enum:meeting,task,deadline}}",
+          "participants": [
+            "sabridoga2000@gmail.com"
+          ],
+          "createdBy": "67caa8641c34098650859ce4",
+          "teamId": "",
+          "meetingLink": "",
+          "createdAt": "{{datetime}}",
+          "updatedAt": "{{datetime}}"
+        }
+      ],
+      "paramHistory": {
+        "{id}": [
+          "67e3ff56b05995dec08d7f90",
+          "67cade69b961ec1f917748d7"
+        ],
+        "{userId}": [
+          "67caa8641c34098650859ce4"
+        ]
+      },
+      "fetchUrl": "/api/calendar/events?startDate=2024-03-01&endDate=2025-03-01",
+      "fetchMethod": "GET"
+    },
+    "Comment": {
+      "endpoints": [
+        "/api/Comment/tasks",
+        "/api/Comment"
+      ],
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "requiresAuth": true,
+      "sampleData": [
+        null,
+        {
+          "_id": {
+            "$oid": ""
+          },
+          "taskId": "67dd591ece8c52cce8378063",
+          "userId": "67caa8641c34098650859ce4",
+          "content": "{{enum:Bu bir kullanıcı görev yorumudur,Önemli bir yorum,Test yorumu,Kullanıcı geribildirimi}} - {{guid}}",
+          "createdDate": {
+            "$date": "{{datetime}}"
+          },
+          "priority": "{{enum:high,medium,low}}",
+          "tags": [
+            "{{enum:task,feedback,issue,bug,feature}}",
+            "{{enum:user-comment,test,important}}"
+          ],
+          "dueDate": {
+            "$date": "{{future_datetime}}"
+          },
+          "mentions": [],
+          "attachments": []
+        }
+      ]
+    },
+    "Feedback": {
+      "endpoints": [
+        "/api/Feedback/public"
+      ],
+      "methods": [
+        "GET"
+      ],
+      "requiresAuth": true
+    },
+    "Tasks": {
+      "endpoints": [
+        "/api/Tasks",
+        "/api/Tasks/{id}",
+        "/api/Tasks/{id}"
+      ],
+      "methods": [
+        "POST",
+        "PUT",
+        "DELETE"
+      ],
+      "requiresAuth": true,
+      "paramHistory": {
+        "{id}": [
+          "67e3e8e4b05995dec08d7c4d",
+          "67e3e8e5b05995dec08d7c59"
+        ]
+      },
+      "sampleData": [
+        {
+          "id": "",
+          "title": "{{enum:Yeni Görev,Bug Düzeltme,Özellik İsteği,Acil Müdahale,Bakım,Dokümantasyon}}",
+          "description": "Bu {{enum:yeni,acil,önemli,kritik,günlük}} bir görevdir - {{guid}}",
+          "status": "{{enum:pending,inProgress,completed,onHold,cancelled}}",
+          "priority": "{{enum:low,medium,high,critical}}",
+          "category": "{{enum:Development,Maintenance,Testing,Design,Documentation}}",
+          "isLocked": "{{boolean}}",
+          "assignedUsers": [
+            {
+              "id": "67caa8641c34098650859ce4",
+              "username": "{{email}}",
+              "email": "{{email}}",
+              "fullName": "{{name}}",
+              "department": "{{enum:Web Developer,Backend,Frontend,DevOps,QA}}",
+              "title": "{{enum:Junior,Senior,Lead,Manager}}",
+              "position": "{{enum:Developer,Tester,Designer}}",
+              "profileImage": ""
+            }
+          ],
+          "assignedUserIds": [
+            "67caa8641c34098650859ce4"
+          ],
+          "dueDate": "{{date}}",
+          "createdBy": {
+            "id": "",
+            "username": "",
+            "fullName": "",
+            "profileImage": ""
+          },
+          "subTasks": [
+            {
+              "title": "Alt görev {{number}}",
+              "completed": "{{boolean}}",
+              "completedDate": null,
+              "assignedUserId": "67caa8641c34098650859ce4"
+            }
+          ],
+          "teamId": "67d2c7ed664c5cbba91de412",
+          "dependencies": [],
+          "completedDate": null,
+          "assignedJobs": []
+        },
+        {
+          "id": "",
+          "title": "{{enum:Güncellenmiş Görev,Bug Fix,İyileştirme,Dokümantasyon Güncellemesi}}",
+          "description": "Bu görev {{enum:güncellendi,revize edildi,değiştirildi}} - {{guid}}",
+          "status": "{{enum:todo,in-progress,completed,overdue}}",
+          "priority": "{{enum:low,medium,high,critical}}",
+          "category": "{{enum:Development,Maintenance,Testing,Design,Documentation}}",
+          "isLocked": "{{boolean}}",
+          "assignedUsers": [
+            {
+              "id": "67caa8641c34098650859ce4",
+              "username": "{{email}}",
+              "email": "{{email}}",
+              "fullName": "{{name}}",
+              "department": "{{enum:IT,Web Development,Backend,Frontend,DevOps,QA}}",
+              "title": "{{enum:Junior,Senior,Lead,Manager}}",
+              "position": "{{enum:Developer,Tester,Designer}}",
+              "profileImage": null
+            }
+          ],
+          "assignedUserIds": [
+            "67caa8641c34098650859ce4"
+          ],
+          "dueDate": "{{date}}",
+          "createdBy": {
+            "id": "67caa8641c34098650859ce4",
+            "username": "{{email}}",
+            "fullName": "{{name}}",
+            "profileImage": null
+          },
+          "subTasks": [
+            {
+              "title": "{{enum:Güncellenen alt görev,Yeni Alt Görev,Test Adımı}}",
+              "completed": "{{boolean}}",
+              "completedDate": null,
+              "assignedUserId": "67caa8641c34098650859ce4"
+            }
+          ],
+          "attachments": [],
+          "comments": [],
+          "teamId": "67cac8831c34098650859ce6",
+          "dependencies": [],
+          "completedDate": null,
+          "assignedJobs": []
+        }
+      ],
+      "fetchUrl": "/api/Tasks",
+      "fetchMethod": "GET"
+    },
+    "Users": {
+      "endpoints": [
+        "/api/Users",
+        "/api/Users/{id}"
+      ],
+      "methods": [
+        "POST",
+        "PUT"
+      ],
+      "requiresAuth": true,
+      "paramHistory": {
+        "{id}": []
+      },
+      "sampleData": [
+        {
+          "username": "{{email}}",
+          "email": "{{email}}",
+          "fullName": "{{name}}",
+          "password": "Test123!",
+          "departmentId": "{{number}}",
+          "role": "{{enum:User,Admin,Manager}}"
+        },
+        {
+          "id": "{{number}}",
+          "email": "{{email}}",
+          "fullName": "{{name}}",
+          "departmentId": "{{number}}",
+          "role": "{{enum:User,Admin,Manager}}"
+        }
+      ]
+    },
+    "Message": {
+      "endpoints": [
+        "/api/Messages/user/{userId}"
+      ],
+      "methods": [
+        "GET"
+      ],
+      "requiresAuth": true,
+      "paramHistory": {
+        "{userId}": [
+          "67caa8641c34098650859ce4"
+        ]
+      }
+    }
+  }
+}
