@@ -37,3 +37,4 @@ nupkg/
 *.sln.iml
 
 /JobTrackingAPI/wwwroot
+.vercel
