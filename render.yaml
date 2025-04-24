@@ -10,9 +10,7 @@ services:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
       - key: ASPNETCORE_URLS
-        value: http://+:80
-      - key: PORT
-        value: 80
+        value: http://+:$PORT
       # MongoDB Atlas connection settings
       - key: MongoDbSettings__ConnectionString
         sync: false
@@ -38,10 +36,12 @@ services:
       - key: StripeSettings__WebhookSecret
         sync: false
       - key: StripeSettings__ProPlanPriceId
-        sync: false      - key: StripeSettings__EnterprisePlanPriceId
-        sync: false # CORS settings
+        sync: false
+      - key: StripeSettings__EnterprisePlanPriceId
+        sync: false
+      # CORS settings
       - key: ALLOWED_ORIGINS
-        value: https://job-tracking-client-r08ndjm52-lordgrimxs-projects.vercel.app
+        value: https://miajobmanagement.vercel.app,https://job-tracking-client-r08ndjm52-lordgrimxs-projects.vercel.app,https://miajobmanagement.com
 
   # NotificationAPI Service
   - type: web
@@ -54,9 +54,7 @@ services:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
       - key: ASPNETCORE_URLS
-        value: http://+:80
-      - key: PORT
-        value: 80
+        value: http://+:$PORT
       # MongoDB Atlas connection settings
       - key: MongoDbSettings__ConnectionString
         sync: false

@@ -1,10 +1,14 @@
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
-EXPOSE 80
-EXPOSE 443
-# Create directories needed by the application
-RUN mkdir /app/keys
-RUN mkdir /app/wwwroot
+# Gerekli dizinleri oluştur
+RUN mkdir -p /app/keys
+RUN mkdir -p /app/wwwroot/uploads
+
+# Render'ın doğrudan port eşlemesi için
+ENV ASPNETCORE_URLS=http://+:$PORT
+# Default port (eğer PORT değişkeni yoksa)
+ENV PORT=8080
+EXPOSE 8080
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src

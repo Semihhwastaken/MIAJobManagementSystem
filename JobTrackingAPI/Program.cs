@@ -13,8 +13,8 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.FileProviders;
 using JobTrackingAPI.Interfaces;
-using Microsoft.AspNetCore.DataProtection; // Eklendi
-using Microsoft.AspNetCore.HttpOverrides; // Eklendi
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 
 namespace JobTrackingAPI
 {
@@ -25,35 +25,58 @@ namespace JobTrackingAPI
             var builder = WebApplication.CreateBuilder(args);
 
             // Data Protection'ı yapılandır (Render için dosya sistemi)
-            // Anahtarların container yeniden başlatıldığında kaybolmasını önler.
-            // '/app/keys' dizininin Dockerfile'da oluşturulduğundan emin olun.
             builder.Services.AddDataProtection()
                 .PersistKeysToFileSystem(new DirectoryInfo("/app/keys"));
-            // Not: Bu, anahtarları şifrelemez (uyarı alabilirsiniz).
-            // Daha güvenli bir çözüm için Azure Key Vault veya Redis gibi harici bir sağlayıcı kullanmayı düşünün.
+
+            // CORS politikasını ekle - Daha fazla esneklik için environment variable kullan
+            string[] allowedOrigins = builder.Configuration["ALLOWED_ORIGINS"]?.Split(',') ??
+                new[] {
+                    "https://miajobmanagement.vercel.app",
+                    "https://job-tracking-client-r08ndjm52-lordgrimxs-projects.vercel.app",
+                    "https://miajobmanagement.com",
+                    "http://localhost:5173"
+                };
+
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowFrontend",
+                    policy =>
+                    {
+                        // Hem kesin URL listesi hem de dinamik kontrol ekle
+                        policy.SetIsOriginAllowed(origin =>
+                            {
+                                // Belirlediğimiz URL'leri doğrudan kabul et
+                                if (allowedOrigins.Contains(origin)) return true;
+
+                                // Belirli domain pattern'larına da izin ver
+                                return origin.EndsWith(".vercel.app") ||
+                                       origin.Contains("localhost") ||
+                                       origin.EndsWith("miajobmanagement.com") ||
+                                       origin.EndsWith("onrender.com");
+                            })
+                            .AllowAnyHeader()
+                            .AllowAnyMethod()
+                            .AllowCredentials()
+                            .WithExposedHeaders("Content-Disposition"); // Dosya indirme işlemleri için
+                    });
+            });
+
+            // Forwarded Headers seçeneklerini ayarla
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+                                          ForwardedHeaders.XForwardedProto |
+                                          ForwardedHeaders.XForwardedHost;
+                options.KnownNetworks.Clear();
+                options.KnownProxies.Clear();
+            });
 
             // Configure JSON serialization
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-                });            // CORS politikasını ekle
-            builder.Services.AddCors(options =>
-            {
-                options.AddPolicy("AllowFrontend",
-                    policy =>
-                    {
-                        // Tüm Vercel deployment URL'lerini kabul et
-                        policy.SetIsOriginAllowed(origin =>
-                            origin.EndsWith(".vercel.app") || // Herhangi bir Vercel alt alanını kabul et
-                            origin.Contains("localhost") ||  // Yerel geliştirme için
-                            origin.EndsWith("miajobmanagement.com") || // Özel alan adı için
-                            origin.EndsWith("onrender.com"))  // Render backend URL'leri için
-                              .AllowAnyHeader()
-                              .AllowAnyMethod()
-                              .AllowCredentials();
-                    });
-            });
+                });
 
             // Configure JWT Authentication
             var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
@@ -233,18 +256,61 @@ namespace JobTrackingAPI
 
             var app = builder.Build();
 
-            // Forwarded Headers Middleware'ini yapılandır (Proxy/Load Balancer için)
-            // Bu UseHttpsRedirection'dan ÖNCE gelmeli
-            var forwardedHeadersOptions = new ForwardedHeadersOptions
+            // Middleware Pipeline - Sıralama çok önemli!
+
+            // 1. Exception handling (en üstte olmalı)
+            if (app.Environment.IsDevelopment())
             {
-                ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-            };
-            forwardedHeadersOptions.KnownNetworks.Clear(); // Render'da IP'ler değişebileceği için temizliyoruz
-            forwardedHeadersOptions.KnownProxies.Clear();
-            app.UseForwardedHeaders(forwardedHeadersOptions);
+                app.UseDeveloperExceptionPage();
+            }
+            else
+            {
+                app.UseExceptionHandler("/Error");
+                app.UseHsts();
+            }
 
+            // 2. Forwarded Headers (proxy için, HTTPS, CORS vb.'den ÖNCE gelmeli)
+            app.UseForwardedHeaders();
 
-            // MongoDB bağlantı kontrolü
+            // 3. CORS (Authentication/Authorization'dan ÖNCE gelmeli)
+            app.UseCors("AllowFrontend");
+
+            // 4. Security middlewares
+            app.UseHttpsRedirection();
+            app.UseAuthentication();
+            app.UseAuthorization();
+
+            // 5. Static files (varsa)
+            // wwwroot klasörünün kendisini de oluşturalım
+            var wwwrootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            Directory.CreateDirectory(wwwrootPath);
+
+            // Uploads dizini için
+            var uploadsPath = Path.Combine(wwwrootPath, "uploads");
+            Directory.CreateDirectory(uploadsPath);
+
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new PhysicalFileProvider(uploadsPath),
+                RequestPath = "/uploads"
+            });
+
+            // 6. Endpoint routing ve controllers
+            app.MapControllers();
+            app.MapHub<ChatHub>("/chatHub");
+
+            // 7. Swagger (sadece development'ta)
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseSwagger();
+                app.UseSwaggerUI(c =>
+                {
+                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Job Tracking API V1");
+                    c.RoutePrefix = "swagger";
+                });
+            }
+
+            // MongoDB bağlantı kontrolü 
             try
             {
                 var mongoClient = app.Services.GetRequiredService<IMongoClient>();
@@ -264,38 +330,7 @@ namespace JobTrackingAPI
                 Console.ResetColor();
             }
 
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI(c =>
-                {
-                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Job Tracking API V1");
-                    c.RoutePrefix = "swagger";
-                });
-            }
-            else // Development değilse HSTS ekle
-            {
-                // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-                app.UseHsts();
-            }
-
-
-            app.UseHttpsRedirection(); // Forwarded Headers'dan SONRA
-
-            // CORS'u etkinleştir
-            app.UseCors("AllowFrontend");
-
-            // Authentication ve Authorization middleware'lerini ekle
-            app.UseAuthentication();
-            app.UseAuthorization();
-
-            // Varsayılan UseStaticFiles kaldırıldı, sadece /uploads için olan kalıyor.
-            // app.UseStaticFiles(); // Bu satır kaldırıldı veya yorumlandı
-
-            app.MapControllers();
-            app.MapHub<ChatHub>("/chatHub");
-
+            // Veritabanı migrasyonu
             try
             {
                 // Veritabanı migrasyonunu çalıştır
@@ -310,24 +345,7 @@ namespace JobTrackingAPI
                 app.Logger.LogError(ex, "Veritabanı migrasyonu sırasında bir hata oluştu");
             }
 
-            // Configure static file serving for uploads
-            var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
-            Directory.CreateDirectory(uploadsPath); // Klasör yoksa oluştur (wwwroot/uploads)
-
-            // wwwroot klasörünün kendisini de oluşturalım (varsa UseStaticFiles() için)
-            var wwwrootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-            Directory.CreateDirectory(wwwrootPath);
-
-            app.UseStaticFiles(new StaticFileOptions // Bu /uploads için
-            {
-                FileProvider = new PhysicalFileProvider(uploadsPath),
-                RequestPath = "/uploads"
-            });
-
-            // İsteğe bağlı: Eğer wwwroot'tan başka statik dosyalar sunacaksanız,
-            // varsayılan UseStaticFiles() çağrısını geri ekleyebilirsiniz.
-            // app.UseStaticFiles();
-
+            // Uygulamanın başlatılması
             await app.RunAsync();
         }
     }
