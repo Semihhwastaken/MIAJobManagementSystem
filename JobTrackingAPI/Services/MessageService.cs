@@ -14,16 +14,18 @@ namespace JobTrackingAPI.Services
         private readonly IMongoCollection<Team> _teams;
         private readonly IMongoCollection<Message> _messages;
         private readonly IMongoCollection<User> _users;
-        private readonly string _uploadsPath;
-
-        public MessageService(IOptions<MongoDbSettings> settings, IWebHostEnvironment env)
+        private readonly string _uploadsPath; public MessageService(IOptions<MongoDbSettings> settings, IWebHostEnvironment env)
         {
             var client = new MongoClient(settings.Value.ConnectionString);
             var database = client.GetDatabase(settings.Value.DatabaseName);
             _teams = database.GetCollection<Team>("Teams");
             _messages = database.GetCollection<Message>("Messages");
             _users = database.GetCollection<User>("Users");
-            _uploadsPath = Path.Combine(env.WebRootPath, "uploads");
+
+            // Handle null WebRootPath in production environments
+            string rootPath = env.WebRootPath ?? Directory.GetCurrentDirectory();
+            _uploadsPath = Path.Combine(rootPath, "uploads");
+
             if (!Directory.Exists(_uploadsPath))
             {
                 Directory.CreateDirectory(_uploadsPath);
@@ -46,7 +48,7 @@ namespace JobTrackingAPI.Services
                 var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
                 var uploadFolder = Path.Combine(_uploadsPath);
                 Directory.CreateDirectory(uploadFolder);
-                
+
                 var filePath = Path.Combine("uploads", uniqueFileName);
                 var fullPath = Path.Combine(uploadFolder, uniqueFileName);
 
@@ -95,7 +97,7 @@ namespace JobTrackingAPI.Services
         public async Task<List<Message>> GetMessagesBetweenUsersAsync(string userId1, string userId2, int skip = 0, int take = 50)
         {
             var messages = await _messages
-                .Find(m => (m.SenderId == userId1 && m.ReceiverId == userId2) || 
+                .Find(m => (m.SenderId == userId1 && m.ReceiverId == userId2) ||
                           (m.SenderId == userId2 && m.ReceiverId == userId1))
                 .SortByDescending(m => m.SentAt)
                 .Skip(skip)
@@ -212,7 +214,7 @@ namespace JobTrackingAPI.Services
 
         public async Task<bool> DeleteMessageAsync(string messageId, string userId)
         {
-            var result = await _messages.DeleteOneAsync(m => 
+            var result = await _messages.DeleteOneAsync(m =>
                 m.Id == messageId && (m.SenderId == userId || m.ReceiverId == userId));
             return result.DeletedCount > 0;
         }
