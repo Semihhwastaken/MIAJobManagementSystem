@@ -27,18 +27,16 @@ namespace JobTrackingAPI
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-                });
-
-            // CORS politikasını ekle
+                });            // CORS politikasını ekle
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowFrontend",
                     policy =>
                     {
-                        policy.WithOrigins("http://localhost:5173") // React uygulamasının çalıştığı port
+                        policy.AllowAnyOrigin() // Tüm IP'ler ve endpoint'ler için izin ver
                               .AllowAnyHeader()
-                              .AllowAnyMethod()
-                              .AllowCredentials();
+                              .AllowAnyMethod();
+                        // Not: AllowAnyOrigin ile AllowCredentials birlikte kullanılamaz
                     });
             });
 
