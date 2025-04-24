@@ -143,7 +143,7 @@ const Auth: React.FC = () => {
     const [verificationStep, setVerificationStep] = useState<'initiate' | 'verify' | null>(null);
     const theme = useTheme();
     const navigate = useNavigate();
-    const {showSuccess, showError } = useNotification();
+    const { showSuccess, showError } = useNotification();
     const { setIsAuthenticated } = useContext(AuthContext);
 
     const [formData, setFormData] = useState({
@@ -262,7 +262,7 @@ const Auth: React.FC = () => {
                 // Registration flow
                 if (!verificationStep) {
                     // Step 1: Initiate registration
-                    const response = await fetch('http://localhost:5193/api/auth/register/initiate', {
+                    const response = await fetch('https://miajobmanagementsystem.onrender.com/api/auth/register/initiate', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -295,7 +295,7 @@ const Auth: React.FC = () => {
                     }
                 } else if (verificationStep === 'verify') {
                     // Step 2: Complete registration with verification
-                    const response = await fetch('http://localhost:5193/api/auth/register/verify', {
+                    const response = await fetch('https://miajobmanagementsystem.onrender.com/api/auth/register/verify', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -345,7 +345,7 @@ const Auth: React.FC = () => {
             } else {
                 // Login flow
                 try {
-                    const response = await fetch('http://localhost:5193/api/auth/login', {
+                    const response = await fetch('https://miajobmanagementsystem.onrender.com/api/auth/login', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -394,7 +394,7 @@ const Auth: React.FC = () => {
                     } else {
                         // response.ok değilse, zaten aldığımız data'yı kullanıyoruz
                         let errorMessage = 'Bir hata oluştu';
-                        
+
                         if (data && data.message) {
                             errorMessage = data.message;
                         } else if (response.status === 401) {
@@ -402,7 +402,7 @@ const Auth: React.FC = () => {
                         } else if (response.status === 500) {
                             errorMessage = 'Sunucu hatası, lütfen daha sonra tekrar deneyin';
                         }
-                        
+
                         setErrors({ general: errorMessage });
                         showError(`Giriş başarısız: ${errorMessage}`);
                     }
@@ -475,7 +475,7 @@ const Auth: React.FC = () => {
 
     const handleGoogleSuccess = async (tokenResponse: { access_token: string }) => {
         try {
-            const response = await axios.post('http://localhost:5193/api/auth/google', {
+            const response = await axios.post('https://miajobmanagementsystem.onrender.com/api/auth/google', {
                 token: tokenResponse.access_token
             });
 

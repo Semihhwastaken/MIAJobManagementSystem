@@ -1,7 +1,7 @@
 import { User } from '../types/task';
 import axiosInstance from './axiosInstance';
 
-const API_URL = 'http://localhost:5193/api';
+const API_URL = 'https://miajobmanagementsystem.onrender.com/api';
 
 const userService = {
     getAllUsers: async (): Promise<User[]> => {
@@ -13,7 +13,7 @@ const userService = {
             throw error;
         }
     },
-    
+
     // Belirli ID'ye sahip kullanıcıları getir
     getUsersByIds: async (userIds: string[]): Promise<User[]> => {
         try {
@@ -24,9 +24,9 @@ const userService = {
             throw error;
         }
     },
-    
+
     // Kullanıcı takım ilişkileri
-    
+
     // Kullanıcının sahibi olduğu takımları getir
     getOwnerTeams: async (userId: string): Promise<string[]> => {
         try {
@@ -37,7 +37,7 @@ const userService = {
             throw error;
         }
     },
-    
+
     // Kullanıcının üye olduğu takımları getir
     getMemberTeams: async (userId: string): Promise<string[]> => {
         try {
@@ -48,7 +48,7 @@ const userService = {
             throw error;
         }
     },
-    
+
     // Kullanıcının sahip olduğu takıma yeni takım ekle
     addOwnerTeam: async (userId: string, teamId: string): Promise<boolean> => {
         try {
@@ -59,7 +59,7 @@ const userService = {
             throw error;
         }
     },
-    
+
     // Kullanıcının üye olduğu takımlara yeni takım ekle
     addMemberTeam: async (userId: string, teamId: string): Promise<boolean> => {
         try {
@@ -70,9 +70,9 @@ const userService = {
             throw error;
         }
     },
-    
+
     // Kullanıcıya atanan işlerle ilgili işlemler
-    
+
     // Kullanıcıya görev ata
     addToAssignedJobs: async (userId: string, taskId: string): Promise<boolean> => {
         try {
@@ -83,7 +83,7 @@ const userService = {
             throw error;
         }
     },
-    
+
     // Kullanıcıdan görev çıkar
     removeFromAssignedJobs: async (userId: string, taskId: string): Promise<boolean> => {
         try {

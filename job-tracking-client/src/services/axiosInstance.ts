@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5193/api';
+const API_URL = 'https://miajobmanagementsystem.onrender.com/api';
 const NOTIFICATION_API_URL = 'http://localhost:8080/api';
 
 const axiosInstance = axios.create({
@@ -36,10 +36,10 @@ if (token) {
             if (token) {
                 config.headers.Authorization = `Bearer ${token}`;
             }
-            
+
             // Add stats tracking header to all requests except login
             config.headers['X-Track-Stats'] = 'true';
-            
+
             return config;
         },
         (error) => {

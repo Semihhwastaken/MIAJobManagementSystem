@@ -21,7 +21,7 @@ class SignalRService {
     private constructor() {
         // Chat Hub bağlantısı (JobTrackingAPI - 5173)
         this.hubConnection = new signalR.HubConnectionBuilder()
-            .withUrl("http://localhost:5173/chatHub", {
+            .withUrl("https://miajobmanagementsystem.onrender.com/chatHub", {
                 accessTokenFactory: () => localStorage.getItem('token') || ''
             })
             .withAutomaticReconnect([
@@ -32,7 +32,7 @@ class SignalRService {
 
         // Notification Hub bağlantısı (NotificationAPI - 8080)
         this.notificationHubConnection = new signalR.HubConnectionBuilder()
-            .withUrl("http://localhost:8080/notificationHub", {
+            .withUrl("https://miajobmanagementsystem.onrender.com/notificationHub", {
                 accessTokenFactory: () => localStorage.getItem('token') || ''
             })
             .withAutomaticReconnect([
@@ -109,11 +109,11 @@ class SignalRService {
                 try {
                     await this.notificationHubConnection.start();
                     console.log("Notification hub reconnected");
-                    
+
                     // Re-register to user group
                     await this.notificationHubConnection.invoke("JoinUserGroup", this.userId);
                     console.log("Rejoined user group:", this.userId);
-                    
+
                     // Clear the interval if reconnection is successful
                     clearInterval(this.reconnectInterval);
                     this.reconnectInterval = null;
@@ -145,7 +145,7 @@ class SignalRService {
             if (this.notificationHubConnection.state === signalR.HubConnectionState.Disconnected) {
                 await this.notificationHubConnection.start();
                 console.log("Notification Hub connection started with userId: ", userId, "with url: ", this.notificationHubConnection.baseUrl);
-                
+
                 // Explicitly join the user's group for notifications
                 await this.notificationHubConnection.invoke("JoinUserGroup", userId);
                 console.log("Joined notification group for user:", userId);
@@ -180,12 +180,12 @@ class SignalRService {
     // Chat Methods
     async sendMessage(receiverId: string, content: string): Promise<void> {
         if (!this.userId) throw new Error("User not authenticated");
-        
+
         // Debounce message sending
         if (this.lastMessageSentTime && Date.now() - this.lastMessageSentTime < 500) {
             throw new Error("Please wait before sending another message");
         }
-        
+
         this.lastMessageSentTime = Date.now();
 
         try {
@@ -198,11 +198,11 @@ class SignalRService {
 
     async sendMessageWithFile(receiverId: string, content: string, file: File): Promise<void> {
         if (!this.userId) throw new Error("User not authenticated");
-        
+
         if (this.lastMessageSentTime && Date.now() - this.lastMessageSentTime < 500) {
             throw new Error("Please wait before sending another message");
         }
-        
+
         this.lastMessageSentTime = Date.now();
 
         try {
@@ -214,7 +214,7 @@ class SignalRService {
             formData.append('senderId', this.userId);
 
             // Send through regular HTTP endpoint
-            const response = await fetch('http://localhost:5173/api/Messages/send-with-file', {
+            const response = await fetch('https://miajobmanagementsystem.onrender.com/api/Messages/send-with-file', {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -333,7 +333,7 @@ class SignalRService {
     onReceiveNotification(callback: (notification: Notification) => void): void {
         // Remove any existing callback with the same reference to avoid duplicates
         this.removeNotificationCallback(callback);
-        
+
         // Add the new callback
         this.notificationCallbacks.push(callback);
     }
@@ -362,11 +362,11 @@ class SignalRService {
     }
 
     async getConnectedUsersCountToChat(): Promise<number> {
-        if(this.hubConnection.state!== signalR.HubConnectionState.Connected) {
+        if (this.hubConnection.state !== signalR.HubConnectionState.Connected) {
             console.warn("Chat hub not connected, attempting to reconnect...");
             try {
                 await this.hubConnection.start();
-                if(this.userId) {
+                if (this.userId) {
                     await this.hubConnection.invoke("JoinUserGroupToChat", this.userId);
                 }
             } catch (err) {
@@ -383,7 +383,7 @@ class SignalRService {
 
     async sendTestNotification(): Promise<void> {
         if (!this.userId) throw new Error("User not authenticated");
-        
+
         if (this.notificationHubConnection.state !== signalR.HubConnectionState.Connected) {
             console.warn("Notification hub not connected, attempting to reconnect...");
             try {
@@ -394,7 +394,7 @@ class SignalRService {
                 throw new Error("Connection is not established");
             }
         }
-        
+
         await this.notificationHubConnection.invoke("SendTestNotification", this.userId);
     }
 }
