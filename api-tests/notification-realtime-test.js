@@ -32,8 +32,8 @@ function validateEnvironment() {
   }
 
   if (!process.env.NOTIFICATION_URL) {
-    console.warn(chalk.yellow('Warning: NOTIFICATION_URL not defined in .env file. Using http://localhost:8080 as default.'));
-    process.env.NOTIFICATION_URL = 'https://miajobmanagementsystem-1.onrender.com';
+    console.warn(chalk.yellow('Warning: NOTIFICATION_URL not defined in .env file. Using https://miajobmanagementsystem-1-15so.onrender.com as default.'));
+    process.env.NOTIFICATION_URL = 'https://miajobmanagementsystem-1-15so.onrender.com';
   }
   
   console.log(chalk.green(`Using API at: ${process.env.BASE_URL}`));

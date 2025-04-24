@@ -66,7 +66,7 @@ function getRandomNotificationType() {
 // Test senaryosu
 export default function() {
   // API'nın çalıştığı URL'i tanımla
-  const baseUrl = 'https://miajobmanagementsystem-1.onrender.com'; // NotificationAPI'nin çalıştığı port
+  const baseUrl = 'https://miajobmanagementsystem-1-15so.onrender.com'; // NotificationAPI'nin çalıştığı port
   const jobTrackingUrl = 'http://localhost:5193'; // JobTrackingAPI için URL
   
   // Önce oturum açıp token almamız gerekiyor

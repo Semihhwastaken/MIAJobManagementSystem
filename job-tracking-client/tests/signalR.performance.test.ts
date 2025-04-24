@@ -14,7 +14,7 @@ export const options = {
     },
 };
 
-const BASE_URL = 'https://miajobmanagementsystem-1.onrender.com/api/Notifications';
+const BASE_URL = 'https://miajobmanagementsystem-1-15so.onrender.com/api/Notifications';
 const TEST_USER_ID = '67b8581d5a3836f249962d88';
 
 const notificationPayload = {
