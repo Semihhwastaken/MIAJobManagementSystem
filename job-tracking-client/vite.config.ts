@@ -7,6 +7,17 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom', 'react-router-dom'],
+            ui: ['@mui/material', '@emotion/react', '@emotion/styled'],
+            charts: ['chart.js', 'react-chartjs-2', 'recharts']
+          }
+        }
+      }
+    },
   server: {
     port: 5173,
     proxy: {

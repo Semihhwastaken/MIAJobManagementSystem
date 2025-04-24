@@ -16,6 +16,9 @@
     "@rollup/rollup-linux-x64-musl": "4.x",
     "@rollup/rollup-darwin-x64": "4.x"
   },
+  "resolutions": {
+  "rollup": "~4.9.0"
+},
   "overrides": {
     "rollup": "^4.0.0"
   },
