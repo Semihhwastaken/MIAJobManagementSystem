@@ -1,0 +1,77 @@
+services:
+  # JobTrackingAPI Service
+  - type: web
+    name: job-tracking-api
+    runtime: docker
+    region: frankfurt
+    plan: free
+    rootDir: JobTrackingAPI
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://+:80
+      - key: PORT
+        value: 80
+      # MongoDB Atlas connection settings
+      - key: MongoDbSettings__ConnectionString
+        sync: false
+      - key: MongoDbSettings__DatabaseName
+        value: JobTrackingDb
+      # JWT settings
+      - key: JwtSettings__Secret
+        sync: false
+      # Email settings
+      - key: EmailSettings__SmtpServer
+        value: smtp.gmail.com
+      - key: EmailSettings__SmtpPort
+        value: 587
+      - key: EmailSettings__SmtpUsername
+        sync: false
+      - key: EmailSettings__SmtpPassword
+        sync: false
+      # Stripe settings
+      - key: StripeSettings__SecretKey
+        sync: false
+      - key: StripeSettings__PublishableKey
+        sync: false
+      - key: StripeSettings__WebhookSecret
+        sync: false
+      - key: StripeSettings__ProPlanPriceId
+        sync: false      - key: StripeSettings__EnterprisePlanPriceId
+        sync: false # CORS settings
+      - key: ALLOWED_ORIGINS
+        value: https://job-tracking-client-r08ndjm52-lordgrimxs-projects.vercel.app
+
+  # NotificationAPI Service
+  - type: web
+    name: notification-api
+    runtime: docker
+    region: frankfurt
+    plan: free
+    rootDir: NotificationAPI
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://+:80
+      - key: PORT
+        value: 80
+      # MongoDB Atlas connection settings
+      - key: MongoDbSettings__ConnectionString
+        sync: false
+      - key: MongoDbSettings__DatabaseName
+        value: NotificationsDb
+      # JWT settings
+      - key: JwtSettings__Secret
+        sync: false
+      # RabbitMQ settings
+      - key: RabbitMQ__Host
+        sync: false
+      - key: RabbitMQ__Username
+        sync: false
+      - key: RabbitMQ__Password
+        sync: false
+      # Redis settings
+      - key: Redis__ConnectionString
+        sync: false
