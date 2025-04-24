@@ -43,7 +43,6 @@ ENV ASPNETCORE_URLS=http://+:80
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
-# Kullanıcı oluştur ve izinleri ayarla
 RUN groupadd -r dotnetuser && useradd -r -g dotnetuser dotnetuser
 RUN chown -R dotnetuser:dotnetuser /app
 USER dotnetuser
