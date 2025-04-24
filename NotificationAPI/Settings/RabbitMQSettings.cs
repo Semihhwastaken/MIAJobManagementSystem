@@ -2,7 +2,7 @@ namespace NotificationAPI.Settings
 {
     public class RabbitMQSettings
     {
-        public string HostName { get; set; } = "localhost";
+        public string HostName { get; set; } = "amqps://gxbzryiu:ljV6XHPTqib7u7bdHJC8U3WVd9mj1BCh@leopard.lmq.cloudamqp.com/gxbzryiu";
         public string UserName { get; set; } = "guest";
         public string Password { get; set; } = "guest";
         public string NotificationQueueName { get; set; } = "notification_queue";
