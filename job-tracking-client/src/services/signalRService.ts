@@ -28,17 +28,17 @@ class SignalRService {
                 0, 2000, 5000, 10000, 15000, 30000 // More aggressive reconnection strategy
             ])
             .configureLogging(signalR.LogLevel.Information)
-            .build();
-
-        // Notification Hub bağlantısı (NotificationAPI - 8080)
+            .build();        // Notification Hub bağlantısı (NotificationAPI - 8080)
         this.notificationHubConnection = new signalR.HubConnectionBuilder()
-            .withUrl("https://miajobmanagementsystem.onrender.com/notificationHub", {
-                accessTokenFactory: () => localStorage.getItem('token') || ''
+            .withUrl("https://miajobmanagementsystem-semih-1.onrender.com/notificationHub", {
+                accessTokenFactory: () => localStorage.getItem('token') || '',
+                skipNegotiation: true,
+                transport: signalR.HttpTransportType.WebSockets
             })
             .withAutomaticReconnect([
                 0, 2000, 5000, 10000, 15000, 30000 // More aggressive reconnection strategy
             ])
-            .configureLogging(signalR.LogLevel.Warning)
+            .configureLogging(signalR.LogLevel.Information) // Increased logging level to help debug
             .build();
 
         // Chat event listeners

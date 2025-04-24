@@ -43,6 +43,17 @@ ENV ASPNETCORE_URLS=http://+:80
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
+# RabbitMQ bağlantı ayarları için varsayılan değişkenler (override edilebilir)
+ENV RabbitMQ__HostName=localhost
+ENV RabbitMQ__UserName=guest
+ENV RabbitMQ__Password=guest
+ENV RabbitMQ__Port=5672
+ENV RabbitMQ__RetryEnabled=true
+ENV RabbitMQ__MaxRetryAttempts=10
+ENV RabbitMQ__RetryWaitInSeconds=15
+ENV RabbitMQ__AutoRecoveryEnabled=true
+ENV RabbitMQ__NetworkRecoveryIntervalInSeconds=15
+
 RUN groupadd -r dotnetuser && useradd -r -g dotnetuser dotnetuser
 RUN chown -R dotnetuser:dotnetuser /app
 USER dotnetuser
