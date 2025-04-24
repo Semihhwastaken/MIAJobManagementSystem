@@ -1,15 +1,8 @@
 {
     "version": 2,
-    "builds": [
-        {
-            "src": "package.json",
-            "use": "@vercel/node",
-            "config": {
-                "prebuild": "rm -rf node_modules && rm -f package-lock.json && npm install",
-                "installCommand": "npm install --no-optional"
-            }
-        }
-    ],
+    "buildCommand": "npm run vercel-build",
+    "installCommand": "npm install --no-optional",
+    "outputDirectory": "dist",
     "routes": [
         {
             "handle": "filesystem"
