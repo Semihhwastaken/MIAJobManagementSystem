@@ -26,13 +26,13 @@ builder.Services.AddSingleton<IMongoClient>(sp =>
 {
     var settings = builder.Configuration.GetSection("MongoDbSettings").Get<MongoDbSettings>()
         ?? throw new InvalidOperationException("MongoDbSettings configuration is missing.");
-    
+
     var mongoSettings = MongoClientSettings.FromConnectionString(settings.ConnectionString);
     mongoSettings.ServerSelectionTimeout = TimeSpan.FromSeconds(5);
     mongoSettings.ConnectTimeout = TimeSpan.FromSeconds(10);
     mongoSettings.RetryWrites = true;
     mongoSettings.RetryReads = true;
-    
+
     return new MongoClient(mongoSettings);
 });
 
@@ -47,25 +47,21 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
 builder.Services.AddSingleton<INotificationService, NotificationService>();
 builder.Services.AddHostedService<NotificationBackgroundService>();
 
-// CORS politikasını yapılandır
+// Configure CORS policy for dynamic origins
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", builder =>
-        builder.SetIsOriginAllowed(_ => true)
-               .AllowAnyMethod()
-               .AllowAnyHeader()
-               .AllowCredentials());
-});
-
-// Configure CORS
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
+    options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.SetIsOriginAllowed(origin =>
+               {
+                   // Allow Vercel preview deployments, localhost, and the production domain
+                   return origin.EndsWith(".vercel.app") ||
+                          origin.Contains("localhost") ||
+                          origin.EndsWith("miajobmanagement.com");
+               })
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials();
+              .AllowCredentials(); // Important for SignalR
     });
 });
 
@@ -77,7 +73,7 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
     serverOptions.Limits.Http2.MaxStreamsPerConnection = 100;
     serverOptions.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
     serverOptions.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
-    
+
     // Use command line args to set different ports for each instance
     var port = args.Length > 0 ? int.Parse(args[0]) : 8080;
     serverOptions.ListenAnyIP(port);
@@ -138,7 +134,7 @@ builder.Services.AddAuthentication(options =>
         {
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
-            
+
             if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub"))
             {
                 context.Token = accessToken;
@@ -210,33 +206,24 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 // Swagger'ı hem Development hem de Production modunda etkinleştir
 app.UseSwagger();
-app.UseSwaggerUI(c => {
+app.UseSwaggerUI(c =>
+{
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Notification API V1");
-    c.RoutePrefix = "swagger";
+    c.RoutePrefix = "swagger"; // Keep swagger UI at /swagger
 });
 
 app.UseHttpsRedirection();
-app.UseCors("AllowAll");
 
-// Middleware sıralaması önemli
+// Use the specific CORS policy
+app.UseCors("AllowFrontend"); // Apply the dynamic CORS policy
+
 app.UseRateLimiter();
 app.UseResponseCaching();
-app.UseRouting();
-app.UseCors();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Notification API V1");
-        c.RoutePrefix = string.Empty; // Swagger UI'ı root URL'de göster
-    });
-}
+app.UseRouting(); // Routing must come after CORS
 
-app.UseCors();
-app.UseRouting();
+// Authentication & Authorization must come after UseRouting
+app.UseAuthentication(); // Ensure Authentication is added if needed by SignalR/Controllers
 app.UseAuthorization();
 
 app.MapControllers();

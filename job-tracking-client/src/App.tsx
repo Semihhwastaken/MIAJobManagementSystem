@@ -46,7 +46,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    
+
     if (token && storedUser) {
       try {
         const user = JSON.parse(storedUser);
@@ -295,16 +295,21 @@ const AppContent: React.FC = () => {
                 <Route
                   path="/admin"
                   element={
-                    isAuthenticated && user?.role === 'Admin' ? (
-                      (() => {
-                        console.log('User role:', user?.role); // Add this debug log
-                        return <AdminDashboard />;
-                      })()
+                    // Check if the user object exists and the role is Admin
+                    // This ensures we wait for user data to be loaded after authentication
+                    user && user.role === 'Admin' ? (
+                      <AdminDashboard />
                     ) : (
-                      (() => {
-                        console.log('Access denied. Auth:', isAuthenticated, 'Role:', user?.role); // Add this debug log
-                        return <Navigate to="/" replace />;
-                      })()
+                      // If not authenticated or not Admin, redirect
+                      // Log the reason for denial if authenticated but not Admin
+                      isAuthenticated ? (
+                        (() => {
+                          console.log('Access denied to /admin: User is not Admin. Role:', user?.role);
+                          return <Navigate to="/" replace />;
+                        })()
+                      ) : (
+                        <Navigate to="/auth" replace />
+                      )
                     )
                   }
                 />
@@ -368,7 +373,7 @@ const App: React.FC = () => {
     // Initialize auth state from localStorage
     const token = localStorage.getItem('token');
     const userDataStr = localStorage.getItem('user');
-    
+
     if (token && userDataStr) {
       try {
         const userData = JSON.parse(userDataStr);
@@ -398,8 +403,8 @@ const App: React.FC = () => {
     <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID">
       <ThemeProvider>
         <StripeProvider>
-          <SnackbarProvider 
-            maxSnack={3} 
+          <SnackbarProvider
+            maxSnack={3}
             anchorOrigin={{
               vertical: 'top',
               horizontal: 'right',
