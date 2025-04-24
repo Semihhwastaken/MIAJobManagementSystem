@@ -27,15 +27,13 @@ namespace JobTrackingAPI
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-                });
-
-            // CORS politikasını ekle
+                });            // CORS politikasını ekle
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowFrontend",
                     policy =>
                     {
-                        policy.WithOrigins("AllowFrontend") // React uygulamasının çalıştığı port
+                        policy.WithOrigins("https://job-tracking-client-765dk04ie-lordgrimxs-projects.vercel.app")
                               .AllowAnyHeader()
                               .AllowAnyMethod()
                               .AllowCredentials();
