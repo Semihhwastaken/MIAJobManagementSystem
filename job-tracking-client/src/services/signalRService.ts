@@ -21,7 +21,7 @@ class SignalRService {
     private constructor() {
         // Chat Hub bağlantısı (JobTrackingAPI - 5173)
         this.hubConnection = new signalR.HubConnectionBuilder()
-            .withUrl("https://miajobmanagementsystem-3sdx.onrender.com/chatHub", {
+            .withUrl("https://miajobmanagementsystem-wd5a.onrender.com/chatHub", {
                 accessTokenFactory: () => localStorage.getItem('token') || ''
             })
             .withAutomaticReconnect([
@@ -214,7 +214,7 @@ class SignalRService {
             formData.append('senderId', this.userId);
 
             // Send through regular HTTP endpoint
-            const response = await fetch('https://miajobmanagementsystem-3sdx.onrender.com/api/Messages/send-with-file', {
+            const response = await fetch('https://miajobmanagementsystem-wd5a.onrender.com/api/Messages/send-with-file', {
                 method: 'POST',
                 body: formData,
                 headers: {

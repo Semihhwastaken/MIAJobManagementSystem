@@ -262,7 +262,7 @@ const Auth: React.FC = () => {
                 // Registration flow
                 if (!verificationStep) {
                     // Step 1: Initiate registration
-                    const response = await fetch('https://miajobmanagementsystem-3sdx.onrender.com/api/auth/register/initiate', {
+                    const response = await fetch('https://miajobmanagementsystem-wd5a.onrender.com/api/auth/register/initiate', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -295,7 +295,7 @@ const Auth: React.FC = () => {
                     }
                 } else if (verificationStep === 'verify') {
                     // Step 2: Complete registration with verification
-                    const response = await fetch('https://miajobmanagementsystem-3sdx.onrender.com/api/auth/register/verify', {
+                    const response = await fetch('https://miajobmanagementsystem-wd5a.onrender.com/api/auth/register/verify', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -345,7 +345,7 @@ const Auth: React.FC = () => {
             } else {
                 // Login flow
                 try {
-                    const response = await fetch('https://miajobmanagementsystem-3sdx.onrender.com/api/auth/login', {
+                    const response = await fetch('https://miajobmanagementsystem-wd5a.onrender.com/api/auth/login', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -475,7 +475,7 @@ const Auth: React.FC = () => {
 
     const handleGoogleSuccess = async (tokenResponse: { access_token: string }) => {
         try {
-            const response = await axios.post('https://miajobmanagementsystem-3sdx.onrender.com/api/auth/google', {
+            const response = await axios.post('https://miajobmanagementsystem-wd5a.onrender.com/api/auth/google', {
                 token: tokenResponse.access_token
             });
 
