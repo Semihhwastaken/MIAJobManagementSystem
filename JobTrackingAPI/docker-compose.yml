@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  jobtrackingapi:
+    image: jobtrackingapi
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+      - "8081:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      # MongoDB Atlas bağlantı bilgileri
+      - MongoDbSettings__ConnectionString=mongodb+srv://200315055:asker123@mia-ime.9gv81.mongodb.net/JobTrackingDb?retryWrites=true&w=majority
+      - MongoDbSettings__DatabaseName=JobTrackingDb
+      # JWT ve Email ayarları
+      - JwtSettings__Secret=your-256-bit-secret-your-256-bit-secret-your-256-bit-secret
+      - EmailSettings__SmtpServer=smtp.gmail.com
+      - EmailSettings__SmtpPort=587
+      - EmailSettings__SmtpUsername=semih.fener013@gmail.com
+      - EmailSettings__SmtpPassword=kuly mpqf jjsd diag
+      # Stripe ayarları
+      - StripeSettings__SecretKey=sk_test_51R1QTg06r0OrijMDrzwUmKgkZbULAIgQtFIxy3IDOUBP4cgevPhQbE2nVz83dGl12oHBjpFhfwpptYgVQYqP7rZP00bjrNpO5r
+      - StripeSettings__PublishableKey=pk_test_51R1QTg06r0OrijMDMfnWgZmeZ8kFCuCifLWw31qXV5K0AZKNLuqCQCVsS7VbNxdwPiLuGRiGxNjpdrZNWhuOxONp005mdTpF40
+      - StripeSettings__WebhookSecret=whsec_0ca8661c1854fe4c6d9a88143c7b1bb51109f4fe38ae8c3d25620497e1f553c3
+      - StripeSettings__ProPlanPriceId=price_1R1Qko06r0OrijMDKSNF9awG
+      - StripeSettings__EnterprisePlanPriceId=price_1R1Qko06r0OrijMDKSNF9awG
+      # CORS ayarları için
+      - ALLOWED_ORIGINS=http://localhost:5173
+    networks:
+      - app-network
+    restart: always
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
