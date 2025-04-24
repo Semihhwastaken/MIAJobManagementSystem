@@ -41,7 +41,7 @@ services:
         sync: false      - key: StripeSettings__EnterprisePlanPriceId
         sync: false # CORS settings
       - key: ALLOWED_ORIGINS
-        value: https://job-tracking-client-r08ndjm52-lordgrimxs-projects.vercel.app
+        value: https://miaj-ob-management-system-dtx54bi4t-semihhwastakens-projects.vercel.app
 
   # NotificationAPI Service
   - type: web
