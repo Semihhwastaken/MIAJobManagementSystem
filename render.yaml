@@ -38,12 +38,10 @@ services:
       - key: StripeSettings__WebhookSecret
         sync: false
       - key: StripeSettings__ProPlanPriceId
-        sync: false
-      - key: StripeSettings__EnterprisePlanPriceId
-        sync: false
-      # CORS settings
+        sync: false      - key: StripeSettings__EnterprisePlanPriceId
+        sync: false # CORS settings
       - key: ALLOWED_ORIGINS
-        value: https://your-frontend-domain.vercel.app
+        value: https://job-tracking-client-r08ndjm52-lordgrimxs-projects.vercel.app
 
   # NotificationAPI Service
   - type: web
