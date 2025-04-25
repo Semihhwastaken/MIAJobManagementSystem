@@ -1,7 +1,7 @@
 import axiosInstance from './axiosInstance';
 import { Team, TeamMember } from '../types/team';
 
-const API_URL = 'https://miajobmanagementsystem-wd5a.onrender.com/api';
+const API_URL = 'http://miajobmanagementsystem-wd5a.onrender.com/api';
 
 
 const teamService = {

@@ -28,7 +28,7 @@ const initialState: MessageState = {
 export const sendMessage = createAsyncThunk(
     'message/send',
     async ({ senderId, receiverId, content, subject }: { senderId: string; receiverId: string; content: string; subject: string }) => {
-        const response = await axios.post(`https://miajobmanagementsystem-wd5a.onrender.com/Message/send/${senderId}`, {
+        const response = await axios.post(`http://miajobmanagementsystem-wd5a.onrender.com/Message/send/${senderId}`, {
             receiverId,
             content,
             subject
@@ -40,7 +40,7 @@ export const sendMessage = createAsyncThunk(
 export const getUserMessages = createAsyncThunk(
     'message/getUserMessages',
     async (userId: string) => {
-        const response = await axios.get(`https://miajobmanagementsystem-wd5a.onrender.com/Message/user/${userId}`);
+        const response = await axios.get(`http://miajobmanagementsystem-wd5a.onrender.com/Message/user/${userId}`);
         return response.data;
     }
 );
@@ -48,7 +48,7 @@ export const getUserMessages = createAsyncThunk(
 export const markMessageAsRead = createAsyncThunk(
     'message/markAsRead',
     async (messageId: string) => {
-        await axios.put(`https://miajobmanagementsystem-wd5a.onrender.com/Message/read/${messageId}`);
+        await axios.put(`http://miajobmanagementsystem-wd5a.onrender.com/Message/read/${messageId}`);
         return messageId;
     }
 );

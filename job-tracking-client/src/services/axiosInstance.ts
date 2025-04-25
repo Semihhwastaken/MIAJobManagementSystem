@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'https://miajobmanagementsystem-wd5a.onrender.com/api';
+const API_URL = 'http://miajobmanagementsystem-wd5a.onrender.com/api';
 const NOTIFICATION_API_URL = 'https://miajobmanagementsystem-1-15so.onrender.com/api';
 
 const axiosInstance = axios.create({
