@@ -176,22 +176,52 @@ namespace NotificationAPI.Services
         /// Arka plan servisi çalıştırma metodu
         /// </summary>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+{
+    int retryAttempt = 0;
+    const int maxRetries = 10;
+    
+    while (!stoppingToken.IsCancellationRequested && retryAttempt < maxRetries)
+    {
+        try
         {
-            _connection = _connectionFactory.CreateConnection();
-        
-            // Create multiple consumers
-            var tasks = new List<Task>();
-            for (int i = 0; i < _workerCount; i++)
-            {
-                var channel = _connection.CreateModel();
-                channel.BasicQos(0, 50, false); // Prefetch count per consumer
-                _channels.Add(channel);
+            _logger.LogInformation("Attempting to connect to RabbitMQ (attempt {Attempt})...", retryAttempt + 1);
             
-                tasks.Add(StartConsumerAsync(channel, stoppingToken));
-            }
+            // Log the connection parameters (without password)
+            _logger.LogInformation("Connection parameters: Host={Host}, Port={Port}, User={User}", 
+                _rabbitSettings.HostName, _rabbitSettings.Port, _rabbitSettings.UserName);
+                
+            if (await TryConnectAsync())
+            {
+                _logger.LogInformation("Successfully connected to RabbitMQ");
+                _connection = _rabbitConnection;
+                
+                // Start consumers as before
+                var tasks = new List<Task>();
+                for (int i = 0; i < _workerCount; i++)
+                {
+                    var channel = _connection.CreateModel();
+                    channel.BasicQos(0, 50, false);
+                    _channels.Add(channel);
+                    tasks.Add(StartConsumerAsync(channel, stoppingToken));
+                }
 
-            await Task.WhenAll(tasks);
+                await Task.WhenAll(tasks);
+                return; // Exit the method when successfully connected
+            }
+            
+            retryAttempt++;
+            await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), stoppingToken);
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error establishing RabbitMQ connection (attempt {Attempt})", retryAttempt + 1);
+            retryAttempt++;
+            await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), stoppingToken);
+        }
+    }
+    
+    _logger.LogCritical("Failed to connect to RabbitMQ after {MaxRetries} attempts", maxRetries);
+}
 
         private async Task StartConsumerAsync(IModel channel, CancellationToken stoppingToken)
         {
