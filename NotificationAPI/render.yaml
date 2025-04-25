@@ -1,0 +1,62 @@
+services:
+  # Ana NotificationAPI servisi
+  - type: web
+    name: notification-api
+    env: docker
+    plan: starter # İhtiyacınıza göre plan seçebilirsiniz (free, starter, vs.)
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    numInstances: 1 # Başlangıçta 1 instance, ihtiyaç halinde artırılabilir
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: MongoDbSettings__ConnectionString
+        fromDatabase:
+          name: notification-mongodb
+          property: connectionString
+      - key: MongoDbSettings__DatabaseName
+        value: NotificationDb
+      - key: RabbitMQ__HostName
+        fromService:
+          name: notification-rabbitmq
+          type: pserv
+          property: host
+      - key: RabbitMQ__UserName
+        sync: false # Render dashboard'dan manuel olarak ayarlanacak
+      - key: RabbitMQ__Password
+        sync: false # Render dashboard'dan manuel olarak ayarlanacak
+      - key: RabbitMQ__Port
+        value: 5672
+      - key: RabbitMQ__NotificationQueueName
+        value: notifications
+      - key: RabbitMQ__BatchSize
+        value: 100
+      - key: RabbitMQ__ConcurrentConsumers
+        value: 3
+      - key: RabbitMQ__RetryEnabled
+        value: true
+      - key: RabbitMQ__MaxRetryAttempts
+        value: 10
+      - key: RabbitMQ__RetryWaitInSeconds
+        value: 15
+      - key: RabbitMQ__AutoRecoveryEnabled
+        value: true
+
+  # RabbitMQ servisi
+  - type: pserv
+    name: notification-rabbitmq
+    env: docker
+    plan: starter # İhtiyacınıza göre plan seçebilirsiniz
+    dockerfilePath: ./rabbitmq.Dockerfile # Aşağıda oluşturacağız
+    disk:
+      name: rabbitmq-data
+      mountPath: /var/lib/rabbitmq
+      sizeGB: 1
+
+databases:
+  # MongoDB veritabanı
+  - name: notification-mongodb
+    plan: starter # İhtiyacınıza göre plan seçebilirsiniz
+    type: mongodb
+    ipAllowList: [] # Tüm IP adreslerine izin ver (veya kısıtla)
