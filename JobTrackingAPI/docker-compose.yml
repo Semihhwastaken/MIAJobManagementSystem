@@ -11,7 +11,7 @@ services:
       - "8081:443"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ASPNETCORE_URLS=http://+:80;http://+:443
       # MongoDB Atlas bağlantı bilgileri
       - MongoDbSettings__ConnectionString=mongodb+srv://200315055:asker123@mia-ime.9gv81.mongodb.net/JobTrackingDb?retryWrites=true&w=majority
       - MongoDbSettings__DatabaseName=JobTrackingDb
