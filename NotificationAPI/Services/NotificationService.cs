@@ -64,7 +64,7 @@ namespace NotificationAPI.Services
                     HostName = _rabbitSettings.HostName,
                     UserName = _rabbitSettings.UserName,
                     Password = _rabbitSettings.Password,
-                    Port = _rabbitSettings.Port,
+                    Port = -1,
                     VirtualHost = "/",
                 };
 
