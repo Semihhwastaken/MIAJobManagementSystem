@@ -30,7 +30,7 @@ class SignalRService {
             .configureLogging(signalR.LogLevel.Information)
             .build();        // Notification Hub bağlantısı (NotificationAPI - 8080)
         this.notificationHubConnection = new signalR.HubConnectionBuilder()
-            .withUrl("http://miajobmanagementsystem-1-15so.onrender.com/notificationHub", {
+            .withUrl("https://miajobmanagementsystem-1-15so.onrender.com/notificationHub", {
                 accessTokenFactory: () => localStorage.getItem('token') || '',
                 skipNegotiation: true,
                 transport: signalR.HttpTransportType.WebSockets
