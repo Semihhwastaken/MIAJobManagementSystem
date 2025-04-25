@@ -58,8 +58,8 @@ namespace NotificationAPI.Services
                 HostName = _rabbitSettings.HostName,
                 UserName = _rabbitSettings.UserName,
                 Password = _rabbitSettings.Password,
-                Port = -1,
-                VirtualHost = "/",
+                Port = _settings.Port,
+                VirtualHost = _settings.VirtualHost,
                 DispatchConsumersAsync = true
             };
             
@@ -106,7 +106,7 @@ namespace NotificationAPI.Services
                             UserName = _rabbitSettings.UserName,
                             Password = _rabbitSettings.Password,
                             Port = _rabbitSettings.Port,
-                            VirtualHost = "/",
+                            VirtualHost = _rabbitSettings.VirtualHost,
                             DispatchConsumersAsync = true,
                             RequestedHeartbeat = TimeSpan.FromSeconds(60),
                             AutomaticRecoveryEnabled = true,
