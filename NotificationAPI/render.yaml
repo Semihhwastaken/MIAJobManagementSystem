@@ -1,8 +1,16 @@
 services:
+  # Render servisler arası iletişim için özel ağ tanımlayın
+  networks:
+    - name: notification-network
+      type: private
+
   # RabbitMQ servisi - önce tanımlıyoruz ki önce başlasın
   - type: pserv
     name: notification-rabbitmq
     env: docker
+    # RabbitMQ servisini özel ağa ekleyin
+    networks:
+      - name: notification-network
     plan: starter # İhtiyacınıza göre plan seçebilirsiniz
     dockerfilePath: ./rabbitmq.Dockerfile
     disk:
@@ -14,7 +22,6 @@ services:
         value: render_user # Yeni kullanıcı adı
       - key: RABBITMQ_DEFAULT_PASS
         generateValue: true # Render'dan güvenli şifre oluşturmasını isteyin
-
   # Ana NotificationAPI servisi
   - type: web
     name: notification-api
@@ -27,6 +34,9 @@ services:
     # RabbitMQ servisine bağımlılık ekleyelim, böylece önce RabbitMQ başlayacak
     dependsOn:
       - notification-rabbitmq
+    # NotificationAPI'yi de aynı özel ağa ekleyin
+    networks:
+      - name: notification-network
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
