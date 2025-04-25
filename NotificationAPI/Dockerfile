@@ -44,7 +44,7 @@ ENV DOTNET_RUNNING_IN_CONTAINER=true
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 # RabbitMQ bağlantı ayarları için varsayılan değişkenler (override edilebilir)
-ENV RabbitMQ__HostName=localhost
+ENV RabbitMQ__HostName=rabbitmq
 ENV RabbitMQ__UserName=guest
 ENV RabbitMQ__Password=guest
 ENV RabbitMQ__Port=5672
