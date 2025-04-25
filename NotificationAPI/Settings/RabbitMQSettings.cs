@@ -26,6 +26,8 @@ namespace NotificationAPI.Settings
     
     public class SslSettings
     {
-        public bool Enabled { get; set; } = false;
+        public bool Enabled { get; set; } = true;
+        public string ServerName { get; set; } = "";
+        public bool AcceptablePolicyErrors { get; set; } = true;
     }
 }

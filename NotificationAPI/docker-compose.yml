@@ -177,6 +177,11 @@ services:
           cpus: '1.0'
           memory: 1G
 
+  notification-api:
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+      - RabbitMQ__Ssl__Enabled=true
+
 networks:
   notification_network:
     driver: bridge
