@@ -214,7 +214,9 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger"; // Keep swagger UI at /swagger
 });
 
-app.UseHttpsRedirection();
+app.UseHttpsRedirection(options => {
+                options.HttpsPort = 0;
+            });
 
 // Use the specific CORS policy
 app.UseCors("AllowFrontend"); // Apply the dynamic CORS policy
