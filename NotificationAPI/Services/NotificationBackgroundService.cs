@@ -63,9 +63,12 @@ namespace NotificationAPI.Services
                 DispatchConsumersAsync = true,
                 Ssl = new SslOption
                 {
-                    Enabled = true,
+                    Enabled = _rabbitSettings.Ssl?.Enabled ?? false,
                     ServerName = _rabbitSettings.HostName
-                }
+                },
+                RequestedHeartbeat = TimeSpan.FromSeconds(_rabbitSettings.HeartbeatInSeconds),
+                AutomaticRecoveryEnabled = _rabbitSettings.AutoRecoveryEnabled,
+                NetworkRecoveryInterval = TimeSpan.FromSeconds(_rabbitSettings.NetworkRecoveryIntervalInSeconds)
             };
             
             // Yeniden deneme politikası oluştur

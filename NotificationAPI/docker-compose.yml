@@ -29,6 +29,7 @@ services:
       - "8081:80"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
       - MongoDbSettings__ConnectionString=mongodb://mongodb:27017
       - MongoDbSettings__DatabaseName=NotificationDb
       - RabbitMQSettings__HostName=rabbitmq
@@ -38,6 +39,7 @@ services:
       - RabbitMQSettings__NotificationQueueName=notifications
       - RabbitMQSettings__BatchSize=100
       - RabbitMQSettings__ConcurrentConsumers=3
+      - RabbitMQSettings__Ssl__Enabled=false
     depends_on:
       mongodb:
         condition: service_started
@@ -64,6 +66,7 @@ services:
       dockerfile: Dockerfile
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
       - MongoDbSettings__ConnectionString=mongodb://mongodb:27017
       - MongoDbSettings__DatabaseName=NotificationDb
       - RabbitMQSettings__HostName=rabbitmq
@@ -73,6 +76,7 @@ services:
       - RabbitMQSettings__NotificationQueueName=notifications
       - RabbitMQSettings__BatchSize=100
       - RabbitMQSettings__ConcurrentConsumers=3
+      - RabbitMQSettings__Ssl__Enabled=false
     depends_on:
       mongodb:
         condition: service_started
@@ -99,6 +103,7 @@ services:
       dockerfile: Dockerfile
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
       - MongoDbSettings__ConnectionString=mongodb://mongodb:27017
       - MongoDbSettings__DatabaseName=NotificationDb
       - RabbitMQSettings__HostName=rabbitmq
@@ -108,6 +113,7 @@ services:
       - RabbitMQSettings__NotificationQueueName=notifications
       - RabbitMQSettings__BatchSize=100
       - RabbitMQSettings__ConcurrentConsumers=3
+      - RabbitMQSettings__Ssl__Enabled=false
     depends_on:
       mongodb:
         condition: service_started
