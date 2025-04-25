@@ -182,10 +182,13 @@ namespace NotificationAPI.Services
             // Daha uzun bir başlangıç gecikmesi ekleyelim (Render.com'da RabbitMQ'nun başlaması için daha fazla zaman)
             await Task.Delay(TimeSpan.FromSeconds(20), stoppingToken);
 
-            // Burada ConnectionFactory ayarlarına gerek yok çünkü zaten yapılandırıcıda ayarlandılar
+            // Environment değişkenlerini kontrol et - Render.com'da bunlar önceliklidir
+            string envHostName = Environment.GetEnvironmentVariable("RabbitMQ__HostName") ?? _rabbitSettings.HostName;
+            string envUserName = Environment.GetEnvironmentVariable("RabbitMQ__UserName") ?? _rabbitSettings.UserName;
+            string envPassword = Environment.GetEnvironmentVariable("RabbitMQ__Password") ?? _rabbitSettings.Password;
 
-            _logger.LogInformation("RabbitMQ ayarları: HostName={Host}, Port={Port}, UserName={UserName}",
-                _rabbitSettings.HostName, _rabbitSettings.Port, _rabbitSettings.UserName);
+            _logger.LogInformation("RabbitMQ yapılandırması: HostName={Host}, Port={Port}, UserName={UserName}, EnvUserName={EnvUserName}",
+                _rabbitSettings.HostName, _rabbitSettings.Port, _rabbitSettings.UserName, envUserName);
 
             bool connected = false;
             int attempts = 0;
@@ -198,45 +201,72 @@ namespace NotificationAPI.Services
                 {
                     attempts++;
                     _logger.LogInformation("RabbitMQ bağlantısı deneniyor. Deneme: {AttemptCount}/{MaxAttempts}",
-                        attempts, maxAttempts);            // Farklı host adlarını deneyen gelişmiş bağlantı stratejisi
+                        attempts, maxAttempts);
+
+                    // RabbitMQ'ya bağlanmayı dene (yeniden deneme mekanizması ile)
                     await _retryPolicy.ExecuteAsync(async () =>
                     {
                         try
                         {
-                            // Mevcut ayarlarda tanımlı host adını al
-                            var currentHostName = _rabbitSettings.HostName;
-                            _logger.LogInformation("RabbitMQ'ya bağlanmaya çalışılıyor: {Host}:{Port} kullanıcı: {UserName}",
-                                currentHostName, _rabbitSettings.Port, _rabbitSettings.UserName);
-
-                            // Mevcut host adı ile bağlanmayı dene
+                            // Önce çevresel değişkenlerden alınan değerlerle dene
                             try
                             {
-                                _connectionFactory.HostName = currentHostName;
-                                _connection = await Task.Run(() => _connectionFactory.CreateConnection(
-                                    $"notification-api-{_instanceId}-{DateTime.UtcNow.Ticks}"),
-                                    new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
+                                _logger.LogInformation("RabbitMQ'ya ENV değişkenleri ile bağlanmaya çalışılıyor: Host={Host}, UserName={UserName}",
+                                    envHostName, envUserName);
 
-                                _logger.LogInformation("RabbitMQ bağlantısı başarıyla kuruldu. Host: {Host}", currentHostName);
+                                // ConnectionFactory'yi çevre değişkenlerinden alınan değerlerle güncelle
+                                _connectionFactory.HostName = envHostName;
+                                _connectionFactory.UserName = envUserName;
+                                _connectionFactory.Password = envPassword;
+
+                                _connection = await Task.Run(() => _connectionFactory.CreateConnection(
+                                    $"notification-api-env-{_instanceId}-{DateTime.UtcNow.Ticks}"),
+                                    new CancellationTokenSource(TimeSpan.FromSeconds(10)).Token);
+
+                                _logger.LogInformation("RabbitMQ bağlantısı ENV değişkenleri ile başarıyla kuruldu!");
                                 connected = true;
-                                return; // Bağlantı başarılı, diğer alternatifleri denemeye gerek yok
+                                return;
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogWarning("Birincil host {Host} ile bağlantı kurulamadı: {Message}, alternatif adresler deneniyor",
-                                    currentHostName, ex.Message);
+                                _logger.LogWarning("ENV değişkenleri ile bağlantı kurulamadı: {Message}. Alternatif adresler deneniyor...", ex.Message);
                             }
 
-                            // Alternatif 1: Tam Render domain adı ile dene
+                            // Alternatif: Render.com için özel servis adı ve render_user kimlik bilgileri ile dene
                             try
                             {
-                                var altHostName = "notification-rabbitmq.onrender.com";
-                                _logger.LogInformation("Alternatif host deneniyor: {Host}", altHostName);
-                                _connectionFactory.HostName = altHostName;
+                                _logger.LogInformation("Render.com özel yapılandırması deneniyor: notification-rabbitmq / render_user");
+                                _connectionFactory.HostName = "notification-rabbitmq";
+                                _connectionFactory.UserName = "render_user";
+                                // Sabit bir şifre kullanıyorsak:
+                                _connectionFactory.Password = "rabbit_password";
+
                                 _connection = await Task.Run(() => _connectionFactory.CreateConnection(
-                                    $"notification-api-{_instanceId}-{DateTime.UtcNow.Ticks}"),
+                                    $"notification-api-render-{_instanceId}-{DateTime.UtcNow.Ticks}"),
                                     new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
 
-                                _logger.LogInformation("RabbitMQ bağlantısı alternatif host ile başarıyla kuruldu: {Host}", altHostName);
+                                _logger.LogInformation("RabbitMQ bağlantısı Render.com özel yapılandırması ile başarıyla kuruldu!");
+                                connected = true;
+                                return;
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning("Render.com özel yapılandırması ile bağlantı kurulamadı: {Message}", ex.Message);
+                            }
+
+                            // Alternatif: Render.com domain adı ve guest kimlik bilgileri ile dene
+                            try
+                            {
+                                _logger.LogInformation("Alternatif host ve varsayılan kimlik bilgileri deneniyor");
+                                _connectionFactory.HostName = "notification-rabbitmq.onrender.com";
+                                _connectionFactory.UserName = "guest";
+                                _connectionFactory.Password = "guest";
+
+                                _connection = await Task.Run(() => _connectionFactory.CreateConnection(
+                                    $"notification-api-alt-{_instanceId}-{DateTime.UtcNow.Ticks}"),
+                                    new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
+
+                                _logger.LogInformation("RabbitMQ bağlantısı alternatif host ile başarıyla kuruldu!");
                                 connected = true;
                                 return;
                             }
@@ -245,40 +275,20 @@ namespace NotificationAPI.Services
                                 _logger.LogWarning("Alternatif host ile bağlantı kurulamadı: {Message}", ex.Message);
                             }
 
-                            // Alternatif 2: Sadece servis adı 
-                            try
-                            {
-                                var serviceUrl = "notification-rabbitmq";
-                                _logger.LogInformation("Servis adı ile deneniyor: {Host}", serviceUrl);
-                                _connectionFactory.HostName = serviceUrl;
-                                _connection = await Task.Run(() => _connectionFactory.CreateConnection(
-                                    $"notification-api-{_instanceId}-{DateTime.UtcNow.Ticks}"),
-                                    new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
-
-                                _logger.LogInformation("RabbitMQ bağlantısı servis adı ile başarıyla kuruldu: {Host}", serviceUrl);
-                                connected = true;
-                                return;
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogWarning("Servis adı ile bağlantı kurulamadı: {Message}", ex.Message);
-                            }
-
-                            // Son çare: localhost
-                            _logger.LogInformation("Son çare olarak localhost deneniyor");
+                            // Son çare: localhost ve guest kimlik bilgileri
+                            _logger.LogInformation("Son çare olarak localhost ve varsayılan kimlik bilgileri deneniyor");
                             _connectionFactory.HostName = "localhost";
+                            _connectionFactory.UserName = "guest";
+                            _connectionFactory.Password = "guest";
                             _connection = await Task.Run(() => _connectionFactory.CreateConnection(
-                                // Açık bir bağlantı adı ver
-                                $"notification-api-{_instanceId}-{DateTime.UtcNow.Ticks}"), stoppingToken);
+                                $"notification-api-local-{_instanceId}-{DateTime.UtcNow.Ticks}"), stoppingToken);
 
-                            _logger.LogInformation("RabbitMQ bağlantısı localhost ile başarıyla kuruldu. IsOpen: {IsOpen}",
-                                _connection.IsOpen);
-
+                            _logger.LogInformation("RabbitMQ bağlantısı localhost ile başarıyla kuruldu!");
                             connected = true;
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Hiçbir RabbitMQ host adresi ile bağlantı kurulamadı. Tekrar deneniyor...");
+                            _logger.LogError(ex, "Hiçbir RabbitMQ host adresi veya kimlik bilgisi kombinasyonu ile bağlantı kurulamadı. Tekrar deneniyor...");
                             throw; // Retry politikasının tekrar denemesi için hatayı fırlat
                         }
                     });
