@@ -112,7 +112,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       // API çağrısını yap
       try {
-        await fetch('http://localhost:5193/api/auth/logout', {
+        await fetch('https://miajobmanagementsystem.onrender.com/api/auth/logout', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,

@@ -35,7 +35,7 @@ const Auth: React.FC = () => {
 
     try {
       // Login isteği
-      const loginResponse = await fetch('http://localhost:5193/api/auth/login', {
+      const loginResponse = await fetch('https://miajobmanagementsystem.onrender.com/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -63,7 +63,7 @@ const Auth: React.FC = () => {
 
       while (!preloadingComplete && retryCount < maxRetries) {
         try {
-          const checkResponse = await fetch('http://localhost:5193/api/auth/check-preload-status', {
+          const checkResponse = await fetch('https://miajobmanagementsystem.onrender.com/api/auth/check-preload-status', {
             headers: {
               'Authorization': `Bearer ${data.token}`,
             },

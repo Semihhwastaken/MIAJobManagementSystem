@@ -345,7 +345,7 @@ const Auth: React.FC = () => {
             } else {
                 // Login flow
                 try {
-                    const response = await fetch('https://miajobmanagementsystem.onrender.com:80/api/auth/login', {
+                    const response = await fetch('https://miajobmanagementsystem.onrender.com/api/auth/login', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -358,14 +358,12 @@ const Auth: React.FC = () => {
 
                     // response.json()'ı bir kez çağırıp sonucu saklıyoruz
                     const data = await response.json();
-                    console.log('Login Response:', data);
-
-                    if (response.ok) {
+                    console.log('Login Response:', data); if (response.ok) {
                         if (!data.token || !data.user) {
                             throw new Error('Sunucudan geçersiz yanıt formatı alındı');
                         }
                         try {
-                            // Store auth data
+                            // First store all authentication data
                             localStorage.setItem('token', data.token);
                             localStorage.setItem('user', JSON.stringify(data.user));
 
@@ -376,13 +374,22 @@ const Auth: React.FC = () => {
                             // Update authentication context
                             setIsAuthenticated(true);
 
-                            // Initialize SignalR connections
-                            const signalRService = SignalRService.getInstance();
-                            await signalRService.startConnection(data.user.id);
-
-                            // Only navigate if everything is successful
+                            // Show success message first
                             showSuccess('Başarıyla giriş yaptınız.');
+
+                            // Navigate to home page
                             navigate('/');
+
+                            // AFTER navigation, try to establish SignalR connection
+                            // This way if SignalR fails, the user is already logged in
+                            try {
+                                const signalRService = SignalRService.getInstance();
+                                await signalRService.startConnection(data.user.id);
+                                console.log('SignalR connection established successfully');
+                            } catch (signalRError) {
+                                console.error('SignalR bağlantısı kurulamadı:', signalRError);
+                                // Don't affect login state if SignalR fails
+                            }
                         } catch (error) {
                             console.error('Giriş sonrası kurulum sırasında hata:', error);
                             setErrors({ general: 'Giriş sırasında bir hata oluştu. Lütfen tekrar deneyin.' });

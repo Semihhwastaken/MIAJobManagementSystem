@@ -587,9 +587,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                                                         {isImageFile(message.fileAttachment.contentType) ? (
                                                             <Box>
                                                                 <img 
-                                                                    src={`http://localhost:5193/${message.fileAttachment.filePath}`}
+                                                                    src={`https://miajobmanagementsystem.onrender.com/${message.fileAttachment.filePath}`}
                                                                     alt={message.fileAttachment.fileName}
-                                                                    onClick={() => handleImageClick(`http://localhost:5193/${message.fileAttachment?.filePath}`)}
+                                                                    onClick={() => handleImageClick(`https://miajobmanagementsystem.onrender.com/${message.fileAttachment?.filePath}`)}
                                                                     style={{ 
                                                                         maxWidth: '200px', 
                                                                         maxHeight: '200px',
@@ -614,7 +614,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUserId, selectedU
                                                         ) : (
                                                             <Box 
                                                                 className="flex items-center gap-2" 
-                                                                onClick={() => window.open(`http://localhost:5193/${message.fileAttachment?.filePath}`, '_blank')}
+                                                                onClick={() => window.open(`https://miajobmanagementsystem.onrender.com/${message.fileAttachment?.filePath}`, '_blank')}
                                                             >
                                                                 <AttachFileIcon fontSize="small" />
                                                                 <Typography variant="body2">

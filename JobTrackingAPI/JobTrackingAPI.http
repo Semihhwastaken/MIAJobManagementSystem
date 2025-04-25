@@ -1,4 +1,4 @@
-@JobTrackingAPI_HostAddress = http://localhost:5193
+@JobTrackingAPI_HostAddress = https://miajobmanagementsystem.onrender.com
 
 GET {{JobTrackingAPI_HostAddress}}/weatherforecast/
 Accept: application/json
