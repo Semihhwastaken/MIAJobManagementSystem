@@ -44,11 +44,14 @@ ENV DOTNET_RUNNING_IN_CONTAINER=true
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 # RabbitMQ bağlantı ayarları için varsayılan değişkenler (override edilebilir)
-ENV RabbitMQ__HostName=localhost
+# 'localhost' yerine servis adını kullanıyoruz, çünkü Render'da bu şekilde çalışır
+ENV RabbitMQ__HostName=notification-rabbitmq
 ENV RabbitMQ__UserName=guest
 ENV RabbitMQ__Password=guest
 ENV RabbitMQ__Port=5672
 ENV RabbitMQ__RetryEnabled=true
+ENV RabbitMQ__ConnectionRetryCount=10
+ENV RabbitMQ__ConnectionRetryDelayMs=5000
 ENV RabbitMQ__MaxRetryAttempts=10
 ENV RabbitMQ__RetryWaitInSeconds=15
 ENV RabbitMQ__AutoRecoveryEnabled=true

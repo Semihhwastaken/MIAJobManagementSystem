@@ -4,13 +4,20 @@ FROM rabbitmq:3-management
 RUN rabbitmq-plugins enable --offline rabbitmq_management rabbitmq_prometheus
 
 # Sağlık kontrolü için bekletme süresi ayarları
-ENV RABBITMQ_PID_FILE /var/lib/rabbitmq/mnesia/rabbitmq
+ENV RABBITMQ_PID_FILE=/var/lib/rabbitmq/mnesia/rabbitmq
 
-# Önerilen yapılandırma ayarları - Render'ın kaynak sınırlarına uygun
-ENV RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS="-rabbit tcp_listeners [5672] -rabbit vm_memory_high_watermark 0.6 -rabbit disk_free_limit 1073741824"
+# Render'da servisler arası iletişim için gerekli yapılandırmalar
+ENV RABBITMQ_DEFAULT_USER=guest
+ENV RABBITMQ_DEFAULT_PASS=guest
+# Tüm arabirimlerden bağlantıları kabul et
+ENV RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS="-rabbit tcp_listeners [5672] -rabbit loopback_users [] -rabbit vm_memory_high_watermark 0.6 -rabbit disk_free_limit 1073741824"
 
-# Sağlık kontrolü
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=5 \
+# Yapılandırma dosyasını oluştur
+RUN mkdir -p /etc/rabbitmq
+RUN echo '[{rabbit, [{loopback_users, []}]}].' > /etc/rabbitmq/rabbitmq.config
+
+# Sağlık kontrolü - daha liberal bir timeout ile
+HEALTHCHECK --interval=30s --timeout=20s --start-period=60s --retries=5 \
     CMD rabbitmq-diagnostics -q ping
 
 EXPOSE 5672 15672
