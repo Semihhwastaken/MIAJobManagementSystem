@@ -31,8 +31,7 @@ namespace NotificationAPI.Services
         private int _retryCount = 0;
         private const int MaxRetryCount = 10;
         private readonly AsyncRetryPolicy _retryPolicy;
-        private readonly SemaphoreSlim _connectionLock = new SemaphoreSlim(1, 1);
-        private readonly IConnectionFactory _connectionFactory;
+        private readonly SemaphoreSlim _connectionLock = new SemaphoreSlim(1, 1); private readonly ConnectionFactory _connectionFactory;
         private readonly int _workerCount = 2; // Reduced from 4 to 2 workers per instance
         private readonly List<IModel> _channels = new();
         private IConnection? _connection;
@@ -51,15 +50,17 @@ namespace NotificationAPI.Services
             _notifications = database.GetCollection<Notification>("Notifications");
             _hubContext = hubContext;
             _logger = logger;
-            _consumerChannels = new List<IModel>();
-
+            _consumerChannels = new List<IModel>();            // RabbitMQ bağlantı fabrikası - tüm parametrelerle oluştur
             _connectionFactory = new ConnectionFactory
             {
                 HostName = _rabbitSettings.HostName,
                 UserName = _rabbitSettings.UserName,
                 Password = _rabbitSettings.Password,
                 Port = _rabbitSettings.Port,
-                DispatchConsumersAsync = true
+                DispatchConsumersAsync = true,
+                RequestedHeartbeat = TimeSpan.FromSeconds(_rabbitSettings.HeartbeatInSeconds),
+                AutomaticRecoveryEnabled = _rabbitSettings.AutoRecoveryEnabled,
+                NetworkRecoveryInterval = TimeSpan.FromSeconds(_rabbitSettings.NetworkRecoveryIntervalInSeconds)
             };
 
             // Yeniden deneme politikası oluştur
@@ -175,7 +176,13 @@ namespace NotificationAPI.Services
                  /// </summary>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("NotificationBackgroundService başlatılıyor...");
+            _logger.LogInformation("NotificationBackgroundService başlatılıyor..."); _logger.LogInformation("NotificationBackgroundService RabbitMQ'ya bağlanmaya hazırlanıyor...");            // Daha uzun bir başlangıç gecikmesi ekleyelim (Render.com'da RabbitMQ'nun başlaması için daha fazla zaman)
+            await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+
+            // Burada ConnectionFactory ayarlarına gerek yok çünkü zaten yapılandırıcıda ayarlandılar
+
+            _logger.LogInformation("RabbitMQ ayarları: HostName={Host}, Port={Port}, UserName={UserName}",
+                _rabbitSettings.HostName, _rabbitSettings.Port, _rabbitSettings.UserName);
 
             // RabbitMQ'ya bağlanmayı dene (yeniden deneme mekanizması ile)
             await _retryPolicy.ExecuteAsync(async () =>
@@ -185,13 +192,16 @@ namespace NotificationAPI.Services
                     _logger.LogInformation("RabbitMQ'ya bağlanmaya çalışılıyor: {Host}:{Port}", _rabbitSettings.HostName, _rabbitSettings.Port);
 
                     // Bağlantı kurmayı dene
-                    _connection = await Task.Run(() => _connectionFactory.CreateConnection(), stoppingToken);
+                    _connection = await Task.Run(() => _connectionFactory.CreateConnection(
+                        // Açık bir bağlantı adı ver
+                        $"notification-api-{_instanceId}-{DateTime.UtcNow.Ticks}"), stoppingToken);
 
-                    _logger.LogInformation("RabbitMQ bağlantısı başarıyla kuruldu");
+                    _logger.LogInformation("RabbitMQ bağlantısı başarıyla kuruldu. IsOpen: {IsOpen}", _connection.IsOpen);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "RabbitMQ bağlantısı kurulamadı. Tekrar deneniyor...");
+                    _logger.LogError(ex, "RabbitMQ bağlantısı kurulamadı. Host: {Host}, Port: {Port}, UserName: {UserName}. Tekrar deneniyor...",
+                        _rabbitSettings.HostName, _rabbitSettings.Port, _rabbitSettings.UserName);
                     throw; // Retry politikasının tekrar denemesi için hatayı fırlat
                 }
             });

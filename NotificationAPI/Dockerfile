@@ -3,8 +3,8 @@ WORKDIR /app
 EXPOSE 80
 EXPOSE 443
 
-# Sağlık kontrolü için curl yükle
-RUN apt-get update && apt-get install -y curl && \
+# Sağlık kontrolü ve RabbitMQ bağlantı kontrolü için gerekli araçları yükle
+RUN apt-get update && apt-get install -y curl netcat-openbsd && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
@@ -33,6 +33,8 @@ RUN dotnet publish "NotificationAPI.csproj" -c Release -o /app/publish /p:UseApp
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
 
 # Sağlık kontrolü
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
@@ -43,22 +45,13 @@ ENV ASPNETCORE_URLS=http://+:80
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
-# RabbitMQ bağlantı ayarları için varsayılan değişkenler (override edilebilir)
-# 'localhost' yerine servis adını kullanıyoruz, çünkü Render'da bu şekilde çalışır
+# RabbitMQ bağlantı ayarları için varsayılan değişkenler
 ENV RabbitMQ__HostName=notification-rabbitmq
-ENV RabbitMQ__UserName=guest
-ENV RabbitMQ__Password=guest
+ENV RabbitMQ__UserName=render_user
+ENV RabbitMQ__Password=rabbit_password
 ENV RabbitMQ__Port=5672
-ENV RabbitMQ__RetryEnabled=true
 ENV RabbitMQ__ConnectionRetryCount=10
-ENV RabbitMQ__ConnectionRetryDelayMs=5000
-ENV RabbitMQ__MaxRetryAttempts=10
-ENV RabbitMQ__RetryWaitInSeconds=15
-ENV RabbitMQ__AutoRecoveryEnabled=true
-ENV RabbitMQ__NetworkRecoveryIntervalInSeconds=15
+ENV RabbitMQ__ConnectionRetryDelaySeconds=5
 
-RUN groupadd -r dotnetuser && useradd -r -g dotnetuser dotnetuser
-RUN chown -R dotnetuser:dotnetuser /app
-USER dotnetuser
-
-ENTRYPOINT ["dotnet", "NotificationAPI.dll"]
+# Başlangıç komutunu değiştir
+ENTRYPOINT ["/app/start.sh"]

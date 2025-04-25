@@ -78,10 +78,10 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
     // Render.com PORT çevresel değişkenini kullan, düşerse varsayılan 5000
     string? portEnv = Environment.GetEnvironmentVariable("PORT");
     int port = portEnv != null ? int.Parse(portEnv) : 5000;
-    
+
     // Log port bilgisini
     Console.WriteLine($"Starting server on port: {port}");
-    
+
     serverOptions.ListenAnyIP(port);
 });
 

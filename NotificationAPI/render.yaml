@@ -14,7 +14,7 @@ services:
         value: render_user # Yeni kullanıcı adı
       - key: RABBITMQ_DEFAULT_PASS
         generateValue: true # Render'dan güvenli şifre oluşturmasını isteyin
-      
+
   # Ana NotificationAPI servisi
   - type: web
     name: notification-api
