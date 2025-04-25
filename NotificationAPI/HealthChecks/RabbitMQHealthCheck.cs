@@ -42,6 +42,7 @@ namespace NotificationAPI.HealthChecks
                             UserName = _settings.UserName,
                             Password = _settings.Password,
                             Port = _settings.Port,
+                            VirtualHost = "/",
                             RequestedConnectionTimeout = TimeSpan.FromSeconds(3)
                         };
                         
