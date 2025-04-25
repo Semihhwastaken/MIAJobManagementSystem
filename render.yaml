@@ -38,8 +38,10 @@ services:
       - key: StripeSettings__WebhookSecret
         sync: false
       - key: StripeSettings__ProPlanPriceId
-        sync: false      - key: StripeSettings__EnterprisePlanPriceId
-        sync: false # CORS settings
+        sync: false
+      - key: StripeSettings__EnterprisePlanPriceId
+        sync: false
+      # CORS settings
       - key: ALLOWED_ORIGINS
         value: https://miaj-ob-management-system-dtx54bi4t-semihhwastakens-projects.vercel.app
 
@@ -67,11 +69,17 @@ services:
         sync: false
       # RabbitMQ settings
       - key: RabbitMQ__Host
-        sync: false
+        value: rabbitmq
       - key: RabbitMQ__Username
-        sync: false
+        value: guest
       - key: RabbitMQ__Password
-        sync: false
+        value: guest
       # Redis settings
       - key: Redis__ConnectionString
         sync: false
+
+  # RabbitMQ Service
+  - type: redis
+    name: rabbitmq
+    plan: free
+    region: frankfurt
