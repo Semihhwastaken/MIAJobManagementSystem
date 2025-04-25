@@ -46,7 +46,7 @@ namespace NotificationAPI.HealthChecks
     AutomaticRecoveryEnabled = true,
     NetworkRecoveryInterval = TimeSpan.FromSeconds(10),
                             VirtualHost = "/",
-                            RequestedConnectionTimeout = TimeSpan.FromSeconds(3)
+                            
                         };
                         
                         using var connection = factory.CreateConnection();
