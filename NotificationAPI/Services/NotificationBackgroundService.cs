@@ -243,14 +243,14 @@ namespace NotificationAPI.Services
                 try
                 {
                     // First try to declare passively (check if exists)
-                    channel.QueueDeclarePassive("notifications");
+                    channel.QueueDeclarePassive(_rabbitSettings.NotificationQueueName);
                     _logger.LogInformation("Queue 'notifications' already exists, using existing queue");
                 }
                 catch (Exception)
                 {
                     // If it doesn't exist, create it with our settings
                     _logger.LogInformation("Queue 'notifications' doesn't exist, creating it");
-                    channel.QueueDeclare("notifications", 
+                    channel.QueueDeclare(_rabbitSettings.NotificationQueueName, 
                         durable: true,
                         exclusive: false,
                         autoDelete: false,
