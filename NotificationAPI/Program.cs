@@ -66,7 +66,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// URL yapılandırmasını ekle
+// URL yapılandırmasını ekle - Render.com için düzenlendi
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
     serverOptions.Limits.MaxConcurrentConnections = 1000;
@@ -75,13 +75,18 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
     serverOptions.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
     serverOptions.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
 
-    // Use command line args to set different ports for each instance
-    var port = args.Length > 0 ? int.Parse(args[0]) : 8080;
+    // Render.com PORT çevresel değişkenini kullan, düşerse varsayılan 5000
+    string? portEnv = Environment.GetEnvironmentVariable("PORT");
+    int port = portEnv != null ? int.Parse(portEnv) : 5000;
+    
+    // Log port bilgisini
+    Console.WriteLine($"Starting server on port: {port}");
+    
     serverOptions.ListenAnyIP(port);
 });
 
-// Remove any hardcoded UseUrls() calls
-builder.WebHost.UseUrls();
+// UseUrls'i kaldırarak Kestrel yapılandırmasına öncelik ver
+// builder.WebHost.UseUrls();
 
 // SignalR ve diğer servisler
 builder.Services.AddSignalR(options =>

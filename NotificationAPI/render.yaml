@@ -1,4 +1,20 @@
 services:
+  # RabbitMQ servisi - önce tanımlıyoruz ki önce başlasın
+  - type: pserv
+    name: notification-rabbitmq
+    env: docker
+    plan: starter # İhtiyacınıza göre plan seçebilirsiniz
+    dockerfilePath: ./rabbitmq.Dockerfile
+    disk:
+      name: rabbitmq-data
+      mountPath: /var/lib/rabbitmq
+      sizeGB: 1
+    envVars:
+      - key: RABBITMQ_DEFAULT_USER
+        value: render_user # Yeni kullanıcı adı
+      - key: RABBITMQ_DEFAULT_PASS
+        generateValue: true # Render'dan güvenli şifre oluşturmasını isteyin
+      
   # Ana NotificationAPI servisi
   - type: web
     name: notification-api
@@ -8,6 +24,9 @@ services:
     dockerContext: .
     numInstances: 1 # Başlangıçta 1 instance, ihtiyaç halinde artırılabilir
     healthCheckPath: /health
+    # RabbitMQ servisine bağımlılık ekleyelim, böylece önce RabbitMQ başlayacak
+    dependsOn:
+      - notification-rabbitmq
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
