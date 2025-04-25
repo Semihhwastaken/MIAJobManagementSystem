@@ -52,7 +52,7 @@ namespace NotificationAPI.Services
             _hubContext = hubContext;
             _logger = logger;
             _consumerChannels = new List<IModel>();
-            
+
             _connectionFactory = new ConnectionFactory
             {
                 HostName = _rabbitSettings.HostName,
@@ -61,7 +61,7 @@ namespace NotificationAPI.Services
                 Port = _rabbitSettings.Port,
                 DispatchConsumersAsync = true
             };
-            
+
             // Yeniden deneme politikası oluştur
             _retryPolicy = Policy
                 .Handle<BrokerUnreachableException>()
@@ -85,16 +85,16 @@ namespace NotificationAPI.Services
         {
             // Eş zamanlı bağlantı denemelerini önlemek için kilit mekanizması
             await _connectionLock.WaitAsync();
-            
+
             try
             {
                 if (_isConnected)
                 {
                     return true;
                 }
-                
+
                 _logger.LogInformation("RabbitMQ bağlantısı kuruluyor... Deneme: {RetryCount}", _retryCount + 1);
-                
+
                 return await _retryPolicy.ExecuteAsync(async () =>
                 {
                     try
@@ -113,9 +113,9 @@ namespace NotificationAPI.Services
 
                         _rabbitConnection = await Task.Run(() => factory.CreateConnection());
                         _rabbitConnection.ConnectionShutdown += RabbitMQ_ConnectionShutdown;
-                        
+
                         _channel = _rabbitConnection.CreateModel();
-                        
+
                         _channel.QueueDeclare(
                             queue: _rabbitSettings.NotificationQueueName,
                             durable: true,
@@ -128,7 +128,7 @@ namespace NotificationAPI.Services
                             prefetchSize: 0,
                             prefetchCount: (ushort)_rabbitSettings.BatchSize,
                             global: false);
-                        
+
                         _isConnected = true;
                         _retryCount = 0;
                         _logger.LogInformation("RabbitMQ bağlantısı başarıyla kuruldu");
@@ -137,15 +137,15 @@ namespace NotificationAPI.Services
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "RabbitMQ bağlantısı kurulamadı. Deneme: {RetryCount}", _retryCount + 1);
-                        
+
                         _retryCount++;
-                        
+
                         if (_retryCount >= MaxRetryCount)
                         {
                             _logger.LogCritical("Maksimum deneme sayısına ulaşıldı. RabbitMQ bağlantısı kurulamadı.");
                             return false;
                         }
-                        
+
                         throw; // Retry politikasının yeniden denemesi için hatayı fırlat
                     }
                 });
@@ -155,7 +155,7 @@ namespace NotificationAPI.Services
                 _connectionLock.Release();
             }
         }
-        
+
         /// <summary>
         /// RabbitMQ bağlantısı kapandığında tetiklenen olay
         /// </summary>
@@ -163,30 +163,54 @@ namespace NotificationAPI.Services
         {
             _logger.LogWarning("RabbitMQ bağlantısı kapandı: {Reason}", e.ReplyText);
             _isConnected = false;
-            
+
             // Bağlantı kapandığında yeniden bağlanmayı dene
             Task.Run(async () =>
             {
                 await Task.Delay(5000); // Kısa bir bekleme süresi
                 await TryConnectAsync();
             });
-        }
-
-        /// <summary>
-        /// Arka plan servisi çalıştırma metodu
-        /// </summary>
+        }        /// <summary>
+                 /// Arka plan servisi çalıştırma metodu
+                 /// </summary>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _connection = _connectionFactory.CreateConnection();
-        
-            // Create multiple consumers
+            _logger.LogInformation("NotificationBackgroundService başlatılıyor...");
+
+            // RabbitMQ'ya bağlanmayı dene (yeniden deneme mekanizması ile)
+            await _retryPolicy.ExecuteAsync(async () =>
+            {
+                try
+                {
+                    _logger.LogInformation("RabbitMQ'ya bağlanmaya çalışılıyor: {Host}:{Port}", _rabbitSettings.HostName, _rabbitSettings.Port);
+
+                    // Bağlantı kurmayı dene
+                    _connection = await Task.Run(() => _connectionFactory.CreateConnection(), stoppingToken);
+
+                    _logger.LogInformation("RabbitMQ bağlantısı başarıyla kuruldu");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "RabbitMQ bağlantısı kurulamadı. Tekrar deneniyor...");
+                    throw; // Retry politikasının tekrar denemesi için hatayı fırlat
+                }
+            });
+
+            if (_connection == null || !_connection.IsOpen)
+            {
+                _logger.LogCritical("RabbitMQ bağlantısı kurulamadı. Servis başlatılamıyor.");
+                return;
+            }
+
+            // Başarılı bağlantı sonrası tüketici kanalları oluştur
             var tasks = new List<Task>();
             for (int i = 0; i < _workerCount; i++)
             {
                 var channel = _connection.CreateModel();
                 channel.BasicQos(0, 50, false); // Prefetch count per consumer
                 _channels.Add(channel);
-            
+
+                _logger.LogInformation("{Index}. kanal oluşturuldu", i + 1);
                 tasks.Add(StartConsumerAsync(channel, stoppingToken));
             }
 
@@ -198,7 +222,7 @@ namespace NotificationAPI.Services
             try
             {
                 _logger.LogInformation("Starting consumer for instance {InstanceId}", _instanceId);
-                
+
                 // Configure queue with proper settings - use passive declare to avoid conflicts
                 try
                 {
@@ -210,7 +234,7 @@ namespace NotificationAPI.Services
                 {
                     // If it doesn't exist, create it with our settings
                     _logger.LogInformation("Queue 'notifications' doesn't exist, creating it");
-                    channel.QueueDeclare("notifications", 
+                    channel.QueueDeclare("notifications",
                         durable: true,
                         exclusive: false,
                         autoDelete: false,
@@ -240,7 +264,7 @@ namespace NotificationAPI.Services
 
                 // Use instance ID in consumer tag to make it unique
                 string consumerTag = $"consumer_{_instanceId}_{Guid.NewGuid().ToString().Substring(0, 4)}";
-                
+
                 channel.BasicConsume(
                     queue: "notifications",
                     autoAck: false,
@@ -273,7 +297,7 @@ namespace NotificationAPI.Services
                 channel.Close();
                 channel.Dispose();
             }
-        
+
             if (_connection != null && _connection.IsOpen)
             {
                 _connection.Close();
@@ -332,13 +356,13 @@ namespace NotificationAPI.Services
                     _channel.Close();
                     _channel.Dispose();
                 }
-                
+
                 if (_rabbitConnection?.IsOpen == true)
                 {
                     _rabbitConnection.Close();
                     _rabbitConnection.Dispose();
                 }
-                
+
                 _connectionLock.Dispose();
             }
             catch (Exception ex)
