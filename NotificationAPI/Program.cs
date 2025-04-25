@@ -75,12 +75,12 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
     serverOptions.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
 
     // Use command line args to set different ports for each instance
-    var port = args.Length > 0 ? int.Parse(args[0]) : 80;
+    var port = args.Length > 0 ? int.Parse(args[0]) : 8080;
     serverOptions.ListenAnyIP(port, configure => configure.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1AndHttp2);
 });
 
 // Explicitly set URLs to HTTP only
-var urls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "http://*:80";
+var urls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "http://*:8080";
 builder.WebHost.UseUrls(urls);
 
 // SignalR ve diğer servisler

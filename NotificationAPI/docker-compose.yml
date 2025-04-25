@@ -161,8 +161,8 @@ services:
       - "5672:5672"   # AMQP port
       - "15672:15672" # Management UI port
     environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_DEFAULT_USER=klbjeudj
+      - RABBITMQ_DEFAULT_PASS=OxlhmBk1IbSmQbfchS8v-770q4Fd-vfI
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
