@@ -44,9 +44,10 @@ ENV DOTNET_RUNNING_IN_CONTAINER=true
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 # RabbitMQ bağlantı ayarları için varsayılan değişkenler (override edilebilir)
-ENV RabbitMQ__HostName=rabbitmq
-ENV RabbitMQ__UserName=guest
-ENV RabbitMQ__Password=guest
+ENV RabbitMQ__HostName=chimpanzee.rmq.cloudamqp.com
+ENV RabbitMQ__UserName=klbjeudj
+ENV RabbitMQ__Password=OxlhmBk1IbSmQbfchS8v-770q4Fd-vfI
+ENV RabbitMQ__VirtualHost=/klbjeudj
 ENV RabbitMQ__Port=5672
 ENV RabbitMQ__RetryEnabled=true
 ENV RabbitMQ__MaxRetryAttempts=10

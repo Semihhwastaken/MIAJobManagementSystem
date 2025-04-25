@@ -69,11 +69,15 @@ services:
         sync: false
       # RabbitMQ settings
       - key: RabbitMQ__Host
-        value: rabbitmq
+        value: chimpanzee.rmq.cloudamqp.com
       - key: RabbitMQ__Username
-        value: guest
+        value: klbjeudj
       - key: RabbitMQ__Password
-        value: guest
+        value: OxlhmBk1IbSmQbfchS8v-770q4Fd-vfI
+      - key: RabbitMQ__Port
+        value: 5672
+      - key: RabbitMQ__VirtualHost
+        value: /klbjeudj
       # Redis settings
       - key: Redis__ConnectionString
         sync: false
