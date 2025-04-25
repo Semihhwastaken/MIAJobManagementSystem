@@ -75,12 +75,12 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
     serverOptions.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
 
     // Use command line args to set different ports for each instance
-    var port = args.Length > 0 ? int.Parse(args[0]) : 8080;
+    var port = args.Length > 0 ? int.Parse(args[0]) : 80;
     serverOptions.ListenAnyIP(port, configure => configure.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1AndHttp2);
 });
 
 // Explicitly set URLs to HTTP only
-var urls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "http://*:8080";
+var urls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "http://*:80";
 builder.WebHost.UseUrls(urls);
 
 // SignalR ve diğer servisler
@@ -214,9 +214,7 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger"; // Keep swagger UI at /swagger
 });
 
-app.UseHttpsRedirection(options => {
-                options.HttpsPort = 0;
-            });
+
 
 // Use the specific CORS policy
 app.UseCors("AllowFrontend"); // Apply the dynamic CORS policy

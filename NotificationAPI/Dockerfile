@@ -18,7 +18,7 @@ RUN dotnet restore "NotificationAPI.csproj"
 # Tüm paketleri ekle
 RUN dotnet add package RabbitMQ.Client --version 6.5.0
 RUN dotnet add package Polly --version 8.3.0
-RUN dotnet add package Serilog.AspNetCore --version 9.0.0
+RUN dotnet add package Serilog.AspNetCore --version 8.0.0
 RUN dotnet add package Serilog.Sinks.Console --version 5.0.1
 RUN dotnet add package Serilog.Sinks.File --version 5.0.0
 RUN dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer --version 8.0.10
