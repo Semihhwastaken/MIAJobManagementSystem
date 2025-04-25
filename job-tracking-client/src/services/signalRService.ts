@@ -30,15 +30,15 @@ class SignalRService {
             .configureLogging(signalR.LogLevel.Information)
             .build();        // Notification Hub bağlantısı (NotificationAPI - 8080)
         this.notificationHubConnection = new signalR.HubConnectionBuilder()
-            .withUrl("https://miajobmanagementsystem-semih-1.onrender.com/notificationHub", {
+            .withUrl("https://miajobmanagementsystem-1.onrender.com/notificationHub", {
                 accessTokenFactory: () => localStorage.getItem('token') || '',
-                skipNegotiation: true,
-                transport: signalR.HttpTransportType.WebSockets
+                skipNegotiation: false, // Allow negotiation to support fallback transports
+                transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling // Enable fallback to long polling
             })
             .withAutomaticReconnect([
-                0, 2000, 5000, 10000, 15000, 30000 // More aggressive reconnection strategy
+                0, 1000, 2000, 5000, 10000, 15000, 30000 // More aggressive reconnection strategy
             ])
-            .configureLogging(signalR.LogLevel.Information) // Increased logging level to help debug
+            .configureLogging(signalR.LogLevel.Debug) // Increased logging level to help debug
             .build();
 
         // Chat event listeners
@@ -134,24 +134,35 @@ class SignalRService {
     async startConnection(userId: string): Promise<void> {
         try {
             this.userId = userId;
+            console.log("Starting SignalR connections for user:", userId);
 
             // Start Chat Hub connection
             if (this.hubConnection.state === signalR.HubConnectionState.Disconnected) {
+                console.log("Attempting to connect to Chat Hub...");
                 await this.hubConnection.start();
-                console.log("Chat Hub connection started with userId: ", userId, "with url: ", this.hubConnection.baseUrl);
+                console.log("Chat Hub connection started with userId:", userId, "url:", this.hubConnection.baseUrl);
             }
 
-            // Start Notification Hub connection
+            // Start Notification Hub connection with better error handling
             if (this.notificationHubConnection.state === signalR.HubConnectionState.Disconnected) {
-                await this.notificationHubConnection.start();
-                console.log("Notification Hub connection started with userId: ", userId, "with url: ", this.notificationHubConnection.baseUrl);
+                console.log("Attempting to connect to Notification Hub...");
+                try {
+                    await this.notificationHubConnection.start();
+                    console.log("Notification Hub connection started with userId:", userId, "url:", this.notificationHubConnection.baseUrl);
 
-                // Explicitly join the user's group for notifications
-                await this.notificationHubConnection.invoke("JoinUserGroup", userId);
-                console.log("Joined notification group for user:", userId);
+                    // Explicitly join the user's group for notifications
+                    console.log("Joining notification group for user:", userId);
+                    await this.notificationHubConnection.invoke("JoinUserGroup", userId);
+                    console.log("Successfully joined notification group for user:", userId);
+                } catch (notificationError) {
+                    console.error("Failed to connect to Notification Hub:", notificationError);
+                    // Attempt reconnection but don't block the application
+                    this.setupReconnection();
+                    // Don't throw the error - allow the chat hub to work even if notification hub fails
+                }
             }
         } catch (err) {
-            console.error("Error while establishing connection: ", err);
+            console.error("Error while establishing connection:", err);
             this.setupReconnection();
             throw err;
         }
