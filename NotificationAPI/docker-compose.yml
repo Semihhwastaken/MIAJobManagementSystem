@@ -1,4 +1,4 @@
-version: '3.8'
+
 
 services:
   nginx:
@@ -35,7 +35,7 @@ services:
       - RabbitMQSettings__HostName=chimpanzee.rmq.cloudamqp.com
       - RabbitMQSettings__UserName=klbjeudj
       - RabbitMQSettings__Password=OxlhmBk1IbSmQbfchS8v-770q4Fd-vfI
-      - RabbitMQSettings__VirtualHost=/klbjeudj
+      - RabbitMQSettings__VirtualHost=klbjeudj
       - RabbitMQSettings__Port=5672
       - RabbitMQSettings__NotificationQueueName=notifications
       - RabbitMQSettings__BatchSize=100
@@ -74,7 +74,7 @@ services:
       - RabbitMQSettings__UserName=klbjeudj
       - RabbitMQSettings__Password=OxlhmBk1IbSmQbfchS8v-770q4Fd-vfI
       - RabbitMQSettings__Port=5672
-      - RabbitMQSettings__VirtualHost=/klbjeudj
+      - RabbitMQSettings__VirtualHost=klbjeudj
       - RabbitMQSettings__NotificationQueueName=notifications
       - RabbitMQSettings__BatchSize=100
       - RabbitMQSettings__ConcurrentConsumers=3
@@ -112,7 +112,7 @@ services:
       - RabbitMQSettings__UserName=klbjeudj
       - RabbitMQSettings__Password=OxlhmBk1IbSmQbfchS8v-770q4Fd-vfI
       - RabbitMQSettings__Port=5672
-      - RabbitMQSettings__VirtualHost=/klbjeudj
+      - RabbitMQSettings__VirtualHost=klbjeudj
       - RabbitMQSettings__NotificationQueueName=notifications
       - RabbitMQSettings__BatchSize=100
       - RabbitMQSettings__ConcurrentConsumers=3
@@ -181,9 +181,17 @@ services:
           memory: 1G
 
   notification-api:
+    build:
+      context: .
+      dockerfile: Dockerfile  # Dockerfile'ın bulunduğu yer
     environment:
       - ASPNETCORE_URLS=http://+:8080
       - RabbitMQ__Ssl__Enabled=true
+    ports:
+      - "8084:8080"  # Port çakışmasını önlemek için güncellendi
+    networks:
+      - notification_network
+    restart: unless-stopped
 
 networks:
   notification_network:

@@ -76,7 +76,7 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 
     // Use command line args to set different ports for each instance
     var port = args.Length > 0 ? int.Parse(args[0]) : 8080;
-    serverOptions.ListenAnyIP(port, configure => configure.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1AndHttp2);
+    serverOptions.ListenAnyIP(port, configure => configure.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1);
 });
 
 // Explicitly set URLs to HTTP only

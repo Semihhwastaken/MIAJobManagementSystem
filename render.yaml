@@ -77,7 +77,7 @@ services:
       - key: RabbitMQ__Port
         value: 5672
       - key: RabbitMQ__VirtualHost
-        value: /klbjeudj
+        value: klbjeudj
       # Redis settings
       - key: Redis__ConnectionString
         sync: false
