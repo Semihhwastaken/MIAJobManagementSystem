@@ -66,6 +66,11 @@ namespace NotificationAPI.Services
                     Password = _rabbitSettings.Password,
                     Port = _rabbitSettings.Port,
                     VirtualHost = _rabbitSettings.VirtualHost,
+                    Ssl = new SslOption
+                    {
+                        Enabled = true,
+                        ServerName = _rabbitSettings.HostName
+                    }
                 };
 
                 _rabbitConnection = factory.CreateConnection();
