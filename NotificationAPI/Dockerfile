@@ -47,8 +47,8 @@ ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 # RabbitMQ bağlantı ayarları için varsayılan değişkenler
 ENV RabbitMQ__HostName=notification-rabbitmq
-ENV RabbitMQ__UserName=render_user
-ENV RabbitMQ__Password=rabbit_password
+ENV RabbitMQ__UserName=guest
+ENV RabbitMQ__Password=guest
 ENV RabbitMQ__Port=5672
 ENV RabbitMQ__ConnectionRetryCount=10
 ENV RabbitMQ__ConnectionRetryDelaySeconds=5
