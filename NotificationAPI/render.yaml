@@ -20,9 +20,11 @@ services:
       - key: RabbitMQ__HostName
         value: notification-rabbitmq # Doğrudan servis adını belirtiyoruz
       - key: RabbitMQ__UserName
-        value: guest # Varsayılan RabbitMQ kullanıcısı
+        # value: guest # Varsayılan RabbitMQ kullanıcısı - DEĞİŞTİRİLDİ
+        value: render_user # Yeni kullanıcı adı
       - key: RabbitMQ__Password
-        value: guest # Varsayılan RabbitMQ şifresi
+        # value: guest # Varsayılan RabbitMQ şifresi - DEĞİŞTİRİLDİ
+        generateValue: true # Render'dan güvenli şifre oluşturmasını isteyin veya value: YOUR_SECURE_PASSWORD kullanın
       - key: RabbitMQ__Port
         value: 5672
       - key: RabbitMQ__NotificationQueueName
@@ -51,9 +53,11 @@ services:
       sizeGB: 1
     envVars:
       - key: RABBITMQ_DEFAULT_USER
-        value: guest
+        # value: guest # DEĞİŞTİRİLDİ
+        value: render_user # Yeni kullanıcı adı
       - key: RABBITMQ_DEFAULT_PASS
-        value: guest
+        # value: guest # DEĞİŞTİRİLDİ
+        generateValue: true # Render'dan güvenli şifre oluşturmasını isteyin veya value: YOUR_SECURE_PASSWORD kullanın
 
 databases:
   # MongoDB veritabanı
