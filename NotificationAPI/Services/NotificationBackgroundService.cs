@@ -282,7 +282,7 @@ namespace NotificationAPI.Services
                 string consumerTag = $"consumer_{_instanceId}_{Guid.NewGuid().ToString().Substring(0, 4)}";
                 
                 channel.BasicConsume(
-                    queue: "notifications",
+                    queue: _rabbitSettings.NotificationQueueName,
                     autoAck: false,
                     consumerTag: consumerTag,
                     consumer: consumer);
