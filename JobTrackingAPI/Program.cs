@@ -203,10 +203,8 @@ namespace JobTrackingAPI
 
             // Kestrel ayarı (büyük dosyalar için)
             builder.WebHost.ConfigureKestrel(options =>
-{
-    options.ListenAnyIP(8080);
-});
             {
+                options.ListenAnyIP(8080);
                 options.Limits.MaxRequestBodySize = 100_000_000; // 100 MB
             });
 
