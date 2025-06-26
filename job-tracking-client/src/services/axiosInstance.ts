@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// Her zaman production API'leri kullan
-const API_URL = 'https://miajobmanagementsystem.onrender.com/api';
-const NOTIFICATION_API_URL = 'https://miajobmanagementsystem-1.onrender.com/api';
+// Localhost API'lerini kullan
+const API_URL = 'http://localhost:5193/api';
+const NOTIFICATION_API_URL = 'http://localhost:8080/api';
 
 const axiosInstance = axios.create({
     baseURL: API_URL,

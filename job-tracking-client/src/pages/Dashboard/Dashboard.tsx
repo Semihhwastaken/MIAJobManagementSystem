@@ -11,8 +11,10 @@ import { chartToImageURL, generatePdfReport } from '../../services/reportGenerat
 import { saveAs } from 'file-saver';
 import { toast } from 'react-toastify';
 import { 
-  
-  isAiAnalysisEnabled
+  isAiAnalysisEnabled,
+  getStoredApiKey,
+  saveApiKey,
+  validateApiKey
 } from '../../services/aiAnalysisService';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import { useSelector } from 'react-redux';
@@ -783,9 +785,40 @@ const Dashboard = () => {
   // Update this to use environment variable directly
   const [includeAIAnalysis, setIncludeAIAnalysis] = useState<boolean>(isAiAnalysisEnabled());
   
+  // AI API Key configuration states
+  const [showApiKeyModal, setShowApiKeyModal] = useState<boolean>(false);
+  const [apiKeyInput, setApiKeyInput] = useState<string>('');
+  const [apiKeyError, setApiKeyError] = useState<string>('');
+  
   // Reference to the charts
   const lineChartRef = React.useRef<Chart<'line', number[], string> | null>(null);
   const doughnutChartRef = React.useRef<Chart<'doughnut', number[], string> | null>(null);
+
+  // API Key management functions
+  const handleOpenApiKeyModal = () => {
+    setApiKeyInput(getStoredApiKey());
+    setApiKeyError('');
+    setShowApiKeyModal(true);
+  };
+
+  const handleSaveApiKey = () => {
+    setApiKeyError('');
+    
+    if (!apiKeyInput.trim()) {
+      setApiKeyError('API anahtarı boş olamaz');
+      return;
+    }
+
+    if (!validateApiKey(apiKeyInput.trim())) {
+      setApiKeyError('Geçersiz API anahtarı formatı. OpenRouter API anahtarı "sk-or-v1-" ile başlamalıdır.');
+      return;
+    }
+
+    saveApiKey(apiKeyInput.trim());
+    setShowApiKeyModal(false);
+    setIncludeAIAnalysis(true);
+    toast.success('API anahtarı başarıyla kaydedildi!');
+  };
 
   // Update the handleDownloadReport function
   const handleDownloadReport = async () => {
@@ -931,8 +964,8 @@ const Dashboard = () => {
             <option value="year">Bu Yıl</option>
           </select>
           
-          {/* Replace API key configuration button with AI analysis toggle */}
-          <div className="flex items-center">
+          {/* AI Analysis toggle and configuration */}
+          <div className="flex items-center gap-2">
             <label className="inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
@@ -944,11 +977,24 @@ const Dashboard = () => {
               <div className={`relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 ${!isAiAnalysisEnabled() ? 'opacity-50' : ''}`}></div>
               <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
                 AI Analizi
-                {!isAiAnalysisEnabled() && (
-                  <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">(API anahtarı yok)</span>
-                )}
               </span>
             </label>
+            
+            {/* API Key configuration button */}
+            <button
+              onClick={handleOpenApiKeyModal}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isDarkMode 
+                  ? 'text-gray-400 hover:text-white hover:bg-gray-700' 
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              }`}
+              title={isAiAnalysisEnabled() ? 'API anahtarını düzenle' : 'API anahtarını yapılandır'}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
           </div>
           
           {/* Report download button */}
@@ -1294,6 +1340,84 @@ const Dashboard = () => {
       )}
 
       <Footer />
+
+      {/* API Key Configuration Modal */}
+      {showApiKeyModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className={`max-w-md w-full mx-4 p-6 rounded-lg shadow-xl ${
+              isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'
+            }`}
+          >
+            <h3 className="text-lg font-semibold mb-4">OpenRouter API Anahtarı</h3>
+            
+            <div className="mb-4">
+              <label className={`block text-sm font-medium mb-2 ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+              }`}>
+                API Anahtarı
+              </label>
+              <input
+                type="text"
+                value={apiKeyInput}
+                onChange={(e) => setApiKeyInput(e.target.value)}
+                placeholder="sk-or-v1-xxxxxxxxxxxxxxxx"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  isDarkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                }`}
+              />
+              {apiKeyError && (
+                <p className="text-red-500 text-sm mt-1">{apiKeyError}</p>
+              )}
+            </div>
+
+            <div className={`mb-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              <p className="mb-2">
+                <strong>OpenRouter API anahtarı nasıl alınır:</strong>
+              </p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>
+                  <a 
+                    href="https://openrouter.ai" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-blue-500 hover:underline"
+                  >
+                    openrouter.ai
+                  </a> sitesine gidin
+                </li>
+                <li>Hesap oluşturun veya giriş yapın</li>
+                <li>Dashboard'da "API Keys" bölümüne gidin</li>
+                <li>Yeni bir API anahtarı oluşturun</li>
+                <li>Anahtarı buraya yapıştırın</li>
+              </ol>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleSaveApiKey}
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors"
+              >
+                Kaydet
+              </button>
+              <button
+                onClick={() => setShowApiKeyModal(false)}
+                className={`flex-1 py-2 px-4 rounded-lg transition-colors ${
+                  isDarkMode 
+                    ? 'bg-gray-700 hover:bg-gray-600 text-white' 
+                    : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                }`}
+              >
+                İptal
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </motion.div>
   );
 };

@@ -1,7 +1,7 @@
 import axiosInstance from './axiosInstance';
 import { CalendarEvent } from '../redux/features/calendarSlice';
 
-const API_URL = 'https://miajobmanagementsystem.onrender.com/api';
+const API_URL = 'http://localhost:5193/api';
 
 /**
  * Service for handling calendar-related API requests

@@ -29,14 +29,24 @@ interface TeamAnalysisRequest {
   topContributors: TeamMember[];
 }
 
-// Get API key from environment variables
+// Get API key from environment variables or localStorage
 const getApiKey = (): string => {
-  return import.meta.env.VITE_OPENROUTER_API_KEY || '';
+  // Önce environment variable'dan kontrol et
+  const envApiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+  if (envApiKey && envApiKey.length > 10) {
+    return envApiKey;
+  }
+  
+  // Environment'da yoksa localStorage'dan al
+  const storedApiKey = localStorage.getItem('openrouter_api_key');
+  return storedApiKey || '';
 };
 
 // Check if AI analysis is enabled in environment
 export const isAiAnalysisEnabled = (): boolean => {
-  return import.meta.env.VITE_ENABLE_AI_ANALYSIS === 'true';
+  // API anahtarı varsa AI analizini etkinleştir
+  const apiKey = getApiKey();
+  return Boolean(apiKey && apiKey.length > 10);
 };
 
 // Validate API key - these are legacy functions that may be removed in future
@@ -64,7 +74,7 @@ export async function generateTeamAnalysis(
     const apiKey = getApiKey();
     
     if (!apiKey) {
-      throw new Error('API anahtarı bulunamadı. Lütfen .env dosyasını kontrol edin.');
+      throw new Error('OpenRouter API anahtarı bulunamadı. Lütfen Dashboard\'da API anahtarınızı yapılandırın.');
     }
     
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
