@@ -876,7 +876,7 @@ const Dashboard = () => {
       if (includeAIAnalysis && isAiAnalysisEnabled()) {
         try {
           setIsGeneratingAIAnalysis(true);
-          toast.info("DeepSeek R1 ile AI analizi oluşturuluyor...");
+          toast.info("Google Gemini 2.0 Flash Experimental ile AI analizi oluşturuluyor...");
           
           // The AI analysis will be handled internally by the report generator
           toast.success("AI analizi başarıyla oluşturuldu!");
@@ -1391,10 +1391,22 @@ const Dashboard = () => {
                   </a> sitesine gidin
                 </li>
                 <li>Hesap oluşturun veya giriş yapın</li>
-                <li>Dashboard'da "API Keys" bölümüne gidin</li>
+                <li>
+                  <a 
+                    href="https://openrouter.ai/keys" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-blue-500 hover:underline"
+                  >
+                    API Keys
+                  </a> bölümüne gidin
+                </li>
                 <li>Yeni bir API anahtarı oluşturun</li>
                 <li>Anahtarı buraya yapıştırın</li>
               </ol>
+              <p className="mt-2 text-xs">
+                <strong>Model:</strong> Google Gemini 2.0 Flash Experimental (Ücretsiz) kullanılacak
+              </p>
             </div>
 
             <div className="flex gap-3">

@@ -76,6 +76,8 @@ export async function generateTeamAnalysis(
     if (!apiKey) {
       throw new Error('OpenRouter API anahtarı bulunamadı. Lütfen Dashboard\'da API anahtarınızı yapılandırın.');
     }
+
+    console.log('API Key found, making request to OpenRouter...');
     
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -86,7 +88,7 @@ export async function generateTeamAnalysis(
         'X-Title': 'MIA Job Management System'
       },
       body: JSON.stringify({
-        model: 'mistralai/mistral-7b-instruct', // Use Mistral 7B model which is more widely available
+        model: 'google/gemini-2.0-flash-exp:free',
         messages: [
           {
             role: 'system',
@@ -103,14 +105,40 @@ export async function generateTeamAnalysis(
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'AI analizi oluşturulurken bir hata meydana geldi.');
+      if (response.status === 401) {
+        throw new Error('OpenRouter API anahtarı geçersiz. Lütfen doğru API anahtarını girin.');
+      }
+      
+      let errorMessage = 'AI analizi oluşturulurken bir hata meydana geldi.';
+      try {
+        const error = await response.json();
+        errorMessage = error.error?.message || error.message || errorMessage;
+      } catch (parseError) {
+        console.error('Error parsing response:', parseError);
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const result = await response.json();
+    
+    if (!result.choices || !result.choices[0] || !result.choices[0].message) {
+      throw new Error('AI yanıtı beklenilen formatta değil.');
+    }
+    
     return result.choices[0].message.content;
   } catch (error: any) {
     console.error('AI analizi oluşturma hatası:', error);
+    
+    // Daha spesifik hata mesajları
+    if (error.message.includes('No auth credentials found')) {
+      throw new Error('OpenRouter API anahtarı bulunamadı. Lütfen Dashboard\'da API anahtarınızı yapılandırın.');
+    }
+    
+    if (error.message.includes('fetch')) {
+      throw new Error('OpenRouter API\'ye bağlanılamadı. İnternet bağlantınızı kontrol edin.');
+    }
+    
     throw new Error(error.message || 'AI analizi oluşturulurken bir hata meydana geldi.');
   }
 }

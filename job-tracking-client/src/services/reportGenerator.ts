@@ -76,8 +76,9 @@ const getTimePeriodText = (period: string): string => {
 const formatDate = (date: Date): string => {
   return date.toLocaleDateString('tr-TR', {
     day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
+    month: 'long',
+    year: 'numeric',
+    weekday: 'long'
   });
 };
 
@@ -96,6 +97,28 @@ const replaceTurkishChars = (text: string): string => {
     .replace(/Ö/g, 'O')
     .replace(/ç/g, 'c')
     .replace(/Ç/g, 'C');
+};
+
+// Helper function to convert markdown-like text to properly formatted text
+const formatMarkdownText = (text: string): string => {
+  return text
+    // Remove markdown headers (##, ###, etc.)
+    .replace(/^#{1,6}\s*/gm, '')
+    // Convert bold markdown (**text** or __text__) to plain text
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    // Convert italic markdown (*text* or _text_) to plain text
+    .replace(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g, '$1')
+    .replace(/(?<!_)_(?!_)([^_]+)_(?!_)/g, '$1')
+    // Remove markdown list indicators
+    .replace(/^\s*[-*+]\s+/gm, '• ')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    // Convert line breaks and clean up spacing
+    .replace(/\n\s*\n/g, '\n\n')
+    .replace(/^\s+|\s+$/g, '')
+    // Remove any remaining markdown syntax
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
 };
 
 // Helper function to add a section title to PDF
@@ -532,7 +555,7 @@ export const generatePdfReport = async (reportData: ReportData): Promise<Blob> =
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
     doc.setFont('helvetica', 'italic');
-    doc.text('Mistral AI 7B model tarafından oluşturulmuştur', 20, yPos);
+    doc.text('Google Gemini 2.0 Flash Experimental model tarafından oluşturulmuştur', 20, yPos);
     yPos += 5;
     
     // Reset font for analysis content
@@ -542,22 +565,46 @@ export const generatePdfReport = async (reportData: ReportData): Promise<Blob> =
     
     // Format and add AI analysis with better text wrapping
     if (reportData.aiAnalysis) {
-      // Apply Turkish character replacement
-      const processedAnalysis = replaceTurkishChars(reportData.aiAnalysis);
+      // First format markdown to clean text, then apply Turkish character replacement
+      const formattedAnalysis = formatMarkdownText(reportData.aiAnalysis);
+      const processedAnalysis = replaceTurkishChars(formattedAnalysis);
       
-      // Split the analysis into paragraphs for better formatting
-      const paragraphs = processedAnalysis.split('\n').filter(p => p.trim() !== '');
+      // Split the analysis into logical sections
+      const sections = processedAnalysis.split('\n\n').filter(s => s.trim() !== '');
       
-      // Add each paragraph with proper spacing
-      paragraphs.forEach((paragraph) => {
-        if (yPos > 260) {
+      // Add each section with proper formatting
+      sections.forEach((section, index) => {
+        if (yPos > 250) {
           doc.addPage();
           yPos = 20;
         }
         
-        const lines = doc.splitTextToSize(paragraph, 170);
-        doc.text(lines, 20, yPos);
-        yPos += lines.length * 6 + 4; // Add extra spacing between paragraphs
+        // Check if this looks like a section header (short line, all caps, or ends with colon)
+        const isHeader = section.length < 100 && (
+          section.toUpperCase() === section ||
+          section.endsWith(':') ||
+          /^[A-ZÜĞŞÇIÖ\s]+:?$/.test(section)
+        );
+        
+        if (isHeader) {
+          // Format as subsection header
+          doc.setFontSize(12);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(41, 128, 185);
+          const headerLines = doc.splitTextToSize(section, 170);
+          doc.text(headerLines, 20, yPos);
+          yPos += headerLines.length * 6 + 3;
+          
+          // Reset to normal formatting
+          doc.setFontSize(11);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(60, 60, 60);
+        } else {
+          // Format as regular paragraph
+          const lines = doc.splitTextToSize(section, 170);
+          doc.text(lines, 20, yPos);
+          yPos += lines.length * 6 + 5; // Add spacing between paragraphs
+        }
       });
     }
   }
