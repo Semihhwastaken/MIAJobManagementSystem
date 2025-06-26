@@ -177,12 +177,26 @@ namespace NotificationAPI.Services
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("NotificationBackgroundService başlatılıyor...");
+
+            // RabbitMQ etkin mi kontrol et
+            if (!_rabbitSettings.Enabled)
+            {
+                _logger.LogInformation("RabbitMQ devre dışı bırakıldı. Servis yalnızca HTTP endpoint'leri üzerinden çalışacak.");
+                
+                // RabbitMQ olmadan çalışmaya devam et
+                while (!stoppingToken.IsCancellationRequested)
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+                }
+                return;
+            }
+
             _logger.LogInformation("NotificationBackgroundService RabbitMQ'ya bağlanmaya hazırlanıyor...");
 
-            // Daha uzun bir başlangıç gecikmesi ekleyelim (Render.com'da RabbitMQ'nun başlaması için daha fazla zaman)
-            await Task.Delay(TimeSpan.FromSeconds(20), stoppingToken);
+            // Daha kısa bir başlangıç gecikmesi
+            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
 
-            // Environment değişkenlerini kontrol et - Render.com'da bunlar önceliklidir
+            // Environment değişkenlerini kontrol et
             string envHostName = Environment.GetEnvironmentVariable("RabbitMQ__HostName") ?? _rabbitSettings.HostName;
             string envUserName = Environment.GetEnvironmentVariable("RabbitMQ__UserName") ?? _rabbitSettings.UserName;
             string envPassword = Environment.GetEnvironmentVariable("RabbitMQ__Password") ?? _rabbitSettings.Password;
@@ -201,27 +215,31 @@ namespace NotificationAPI.Services
                     _logger.LogInformation("RabbitMQ bağlantısı deneniyor. Deneme: {AttemptCount}/{MaxAttempts}",
                         attempts, maxAttempts);
 
-                    // RabbitMQ'ya doğrudan guest kimlik bilgileri ile bağlanmayı dene
+                    // RabbitMQ'ya yapılandırma ayarları ile bağlanmayı dene
                     await _retryPolicy.ExecuteAsync(async () =>
                     {
                         try
                         {
-                            // Doğrudan notification-rabbitmq host ve guest kimlik bilgileri ile dene
-                            _logger.LogInformation("RabbitMQ'ya doğrudan guest kimlik bilgileri ile bağlanmaya çalışılıyor: Host=notification-rabbitmq");
-                            _connectionFactory.HostName = "notification-rabbitmq"; // Render.com'daki service name
-                            _connectionFactory.UserName = "guest"; // Kullanıcı isteği doğrultusunda guest
-                            _connectionFactory.Password = "guest"; // Kullanıcı isteği doğrultusunda guest
+                            // Önce yapılandırma dosyasındaki ayarları kullan
+                            _logger.LogInformation("RabbitMQ'ya yapılandırma ayarları ile bağlanmaya çalışılıyor: Host={Host}, User={User}", 
+                                _rabbitSettings.HostName, _rabbitSettings.UserName);
+                            
+                            _connectionFactory.HostName = _rabbitSettings.HostName;
+                            _connectionFactory.UserName = _rabbitSettings.UserName;
+                            _connectionFactory.Password = _rabbitSettings.Password;
+                            _connectionFactory.Port = _rabbitSettings.Port;
 
                             _connection = await Task.Run(() => _connectionFactory.CreateConnection(
-                                $"notification-api-direct-{_instanceId}-{DateTime.UtcNow.Ticks}"),
+                                $"notification-api-{_instanceId}-{DateTime.UtcNow.Ticks}"),
                                 new CancellationTokenSource(TimeSpan.FromSeconds(10)).Token);
 
-                            _logger.LogInformation("RabbitMQ bağlantısı doğrudan guest kimlik bilgileri ile başarıyla kuruldu!");
+                            _logger.LogInformation("RabbitMQ bağlantısı yapılandırma ayarları ile başarıyla kuruldu!");
                             connected = true;
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "notification-rabbitmq host adresi ve guest kimlik bilgileri ile bağlantı kurulamadı. Tekrar deneniyor...");
+                            _logger.LogError(ex, "RabbitMQ bağlantısı kurulamadı. Host: {Host}, Port: {Port}, User: {User}", 
+                                _rabbitSettings.HostName, _rabbitSettings.Port, _rabbitSettings.UserName);
                             throw; // Retry politikasının tekrar denemesi için hatayı fırlat
                         }
                     });
@@ -239,8 +257,8 @@ namespace NotificationAPI.Services
 
             if (_connection == null || !_connection.IsOpen)
             {
-                _logger.LogCritical("RabbitMQ bağlantısı kurulamadı. Servis başlatılıyor, ancak RabbitMQ işlemleri çalışmayabilir.");
-                // Servisin çalışmaya devam etmesi ve daha sonra bağlanmayı denemesi için burada return etmiyoruz
+                _logger.LogWarning("RabbitMQ bağlantısı kurulamadı. Servis RabbitMQ olmadan çalışmaya devam edecek.");
+                _logger.LogInformation("NotificationAPI, doğrudan HTTP endpoint'leri üzerinden çalışacak.");
             }
             else
             {
@@ -256,7 +274,18 @@ namespace NotificationAPI.Services
                     tasks.Add(StartConsumerAsync(channel, stoppingToken));
                 }
 
-                await Task.WhenAll(tasks);
+                // RabbitMQ tüketicilerini başlat ve devam et
+                _ = Task.WhenAll(tasks).ContinueWith(t =>
+                {
+                    if (t.IsFaulted)
+                    {
+                        _logger.LogError(t.Exception, "RabbitMQ tüketicileri başlatılırken hata oluştu");
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Tüm RabbitMQ tüketicileri başarıyla başlatıldı");
+                    }
+                }, TaskContinuationOptions.ExecuteSynchronously);
             }
 
             // Eğer bağlantı kurulamazsa veya tüketiciler çalışmazsa, uygulama çalışmaya devam etsin

@@ -34,7 +34,8 @@ namespace JobTrackingAPI
                     "https://miajobmanagement.vercel.app",
                     "https://job-tracking-client-r08ndjm52-lordgrimxs-projects.vercel.app",
                     "https://miajobmanagement.com",
-                    "http://localhost:5173"
+                    "http://localhost:5173",
+                    "https://localhost:5173"
                 };
 
             builder.Services.AddCors(options =>
@@ -45,6 +46,9 @@ namespace JobTrackingAPI
                         // Hem kesin URL listesi hem de dinamik kontrol ekle
                         policy.SetIsOriginAllowed(origin =>
                             {
+                                // Null veya boş origin'leri reddet
+                                if (string.IsNullOrEmpty(origin)) return false;
+
                                 // Belirlediğimiz URL'leri doğrudan kabul et
                                 if (allowedOrigins.Contains(origin)) return true;
 
@@ -52,7 +56,7 @@ namespace JobTrackingAPI
                                 return origin.EndsWith(".vercel.app") ||
                                        origin.Contains("localhost") ||
                                        origin.EndsWith("miajobmanagement.com") ||
-                                       origin.EndsWith("onrender.com");
+                                       origin.EndsWith(".onrender.com");
                             })
                             .AllowAnyHeader()
                             .AllowAnyMethod()
@@ -299,16 +303,13 @@ namespace JobTrackingAPI
             app.MapControllers();
             app.MapHub<ChatHub>("/chatHub");
 
-            // 7. Swagger (sadece development'ta)
-            if (app.Environment.IsDevelopment())
+            // 7. Swagger - Production'da da etkinleştir (CORS testi için)
+            app.UseSwagger();
+            app.UseSwaggerUI(c =>
             {
-                app.UseSwagger();
-                app.UseSwaggerUI(c =>
-                {
-                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Job Tracking API V1");
-                    c.RoutePrefix = "swagger";
-                });
-            }
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "Job Tracking API V1");
+                c.RoutePrefix = "swagger";
+            });
 
             // MongoDB bağlantı kontrolü 
             try

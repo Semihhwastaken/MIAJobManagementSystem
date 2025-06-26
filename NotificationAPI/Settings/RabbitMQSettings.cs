@@ -15,5 +15,6 @@ namespace NotificationAPI.Settings
         public int HeartbeatInSeconds { get; set; } = 60;
         public bool AutoRecoveryEnabled { get; set; } = true;
         public int NetworkRecoveryIntervalInSeconds { get; set; } = 10;
+        public bool Enabled { get; set; } = true;
     }
 }
