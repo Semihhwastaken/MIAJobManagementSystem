@@ -54,9 +54,14 @@ builder.Services.AddCors(options =>
     {
         policy.SetIsOriginAllowed(origin =>
                {
-                   // Allow Vercel preview deployments, localhost, the production domain, and Render deployments
+                   // Null veya boş origin'leri reddet
+                   if (string.IsNullOrEmpty(origin)) return false;
+
+                   // Development için tüm localhost'lara izin ver
+                   if (origin.Contains("localhost") || origin.Contains("127.0.0.1")) return true;
+                   
+                   // Production origin'lere izin ver
                    return origin.EndsWith(".vercel.app") ||
-                          origin.Contains("localhost") ||
                           origin.EndsWith("miajobmanagement.com") ||
                           origin.EndsWith(".onrender.com"); // Add Render domain
                })
