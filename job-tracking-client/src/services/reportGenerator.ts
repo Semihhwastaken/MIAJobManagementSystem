@@ -139,6 +139,9 @@ const addSectionTitle = (doc: jsPDF, text: string, y: number): number => {
 const generatePerformanceAnalysis = (taskStats: TaskStats, teamActivity?: TeamActivity): string => {
   let analysis = '';
   
+  // Debug: Log team activity data
+  console.log('Team Activity Data:', teamActivity);
+  
   // Task completion analysis
   const completionRate = taskStats.completed / taskStats.total * 100 || 0;
   
@@ -172,28 +175,51 @@ const generatePerformanceAnalysis = (taskStats: TaskStats, teamActivity?: TeamAc
     analysis += `Geciken gorevlerin orani %${overdueRate.toFixed(1)} ile kontrol altindadir. `;
   }
   
-  // Team activity analysis if available
-  if (teamActivity) {
-    analysis += `\n\nEkip performans puani ${teamActivity.performanceScore.toFixed(1)} olarak hesaplanmistir. `;
+  // Team activity analysis if available  
+  if (teamActivity && typeof teamActivity === 'object') {
+    analysis += `\n\n--- EKIP PERFORMANS DETAYLARI ---\n`;
     
-    if (teamActivity.performanceScore >= 90) {
-      analysis += "Ekip ustun bir performans gostermektedir. ";
-    } else if (teamActivity.performanceScore >= 70) {
-      analysis += "Ekip iyi bir performans gostermektedir. ";
-    } else if (teamActivity.performanceScore >= 50) {
-      analysis += "Ekip orta seviyede bir performans gostermektedir. Iyilestirme calismalari yapilabilir. ";
-    } else {
-      analysis += "Ekip performansinin artirilmasi icin acil onlemler alinmasi gerekmektedir. ";
+    // Performance Score Analysis
+    if (teamActivity.performanceScore !== undefined && teamActivity.performanceScore !== null) {
+      analysis += `Ekip performans puani ${teamActivity.performanceScore.toFixed(1)} olarak hesaplanmistir. `;
+      
+      if (teamActivity.performanceScore >= 90) {
+        analysis += "Ekip ustun bir performans gostermektedir. ";
+      } else if (teamActivity.performanceScore >= 70) {
+        analysis += "Ekip iyi bir performans gostermektedir. ";
+      } else if (teamActivity.performanceScore >= 50) {
+        analysis += "Ekip orta seviyede bir performans gostermektedir. Iyilestirme calismalari yapilabilir. ";
+      } else {
+        analysis += "Ekip performansinin artirilmasi icin acil onlemler alinmasi gerekmektedir. ";
+      }
     }
     
-    analysis += `\nOrtalama gorev tamamlama suresi ${teamActivity.averageTaskDuration.toFixed(1)} gundur. `;
+    // Average Task Duration Analysis
+    if (teamActivity.averageTaskDuration !== undefined && teamActivity.averageTaskDuration !== null) {
+      analysis += `\n\nOrtalama gorev tamamlama suresi ${teamActivity.averageTaskDuration.toFixed(1)} gundur. `;
+      
+      if (teamActivity.averageTaskDuration > 14) {
+        analysis += "Gorev tamamlama sureleri oldukca uzundur. Sureclerin optimize edilmesi onerilir. ";
+      } else if (teamActivity.averageTaskDuration > 7) {
+        analysis += "Gorev tamamlama sureleri kabul edilebilir durumdadir. ";
+      } else {
+        analysis += "Gorev tamamlama sureleri verimli bir sekilde yonetilmektedir. ";
+      }
+    }
     
-    if (teamActivity.averageTaskDuration > 14) {
-      analysis += "Gorev tamamlama sureleri oldukca uzundur. Sureclerin optimize edilmesi onerilir. ";
-    } else if (teamActivity.averageTaskDuration > 7) {
-      analysis += "Gorev tamamlama sureleri kabul edilebilir durumdadir. ";
-    } else {
-      analysis += "Gorev tamamlama sureleri verimli bir sekilde yonetilmektedir. ";
+    // Completion Rate Analysis
+    if (teamActivity.completionRate !== undefined && teamActivity.completionRate !== null) {
+      analysis += `\n\nEkip tamamlama orani %${teamActivity.completionRate.toFixed(1)} seviyesindedir. `;
+      
+      if (teamActivity.completionRate >= 80) {
+        analysis += "Bu oran mukemmel bir seviyeyi gostermektedir.";
+      } else if (teamActivity.completionRate >= 60) {
+        analysis += "Bu oran iyi bir seviyeyi gostermektedir.";
+      } else if (teamActivity.completionRate >= 40) {
+        analysis += "Bu oran orta seviyededir, iyilestirme alanları bulunmaktadir.";
+      } else {
+        analysis += "Bu oran dusuk seviyededir, acil mudahale gerekmektedir.";
+      }
     }
   }
   
@@ -410,13 +436,24 @@ export const generatePdfReport = async (reportData: ReportData): Promise<Blob> =
   const nextSectionNumber = reportData.teamActivity ? '4' : '3';
   yPos = addSectionTitle(doc, `${nextSectionNumber}. Performans Analizi`, yPos);
   
-  // Replace Turkish characters in analysis
+  // Generate analysis and replace Turkish characters
   const analysis = generatePerformanceAnalysis(reportData.taskStats, reportData.teamActivity);
+  const processedAnalysis = replaceTurkishChars(analysis);
   
-  // Improve text wrapping and layout
-  const analysisLines = doc.splitTextToSize(analysis, 170);
-  doc.text(analysisLines, 20, yPos);
-  yPos += analysisLines.length * 6 + 8;
+  // Set font properties for analysis text
+  doc.setFontSize(11);
+  doc.setTextColor(60, 60, 60);
+  doc.setFont('helvetica', 'normal');
+  
+  // Improve text wrapping and layout with better line spacing
+  const analysisLines = doc.splitTextToSize(processedAnalysis, 170);
+  
+  // Add each line with proper spacing
+  analysisLines.forEach((line: string, index: number) => {
+    doc.text(line, 20, yPos + (index * 7)); // Increased line spacing from 6 to 7
+  });
+  
+  yPos += analysisLines.length * 7 + 8;
   
   // Check if we need a new page for charts
   if (yPos > 200) {
@@ -555,8 +592,8 @@ export const generatePdfReport = async (reportData: ReportData): Promise<Blob> =
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
     doc.setFont('helvetica', 'italic');
-    doc.text('Google Gemini 2.0 Flash Experimental model tarafından oluşturulmuştur', 20, yPos);
-    yPos += 5;
+    doc.text('Google Gemini 2.0 Flash Experimental model tarafindan olusturulmustur', 20, yPos);
+    yPos += 8;
     
     // Reset font for analysis content
     doc.setFontSize(11);
@@ -566,7 +603,15 @@ export const generatePdfReport = async (reportData: ReportData): Promise<Blob> =
     // Format and add AI analysis with better text wrapping
     if (reportData.aiAnalysis) {
       // First format markdown to clean text, then apply Turkish character replacement
-      const formattedAnalysis = formatMarkdownText(reportData.aiAnalysis);
+      let formattedAnalysis = formatMarkdownText(reportData.aiAnalysis);
+      
+      // Clean up AI analysis specific formatting issues
+      formattedAnalysis = formattedAnalysis
+        .replace(/\[Raporun Olusturuldugu T[^\]]*\]/g, formatDate(reportData.generatedDate))
+        .replace(/\[Is Analistinin Adi Soyadi\]/g, 'MIA Sistem Analisti')
+        .replace(/Unvan: Is Analisti/g, 'Unvan: Sistem Analisti')
+        .replace(/Hazirlayan: \[Is Analistinin Adi Soyadi\]/g, 'Hazirlayan: MIA Sistem Analisti');
+      
       const processedAnalysis = replaceTurkishChars(formattedAnalysis);
       
       // Split the analysis into logical sections
@@ -583,7 +628,9 @@ export const generatePdfReport = async (reportData: ReportData): Promise<Blob> =
         const isHeader = section.length < 100 && (
           section.toUpperCase() === section ||
           section.endsWith(':') ||
-          /^[A-ZÜĞŞÇIÖ\s]+:?$/.test(section)
+          /^[A-ZÜĞŞÇIÖ\s]+:?$/.test(section) ||
+          section.includes('Raporu') ||
+          section.includes('Analiz')
         );
         
         if (isHeader) {
