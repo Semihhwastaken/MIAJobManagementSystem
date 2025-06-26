@@ -35,7 +35,7 @@ const Auth: React.FC = () => {
 
     try {
       // Login isteği
-      const loginResponse = await fetch('https://miajobmanagementsystem.onrender.com/api/auth/login', {
+      const loginResponse = await fetch('http://localhost:5193/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

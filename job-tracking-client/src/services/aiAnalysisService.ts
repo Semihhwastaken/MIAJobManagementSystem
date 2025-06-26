@@ -36,7 +36,9 @@ const getApiKey = (): string => {
 
 // Check if AI analysis is enabled in environment
 export const isAiAnalysisEnabled = (): boolean => {
-  return import.meta.env.VITE_ENABLE_AI_ANALYSIS === 'true';
+  // Localhost geliştirme ortamında AI analizini devre dışı bırak
+  return false;
+  // return import.meta.env.VITE_ENABLE_AI_ANALYSIS === 'true';
 };
 
 // Validate API key - these are legacy functions that may be removed in future

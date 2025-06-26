@@ -19,9 +19,9 @@ class SignalRService {
     private lastMessageSentTime: number | null = null;
 
     private constructor() {
-        // Chat Hub bağlantısı (JobTrackingAPI - 5173)
+        // Chat Hub bağlantısı (JobTrackingAPI - 5193)
         this.hubConnection = new signalR.HubConnectionBuilder()
-            .withUrl("https://miajobmanagementsystem.onrender.com/chatHub", {
+            .withUrl("http://localhost:5193/chatHub", {
                 accessTokenFactory: () => localStorage.getItem('token') || ''
             })
             .withAutomaticReconnect([
@@ -30,7 +30,7 @@ class SignalRService {
             .configureLogging(signalR.LogLevel.Information)
             .build();        // Notification Hub bağlantısı (NotificationAPI - 8080)
         this.notificationHubConnection = new signalR.HubConnectionBuilder()
-            .withUrl("https://miajobmanagementsystem-1.onrender.com/notificationHub", {
+            .withUrl("http://localhost:8080/notificationHub", {
                 accessTokenFactory: () => localStorage.getItem('token') || '',
                 skipNegotiation: false, // Allow negotiation to support fallback transports
                 transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling // Enable fallback to long polling
@@ -225,7 +225,7 @@ class SignalRService {
             formData.append('senderId', this.userId);
 
             // Send through regular HTTP endpoint
-            const response = await fetch('https://miajobmanagementsystem.onrender.com/api/Messages/send-with-file', {
+            const response = await fetch('http://localhost:5193/api/Messages/send-with-file', {
                 method: 'POST',
                 body: formData,
                 headers: {
