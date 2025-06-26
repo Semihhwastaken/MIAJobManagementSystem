@@ -1,18 +1,8 @@
 import axios from 'axios';
 
-// Environment tabanlı API URL'leri
-const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost';
-
-// Environment variable'dan URL'leri al, yoksa default'ları kullan
-const API_URL = import.meta.env.VITE_API_URL || 
-  (isDevelopment 
-    ? 'https://miajobmanagementsystem.onrender.com/api'  // Production API'yi localhost'tan da kullan
-    : 'https://miajobmanagementsystem.onrender.com/api');
-
-const NOTIFICATION_API_URL = import.meta.env.VITE_NOTIFICATION_API_URL ||
-  (isDevelopment
-    ? 'https://miajobmanagementsystem-1.onrender.com/api'  // Production NotificationAPI'yi localhost'tan da kullan
-    : 'https://miajobmanagementsystem-1.onrender.com/api');
+// Her zaman production API'leri kullan
+const API_URL = 'https://miajobmanagementsystem.onrender.com/api';
+const NOTIFICATION_API_URL = 'https://miajobmanagementsystem-1.onrender.com/api';
 
 const axiosInstance = axios.create({
     baseURL: API_URL,
